@@ -1,4 +1,4 @@
-import type { Post, SearchResponse } from "./types";
+import type { Post, PartyPostCreateResponse, SearchResponse } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -22,5 +22,25 @@ export async function searchPosts(query: string): Promise<SearchResponse> {
     body: JSON.stringify({ query }),
   });
   if (!res.ok) throw new Error("검색에 실패했습니다");
+  return res.json();
+}
+
+export interface PartyPostInput {
+  category: string;
+  content: string;
+  capacity: number;
+  deadline_minutes: number;
+  nickname: string;
+}
+
+export async function createPartyPost(
+  input: PartyPostInput
+): Promise<PartyPostCreateResponse> {
+  const res = await fetch(new URL("/posts/party", API_BASE).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error("파티 등록에 실패했습니다");
   return res.json();
 }

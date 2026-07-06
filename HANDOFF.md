@@ -30,7 +30,10 @@
   - 검증 후 프론트 dev 서버·백엔드 프로세스 모두 종료, posts 테이블 TRUNCATE로 정리함.
   - 참고: 이전에 타임아웃난 `npm install` 시도의 잔재로 `jejumate/frontend/node_modules`가 일부 생겼는데 `.gitignore` 대상이라 커밋엔 안 잡힘(삭제는 보류함).
 
+- **Task9(파티 등록 폼, 오늘 완료)**: `POST /posts/party` API — 카테고리는 party 5종(`Literal`)만 허용(422로 거부), 정원 1 이상 검증, 4자리 숫자 관리 코드(`owner_secret`) 발급, **등록 즉시 임베딩까지 생성해 RAG 검색 대상에 바로 포함**(처음엔 빠뜨렸다가 테스트로 잡아서 고침 — `test_created_party_post_is_searchable_via_rag`). 프론트 `PartyRegisterModal`(카테고리 칩·내용·정원·마감시간 30분/1시간/2시간/직접입력·닉네임 → 등록 완료 시 관리 코드 표시+복사+localStorage 저장). "+ 파티 등록하기" 버튼은 화면흐름.md 6장의 1단계 유형선택 없이 파티 폼으로 바로 연결(정보공유 글쓰기 API가 없어 스코프 밖). 신청/승인 아코디언(5-5)은 오늘 범위 밖.
+  - 테스트 5개 추가(백엔드 전체 69개 통과), 실 Postgres에 curl로 등록→피드 반영→422 검증까지 스모크 테스트 완료. 프론트는 `next build` 통과 확인(윈도우 네이티브 경로 방식, Task8 방식 그대로).
+
 ## 다음 시작 지점
-- **Task9(시간 되면)**: 파티 등록 폼(카테고리·정원·마감시간) API+UI, `owner_secret` 발급. 화면흐름.md 5-5(아코디언 신청/승인)·6(글쓰기 모달) 참고. 폴백 규칙(기획서 5장): 지연 시 승인 로직 없이 신청=즉시 참여로 축소 가능하게 승인/카운트 로직을 분리해 구현할 것.
+- Day 2 태스크(6/7/8/9) 모두 완료. 다음은 Day 2.5: `applications` 테이블(0002 스텁 채우기) + 신청 API/UI + 글쓴이 승인(관리 코드 확인) + 모집 현황(승인 count vs capacity, 폴링). 폴백 규칙(기획서 5장): 지연 시 승인 로직 없이 신청=즉시 참여로 축소 가능하게 승인/카운트 로직을 분리해 구현할 것.
 - 프론트 작업 계속할 때: 윈도우 네이티브 경로(`/mnt/c/Users/AI융합원/AppData/Local/Temp/jejumate-build/frontend`, node_modules 설치돼 있음)에서 `rsync`로 `jejumate/frontend` 최신 소스를 동기화한 뒤 그 경로에서 `next dev`/`next build` 실행.
 - **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후(내일 예정) `llm_provider`/`embedding_provider` 설정을 "openai"로 바꾸고 실제 응답 검증.

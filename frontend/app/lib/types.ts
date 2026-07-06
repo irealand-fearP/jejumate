@@ -31,3 +31,9 @@ export interface SearchResponse {
   answer: string;
   evidence: Evidence[];
 }
+
+export interface PartyPostCreateResponse {
+  id: string;
+  owner_secret: string;
+  deadline: string;
+}

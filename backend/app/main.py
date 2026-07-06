@@ -1,4 +1,7 @@
-"""FastAPI 앱: 피드(GET /posts) + RAG 검색(POST /search)."""
+"""FastAPI 앱: 피드(GET /posts) + RAG 검색(POST /search) + 파티 등록(POST /posts/party)."""
+import random
+from datetime import datetime, timedelta, timezone
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -7,7 +10,14 @@ from app.db import SessionLocal
 from app.embedding import EmbeddingProvider, get_embedding_provider
 from app.expiry import is_active_post
 from app.models import Post
-from app.schemas import EvidenceOut, PostOut, SearchRequest, SearchResponse
+from app.schemas import (
+    EvidenceOut,
+    PartyPostCreate,
+    PartyPostCreateResponse,
+    PostOut,
+    SearchRequest,
+    SearchResponse,
+)
 from app.search import search_posts
 
 app = FastAPI(title="jejumate")
@@ -76,3 +86,38 @@ def search(
     ]
     answer = f"관련된 정보를 {len(results)}건 찾았어요. 근거를 확인해보세요."
     return SearchResponse(answer=answer, evidence=evidence)
+
+
+def _generate_owner_secret() -> str:
+    """로그인 없이 글쓴이 권한을 증명할 4자리 관리 코드(화면흐름.md 6장)."""
+    return f"{random.randint(0, 9999):04d}"
+
+
+@app.post("/posts/party", response_model=PartyPostCreateResponse, status_code=201)
+def create_party_post(
+    payload: PartyPostCreate,
+    db: Session = Depends(get_db),
+    embedder: EmbeddingProvider = Depends(get_embedder),
+):
+    now = datetime.now(timezone.utc)
+    deadline = now + timedelta(minutes=payload.deadline_minutes)
+    owner_secret = _generate_owner_secret()
+
+    post = Post(
+        source="user_post",
+        post_type="party",
+        category=payload.category,
+        content=payload.content,
+        author_nickname=payload.nickname,
+        original_timestamp=now,
+        capacity=payload.capacity,
+        deadline=deadline,
+        owner_secret=owner_secret,
+        # 등록 즉시 RAG 검색 대상이 되려면 임베딩이 있어야 한다(데모 시나리오 5번).
+        embedding=embedder.embed(payload.content),
+    )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+
+    return PartyPostCreateResponse(id=str(post.id), owner_secret=owner_secret, deadline=deadline)
