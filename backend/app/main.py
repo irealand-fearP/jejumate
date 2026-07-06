@@ -1,5 +1,6 @@
 """FastAPI 앱: 피드(GET /posts) + RAG 검색(POST /search)."""
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
@@ -10,6 +11,15 @@ from app.schemas import EvidenceOut, PostOut, SearchRequest, SearchResponse
 from app.search import search_posts
 
 app = FastAPI(title="jejumate")
+
+# 해커톤 데모용: 프론트엔드(Next.js, 다른 포트)에서 자유롭게 호출 가능하게 전체 허용.
+# 운영 전환 시 실제 프론트 도메인으로 좁혀야 한다.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def get_db():
