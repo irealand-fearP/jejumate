@@ -1,0 +1,10 @@
+fastapi==0.139.0
+uvicorn[standard]==0.50.1
+sqlalchemy==2.0.51
+alembic==1.18.5
+psycopg[binary]==3.3.4
+pgvector==0.4.2
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+pytest==9.1.1
+httpx==0.28.1
