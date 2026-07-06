@@ -7,5 +7,10 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/jejumate"
 
+    # "mock" 또는 "openai"(추후 실제 키 연동 시). 나중엔 OpenAI 단일로 통일할 예정이라
+    # 실제 제공자 기본값은 openai로 두되, 오늘은 API 키가 없어 mock으로 운용한다.
+    llm_provider: str = "mock"
+    embedding_provider: str = "mock"
+
 
 settings = Settings()

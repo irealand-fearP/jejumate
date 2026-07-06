@@ -42,3 +42,15 @@ class OpenAIEmbeddingProvider:
     def embed(self, text: str) -> list[float]:
         response = self._client.embeddings.create(model=self._model, input=text)
         return response.data[0].embedding
+
+
+def get_embedding_provider(provider: str | None = None) -> "MockEmbeddingProvider | OpenAIEmbeddingProvider":
+    """설정값(app.config.settings.embedding_provider) 하나로 mock↔실제 임베딩을 전환한다."""
+    from app.config import settings
+
+    provider = provider or settings.embedding_provider
+    if provider == "mock":
+        return MockEmbeddingProvider()
+    if provider == "openai":
+        return OpenAIEmbeddingProvider()
+    raise ValueError(f"알 수 없는 embedding_provider: {provider!r} (mock/openai 중 하나여야 함)")

@@ -98,3 +98,49 @@ class AnthropicLLMTagger:
             category=parsed["category"],
             status=parsed["status"],
         )
+
+
+class OpenAILLMTagger:
+    """LLM 제공자를 OpenAI로 통일할 예정이라 준비해두는 기본 실제 구현체. OPENAI_API_KEY 필요."""
+
+    def __init__(self, api_key: str | None = None, model: str = "gpt-4.1-mini"):
+        key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "OPENAI_API_KEY가 설정되지 않았습니다. backend/.env에 키를 추가해야 "
+                "실제 LLM 태깅을 실행할 수 있습니다."
+            )
+        import openai  # 키가 없는 경로에서는 import조차 필요 없게 지연 임포트
+
+        self._client = openai.OpenAI(api_key=key)
+        self._model = model
+
+    def tag(self, content: str) -> TagResult:
+        response = self._client.chat.completions.create(
+            model=self._model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": content},
+            ],
+        )
+        parsed = json.loads(response.choices[0].message.content)
+        return TagResult(
+            post_type=parsed["post_type"],
+            category=parsed["category"],
+            status=parsed["status"],
+        )
+
+
+def get_llm_tagger(provider: str | None = None) -> "MockLLMTagger | AnthropicLLMTagger | OpenAILLMTagger":
+    """설정값(app.config.settings.llm_provider) 하나로 mock↔실제 태거를 전환한다."""
+    from app.config import settings
+
+    provider = provider or settings.llm_provider
+    if provider == "mock":
+        return MockLLMTagger()
+    if provider == "openai":
+        return OpenAILLMTagger()
+    if provider == "anthropic":
+        return AnthropicLLMTagger()
+    raise ValueError(f"알 수 없는 llm_provider: {provider!r} (mock/openai/anthropic 중 하나여야 함)")
