@@ -1,18 +1,25 @@
-# Day 1 인수인계 (Task2까지)
+# jejumate 인수인계
 
 ## 완료한 것
 - `backend/` FastAPI 프로젝트 스캐폴드(app/config.py, app/db.py, app/models.py) 생성.
 - `posts` 테이블 alembic 마이그레이션 `0001_create_posts` 작성: source·post_type(party/info)·category(10종)·capacity·deadline·owner_secret·metadata(jsonb)·embedding(vector 1536) 전 필드 포함, CheckConstraint 4종 + 인덱스(category/post_type/status/embedding ivfflat) 포함.
 - `0002_create_applications`는 번호만 선점한 빈 스텁으로 생성(Day 2.5에 내용 작성 예정).
 - TDD로 `tests/test_posts_model.py` 12개 케이스(정상 insert/select, party 전용 필드, 임베딩 라운드트립, metadata jsonb, post_type/category/status 제약 위반) 작성 후 전부 통과.
+- **Task3**: `app/parser.py`에 `parse_kakao_txt`(노이즈 제거 + 멀티라인 메시지 병합) + `chunk_messages`(같은 화자·5분 이내 연속 발화 병합) 구현. 실제 샘플 파일에서 백스페이스(0x08) 등 제어문자가 낀 닉네임을 발견해 정규화 로직 추가(회귀 테스트 포함). `tests/test_parser.py` 10개 케이스 전부 통과, 실 샘플 파싱 결과 123개 원시 메시지 → 112개 대화 단위로 정상 청킹됨(육안 확인).
 
 ## 검증 결과 (+ 한계)
-- 이 개발 셸에는 docker·sudo·psql·podman이 전혀 없어 실제 Postgres+pgvector를 로컬에 띄울 수 없었음. 대신:
-  - `pytest`: SQLite 인메모리 DB로 ORM 모델(제약조건 포함) insert/select 검증 — 12 passed.
-  - `alembic upgrade head --sql` (오프라인 모드): 0001/0002가 생성할 실제 Postgres DDL을 접속 없이 렌더링해 문법 확인 완료 (CREATE EXTENSION vector, CREATE TABLE posts, 4개 CHECK, ivfflat 인덱스까지 정상 출력됨).
-  - **아직 안 된 것**: 진짜 Postgres(+pgvector)에 대한 실제 `alembic upgrade head` 실행 및 insert/select. Supabase 프로젝트 연결정보(DATABASE_URL)나, docker가 있는 환경이 확보되면 `backend/.env`에 DATABASE_URL 채우고 `alembic upgrade head` 한 번 돌려서 확정 필요.
-- frontend(Next.js) 스캐폴드는 오늘 범위 밖(대표 지시로 Task2를 DDL 검증까지로 한정)이라 아직 생성 안 함.
+- ~~docker·sudo·psql·podman 전부 없어 로컬 Postgres+pgvector 불가~~ → **해소됨**: 대표가 Docker Desktop WSL 연동을 켠 뒤 `docker run pgvector/pgvector:pg16`으로 실제 컨테이너 기동, `alembic upgrade head`로 0001/0002 실제 적용 성공. 실제 DB에서 확인한 것:
+  - 일반 info 글 insert/select, party 글(capacity/owner_secret) insert/select
+  - 1536차원 임베딩 벡터 라운드트립(값 손실 없음)
+  - `embedding <=> vector` 코사인 거리 연산 + ivfflat 인덱스로 유사도 검색 정상 동작
+  - `post_type` CHECK 제약이 실제 DB 레벨에서 잘못된 값을 거부함(`ck_posts_post_type` 위반 에러 확인)
+  - 검증 후 테스트 데이터는 TRUNCATE로 정리, 컨테이너(`jejumate-pg`, 포트 55432)는 계속 개발용으로 띄워둔 상태.
+  - 이전에 SQLite로 대체했던 pytest 12케이스는 그대로 유효(빠른 단위 테스트용으로 계속 사용).
+- frontend(Next.js) 스캐폴드는 아직 생성 전(대표 지시로 Task2 범위를 DDL 검증까지로 한정했던 것이 그대로 이어짐). Task4 이후 여유 있으면 진행.
+- **Task4**: `app/rule_filter.py`(키워드 후보 매칭, 미매칭 시 빈 집합=버림) → `app/tagging.py`(post_type/category/status 결정) → `app/embedding.py`(1536차원 벡터) → `app/pipeline.py`(`ingest_kakao_txt`)로 전체 배치 완성. `tests/` 규칙필터 6·태깅 5·임베딩 4·파이프라인 2케이스 전부 통과(총 39개 전체 스위트 통과).
+  - **API 키 없음 확인**: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` 둘 다 이 환경에 없음. `AnthropicLLMTagger`/`OpenAIEmbeddingProvider` 실제 호출 코드는 작성했지만 **키가 없어 실제 API 응답으로는 한 번도 검증하지 못했다** — 인터페이스(`LLMTagger`/`EmbeddingProvider` Protocol)를 분리해 `MockLLMTagger`/`MockEmbeddingProvider`로 파이프라인 로직만 검증. **다음 단계: 대표가 두 API 키를 `backend/.env`에 넣어주면(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) `AnthropicLLMTagger()`/`OpenAIEmbeddingProvider()`로 교체 후 실제 응답 검증 필요.**
+  - Mock 태거로 실제 Postgres(`jejumate-pg` 컨테이너)에 샘플 파일 전체를 적재해 확인: 대화 단위 112개 중 규칙 필터를 통과한 45개가 posts에 실제로 들어갔고(ride 21/run 9/cafe 7/qna 3/walk 2/stay 1/food 1/drink 1), 45개 전부 embedding이 NULL 아님을 실 DB 쿼리로 확인. 검증 후 TRUNCATE로 정리함(현재 posts 테이블은 비어 있음).
 
 ## 다음 시작 지점
-- **Task3**: `/home/ai/agent-company/data/sample_kakao_chat.txt` 파서 + 대화 단위 청킹(같은 화자·5분 이내 연속 발화 병합, 입장/퇴장/삭제 메시지 노이즈 제거)부터 시작.
-- Task3 전에 여유 있으면: 실제 Postgres/Supabase 연결 확보해 0001 마이그레이션 실제 적용 + frontend Next.js 스캐폴드 생성.
+- Day 1 태스크(2/3/4) 모두 완료. 다음은 Day 2: `applications` 테이블 실제 컬럼 작성(0002 스텁 채우기), RAG 검색 API, Next.js 프론트엔드 스캐폴드.
+- **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후 Mock → 실제 Provider 교체 검증.
