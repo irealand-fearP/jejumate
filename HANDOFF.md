@@ -37,9 +37,14 @@
 - **Task11(applications 마이그레이션 실적용)**: `app/models.py`에 `Application`(post_id FK·nickname·message(nullable)·status pending/approved/rejected) 추가, `0002_create_applications` 실제 DDL 작성. **주의**: 예전(Day1)에 "번호만 선점"하려고 빈 스텁(`pass`)으로 `alembic upgrade head`를 이미 한 번 돌려서, 실 Postgres의 `alembic_version`이 테이블 없이 `0002_create_applications`로 이미 찍혀 있었음 → `alembic stamp 0001_create_posts`로 버전을 되돌린 뒤 재적용해서 실제 테이블 생성(기존 posts 데이터는 건드리지 않음, 당시 posts는 0건이었음). FK 제약·status CHECK 제약 모두 실 DB에서 위반 시 거부되는 것 확인. 파티 카테고리 값(ride/drink/run/walk/tour)은 Task2부터 이미 posts.category에 포함돼 있어 추가 확장 불필요함을 확인. 테스트 6개 추가(전체 75개 통과).
 - **Task12(owner_secret 흐름 확인)**: Task9에서 이미 구현한 **4자리 숫자 관리 코드** 방식을 그대로 유지. **기획서 원문(3장-7)과의 차이**: 기획서 본문은 "owner_secret 발급"이라고만 돼 있어 긴 랜덤 토큰(uuid 등)으로 오해될 수 있으나, 화면흐름.md 6장이 명시적으로 "관리 코드: 4821"(4자리 숫자, 다른 기기에서도 직접 입력 가능해야 함)로 확정했고 이게 더 최신·구체적 지침이라 그 기준을 따름. 보안상 4자리는 브루트포스에 약하지만(1만 가지) 로그인 없는 해커톤 MVP 특성상 UX 우선으로 의도된 결정이라고 판단 — 승인 API(Task14)에도 그대로 적용.
 
+- **Task13(참여 신청 API+UI)**: `POST /posts/{post_id}/applications`(닉네임+메시지, pending 저장). post_type≠party·closed·만료 글은 400으로 거부, 존재하지 않는 글은 404. applications는 embedding 컬럼 자체가 없어 구조적으로 RAG 대상이 될 수 없음을 테스트로도 확인(`test_application_does_not_create_a_searchable_post`). 프론트 `PartyAccordion`에 신청 폼("같이 갈래요" 버튼 + "호스트가 승인해야 약속이 확정돼요" 안내) 포함.
+- **Task14(승인/거절+모집현황)**: `GET /posts/{id}/status`(capacity/approved_count/deadline/is_closed, 폴링용), `GET /posts/{id}/applications?owner_secret=`(코드 맞으면 전체 상세, 틀리거나 없으면 닉네임만+authorized:false), `POST .../approve`·`.../reject`(관리 코드 불일치 403, 정원 초과 시 승인 409, 이미 처리된 신청 재승인 400, 거절된 신청은 목록에서 제외). 프론트 `PartyAccordion`이 8초 간격 폴링으로 현황 갱신 + 관리 코드 입력(등록 시 localStorage 자동 저장분 자동 채움) + 승인("같이 가기로 하기")/거절 버튼.
+  - **코덱스 제안 반영(대표 채택분)**: 헤더 태그라인 "혼자 가긴 아쉬울 때, 같이 갈 사람 찾기" 추가, 신청/승인 버튼·안내 카피 전부 적용, 모집 현황 "n/capacity명"+잔여 1명 강조("1명 남음")+마감 표기(`formatCapacityStatus`), 파티 등록 폼에 장소 프리셋 칩 9개(제주대/기숙사/제주공항/시청/함덕/김녕/애월/이호테우/서귀포 — 클릭 시 내용 textarea 커서 위치에 삽입). 기각 항목(로그인·바람지수·신뢰지표·알림)은 반영 안 함.
+  - 테스트 16개 추가(백엔드 전체 91개 통과). **실 Postgres 검증**: QA가 쓰는 공유 `jejumate-pg`(55432)는 건드리지 않고, 별도 임시 컨테이너(`jejumate-pg-devtest`, 55433)+별도 포트(8099)로 등록→현황(0/1)→신청 2건→코드없이 조회(닉네임만)→승인→현황(1/1)→2번째 승인 시도(409)→RAG 검색(신청 데이터 안 섞임) 전체 흐름 curl로 확인 후 컨테이너·프로세스·`.env` 모두 정리함. 프론트는 `next build` 통과 확인(윈도우 네이티브 경로 방식 동일).
+  - **주의(다음 사람 확인 필요)**: 이번 세션 시작 시점엔 QA로 보이는 백엔드(포트 8000, posts 7건)와 `npm run dev` 프로세스가 떠 있었는데, 세션 종료 시점엔 포트 8000 백엔드가 사라져 있었음. 내 작업은 전부 격리된 포트(8099)/컨테이너(`jejumate-pg-devtest`)에서만 이뤄졌고 QA의 `jejumate-pg`(55432)·포트 8000엔 어떤 명령도 실행하지 않았지만, 혹시 모르니 QA에게 확인 요망. `jejumate/QA-REPORT.md`는 QA가 작성 중인 파일로 보여 손대지 않음.
+
 ## 다음 시작 지점
-- **Task13(참여 신청 API+UI)** 진행 예정: `POST /posts/{post_id}/applications`(닉네임+메시지, pending 저장, RAG 임베딩 제외 확인).
-- **Task14(승인/거절+모집현황)**: owner_secret(4자리) 확인 기반 승인/거절, 승인 count vs capacity 서버 체크, 폴링 UI.
-- 폴백 규칙(기획서 5장): 오늘 안에 안 되면 승인 로직 없이 신청=즉시 참여(선착순)로 축소 — 승인과 카운트 로직을 분리해서 구현할 것(전환 쉽게).
+- Day 2.5 태스크(11~14) 모두 완료. 폴백(선착순 전환)은 시간 내 끝나서 사용 안 함 — 승인 로직과 카운트 로직은 이미 분리돼 있어(승인 시에만 approved_count 반영) 필요하면 나중에도 전환 쉬움.
+- 다음은 Day 3: 시연용 시드 데이터 적재, (여유 시) 카톡 자동수집 라이브+피드 polling, QA 데모 시나리오 전체 테스트, 리허설.
 - 프론트 작업 계속할 때: 윈도우 네이티브 경로(`/mnt/c/Users/AI융합원/AppData/Local/Temp/jejumate-build/frontend`, node_modules 설치돼 있음)에서 `rsync`로 `jejumate/frontend` 최신 소스를 동기화한 뒤 그 경로에서 `next dev`/`next build` 실행.
-- **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후(내일 예정) `llm_provider`/`embedding_provider` 설정을 "openai"로 바꾸고 실제 응답 검증.
+- **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후 `llm_provider`/`embedding_provider` 설정을 "openai"로 바꾸고 실제 응답 검증.

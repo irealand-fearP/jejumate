@@ -10,3 +10,11 @@ export function saveOwnerSecret(postId: string, secret: string) {
     // localStorage를 못 쓰는 환경(프라이빗 모드 등)이면 그냥 넘어간다.
   }
 }
+
+export function getOwnerSecret(postId: string): string | null {
+  try {
+    return localStorage.getItem(STORAGE_PREFIX + postId);
+  } catch {
+    return null;
+  }
+}

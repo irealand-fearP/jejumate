@@ -37,3 +37,29 @@ export interface PartyPostCreateResponse {
   owner_secret: string;
   deadline: string;
 }
+
+export interface PostStatus {
+  capacity: number | null;
+  approved_count: number;
+  deadline: string | null;
+  is_closed: boolean;
+}
+
+export interface ApplicationItem {
+  id: string | null;
+  nickname: string;
+  message: string | null;
+  status: string | null;
+}
+
+export interface ApplicationListResponse {
+  authorized: boolean;
+  applications: ApplicationItem[];
+}
+
+export interface ApplicationOut {
+  id: string;
+  nickname: string;
+  message: string | null;
+  status: string;
+}

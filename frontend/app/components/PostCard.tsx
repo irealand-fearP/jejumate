@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getCategoryMeta } from "../lib/categories";
 import { formatMinutesUntil, formatRelativeTime } from "../lib/format";
 import type { Post } from "../lib/types";
+import { PartyAccordion } from "./PartyAccordion";
 
 function SourceBadge({ source }: { source: Post["source"] }) {
   if (source === "kakao") {
@@ -65,15 +66,15 @@ export function PostCard({ post }: { post: Post }) {
           </span>
         )}
 
-        {!isOwnedParty && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-zinc-500 underline underline-offset-2"
-          >
-            {expanded ? "접기" : "원문 보기"}
-          </button>
-        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-zinc-500 underline underline-offset-2"
+        >
+          {expanded ? "접기" : isOwnedParty ? "▾ 펼치기" : "원문 보기"}
+        </button>
       </div>
+
+      {expanded && isOwnedParty && <PartyAccordion postId={post.id} deadline={post.deadline} />}
     </div>
   );
 }

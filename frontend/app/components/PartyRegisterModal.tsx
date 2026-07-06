@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPartyPost } from "../lib/api";
 import { CATEGORIES } from "../lib/categories";
 import { saveOwnerSecret } from "../lib/ownerSecret";
@@ -11,6 +11,18 @@ const DEADLINE_OPTIONS = [
   { label: "1시간", minutes: 60 },
   { label: "2시간", minutes: 120 },
 ];
+// 코덱스 제안 반영 결정 ③: 장소 프리셋 칩(원터치 선택).
+const PLACE_PRESETS = [
+  "제주대",
+  "기숙사",
+  "제주공항",
+  "시청",
+  "함덕",
+  "김녕",
+  "애월",
+  "이호테우",
+  "서귀포",
+];
 
 interface Props {
   onClose: () => void;
@@ -20,6 +32,7 @@ interface Props {
 export function PartyRegisterModal({ onClose, onCreated }: Props) {
   const [category, setCategory] = useState(PARTY_CATEGORIES[0].value);
   const [content, setContent] = useState("");
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [capacity, setCapacity] = useState(2);
   const [deadlineMinutes, setDeadlineMinutes] = useState(30);
   const [customMinutes, setCustomMinutes] = useState("");
@@ -30,6 +43,23 @@ export function PartyRegisterModal({ onClose, onCreated }: Props) {
   const [copied, setCopied] = useState(false);
 
   const effectiveDeadline = deadlineMinutes === -1 ? Number(customMinutes) : deadlineMinutes;
+
+  function insertPlace(place: string) {
+    const textarea = contentRef.current;
+    if (!textarea) {
+      setContent((prev) => (prev ? `${prev} ${place}` : place));
+      return;
+    }
+    const start = textarea.selectionStart ?? content.length;
+    const end = textarea.selectionEnd ?? content.length;
+    const next = `${content.slice(0, start)}${place} ${content.slice(end)}`;
+    setContent(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const cursor = start + place.length + 1;
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,12 +136,26 @@ export function PartyRegisterModal({ onClose, onCreated }: Props) {
               ))}
             </div>
 
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {PLACE_PRESETS.map((place) => (
+                <button
+                  key={place}
+                  type="button"
+                  onClick={() => insertPlace(place)}
+                  className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100"
+                >
+                  📍 {place}
+                </button>
+              ))}
+            </div>
+
             <textarea
+              ref={contentRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="내용(장소·시간 등)"
               rows={3}
-              className="mt-3 w-full rounded-lg border border-zinc-300 p-2 text-sm"
+              className="mt-2 w-full rounded-lg border border-zinc-300 p-2 text-sm"
             />
 
             <div className="mt-3 flex gap-3">

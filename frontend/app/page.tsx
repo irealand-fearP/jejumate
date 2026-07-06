@@ -41,6 +41,7 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white px-4 py-3">
         <h1 className="text-lg font-bold text-zinc-900">🌴 제주메이트(가칭)</h1>
+        <p className="text-xs text-zinc-500">혼자 가긴 아쉬울 때, 같이 갈 사람 찾기</p>
       </header>
 
       <SearchBox />

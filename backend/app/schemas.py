@@ -57,3 +57,34 @@ class PartyPostCreateResponse(BaseModel):
     id: str
     owner_secret: str
     deadline: datetime
+
+
+class ApplicationCreate(BaseModel):
+    nickname: str = Field(min_length=1)
+    message: str | None = None
+
+
+class ApplicationOut(BaseModel):
+    id: str
+    nickname: str
+    message: str | None
+    status: str
+
+
+class PostStatusOut(BaseModel):
+    capacity: int | None
+    approved_count: int
+    deadline: datetime | None
+    is_closed: bool
+
+
+class ApplicationListItem(BaseModel):
+    id: str | None
+    nickname: str
+    message: str | None = None
+    status: str | None = None
+
+
+class ApplicationListResponse(BaseModel):
+    authorized: bool
+    applications: list[ApplicationListItem]
