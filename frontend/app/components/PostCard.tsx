@@ -39,6 +39,8 @@ export function PostCard({ post }: { post: Post }) {
   const [expanded, setExpanded] = useState(false);
   const isKakaoParty = post.post_type === "party" && post.source === "kakao";
   const isOwnedParty = post.post_type === "party" && post.source === "user_post";
+  // deadline이 없으면(대부분의 카톡 수집 글) 판단 근거가 없으니 "지난글"로 단정하지 않는다.
+  const isDeadlinePassed = post.deadline != null && new Date(post.deadline).getTime() < Date.now();
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
@@ -47,7 +49,7 @@ export function PostCard({ post }: { post: Post }) {
         <CategoryBadge category={post.category} />
         {isKakaoParty && (
           <span className="ml-auto rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600">
-            읽기전용 · 지난글
+            읽기전용{isDeadlinePassed ? " · 지난글" : ""}
           </span>
         )}
       </div>

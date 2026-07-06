@@ -43,8 +43,16 @@
   - 테스트 16개 추가(백엔드 전체 91개 통과). **실 Postgres 검증**: QA가 쓰는 공유 `jejumate-pg`(55432)는 건드리지 않고, 별도 임시 컨테이너(`jejumate-pg-devtest`, 55433)+별도 포트(8099)로 등록→현황(0/1)→신청 2건→코드없이 조회(닉네임만)→승인→현황(1/1)→2번째 승인 시도(409)→RAG 검색(신청 데이터 안 섞임) 전체 흐름 curl로 확인 후 컨테이너·프로세스·`.env` 모두 정리함. 프론트는 `next build` 통과 확인(윈도우 네이티브 경로 방식 동일).
   - **주의(다음 사람 확인 필요)**: 이번 세션 시작 시점엔 QA로 보이는 백엔드(포트 8000, posts 7건)와 `npm run dev` 프로세스가 떠 있었는데, 세션 종료 시점엔 포트 8000 백엔드가 사라져 있었음. 내 작업은 전부 격리된 포트(8099)/컨테이너(`jejumate-pg-devtest`)에서만 이뤄졌고 QA의 `jejumate-pg`(55432)·포트 8000엔 어떤 명령도 실행하지 않았지만, 혹시 모르니 QA에게 확인 요망. `jejumate/QA-REPORT.md`는 QA가 작성 중인 파일로 보여 손대지 않음.
 
+## QA 버그 수정 + 서버 장애 복구 (후속 지시)
+- **QA 발견 버그**: `PostCard.tsx`의 카톡 party 카드가 deadline 무관하게 항상 "읽기전용 · 지난글"을 표시하던 문제 수정. `isDeadlinePassed = post.deadline != null && new Date(post.deadline) < now`를 계산해 마감 지난 글에만 "· 지난글"을 덧붙이도록 변경(deadline이 없는 대부분의 카톡 글은 "읽기전용"만 표시). `next build` 통과 확인.
+- **백엔드(8000)+시드 데이터 소실 원인 조사**: `docker inspect jejumate-pg` 결과 `RestartCount=0`, `FinishedAt`이 비어 있어 **DB 컨테이너 자체는 세션 내내 한 번도 재시작/중단되지 않음**(원인이 컨테이너 크래시가 아님을 확인). `docker events`에도 내가 실행한 psql/exec 기록만 남아 있고 다른 주체의 `docker exec` 흔적은 없음 — 다만 앱(백엔드 프로세스나 스크립트)이 포트 55432로 직접 접속해 TRUNCATE/DELETE를 실행했다면 이 로그엔 안 잡히므로 **정확한 원인은 특정 못 함**(백엔드 프로세스 자체가 왜 죽었는지도 로그 파일이 없어 확인 불가). 확실한 사실: 컨테이너 하드웨어/재시작 문제는 아니고, 내 작업(격리된 포트 8099·별도 컨테이너 `jejumate-pg-devtest`)이 원인일 가능성도 배제(그쪽엔 흔적 없음).
+  - **프론트(포트 3000)는 살아있었음**: QA로 보이는 `next dev` 프로세스가 `C:\Users\...\Temp\jejumate-build\frontend`에서 계속 떠 있어 손대지 않음. 같은 폴더에서 중복 실행된 좀비 프로세스(포트 3001 충돌 에러)가 하나 더 있었는데 이것도 트래픽을 안 받고 있어 그대로 둠(필요시 정리).
+  - **복구 조치**: 백엔드를 원래와 동일하게 `--host 0.0.0.0 --port 8000`으로 재기동(`backend/.env`에 DATABASE_URL 유지, 이번엔 서버를 계속 띄워둘 목적이라 삭제 안 함). posts 테이블이 실제로 0건이라 시드 소실 확정 → `ingest_kakao_txt` 파이프라인(mock, 기존에 검증된 방식)으로 카톡 샘플 45건 재적재 + QA-REPORT에 언급된 "제주공항 택시팟" 예시를 `/posts/party`로 재현 등록(정원3·90분) → 총 46건, 카테고리 다양성 확보(ride 22/run 9/cafe 7/qna 3/walk 2/food 1/stay 1/drink 1). RAG 검색·피드 API 정상 응답 확인, 윈도우→WSL 백엔드 접근(`localhost:8000`)도 재확인함.
+  - QA의 원래 6건과 완전히 동일하진 않지만(정확한 6건 목록은 QA-REPORT에 카테고리 개수만 나와 있어 전체 복원 불가), 데모에 필요한 카테고리 다양성·활성 파티 1건은 충분히 갖춰짐.
+
 ## 다음 시작 지점
 - Day 2.5 태스크(11~14) 모두 완료. 폴백(선착순 전환)은 시간 내 끝나서 사용 안 함 — 승인 로직과 카운트 로직은 이미 분리돼 있어(승인 시에만 approved_count 반영) 필요하면 나중에도 전환 쉬움.
 - 다음은 Day 3: 시연용 시드 데이터 적재, (여유 시) 카톡 자동수집 라이브+피드 polling, QA 데모 시나리오 전체 테스트, 리허설.
 - 프론트 작업 계속할 때: 윈도우 네이티브 경로(`/mnt/c/Users/AI융합원/AppData/Local/Temp/jejumate-build/frontend`, node_modules 설치돼 있음)에서 `rsync`로 `jejumate/frontend` 최신 소스를 동기화한 뒤 그 경로에서 `next dev`/`next build` 실행.
 - **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후 `llm_provider`/`embedding_provider` 설정을 "openai"로 바꾸고 실제 응답 검증.
+- **권장**: 백엔드/DB가 다시 죽는 걸 방지하려면 QA·dev가 같은 컨테이너/포트를 쓸 때 서로 어떤 명령을 실행했는지 간단히 공유하는 게 좋겠음(이번엔 원인 특정 실패).
