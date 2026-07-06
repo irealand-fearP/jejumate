@@ -5,8 +5,13 @@ import { CategoryFilter } from "./components/CategoryFilter";
 import { PartyRegisterModal } from "./components/PartyRegisterModal";
 import { PostCard } from "./components/PostCard";
 import { SearchBox } from "./components/SearchBox";
+import { WeatherCard } from "./components/WeatherCard";
 import { fetchPosts } from "./lib/api";
 import type { Post } from "./lib/types";
+
+// "실시간으로 갱신된다"는 데모 포인트를 위한 피드 자동 폴링 주기.
+// 파티 현황(PartyAccordion)의 8초 폴링과 별개로 피드 전체를 갱신한다.
+const FEED_POLL_INTERVAL_MS = 12000;
 
 export default function Home() {
   const [category, setCategory] = useState<string | null>(null);
@@ -18,22 +23,34 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
-    fetchPosts(category)
-      .then((data) => {
-        if (!cancelled) setPosts(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError("피드를 불러오지 못했어요");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    function load(showLoading: boolean) {
+      if (showLoading) {
+        setLoading(true);
+        setError(null);
+      }
+      fetchPosts(category)
+        .then((data) => {
+          if (!cancelled) {
+            setPosts(data);
+            if (showLoading) setError(null);
+          }
+        })
+        .catch(() => {
+          // 폴링 중 실패는 화면을 비우지 않고 조용히 넘어간다(다음 폴링에서 복구 시도).
+          if (!cancelled && showLoading) setError("피드를 불러오지 못했어요");
+        })
+        .finally(() => {
+          if (!cancelled && showLoading) setLoading(false);
+        });
+    }
+
+    load(true);
+    const timer = setInterval(() => load(false), FEED_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [category, refreshKey]);
 
@@ -67,6 +84,7 @@ export default function Home() {
       )}
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-4">
+        <WeatherCard />
         {loading && <p className="text-sm text-zinc-400">불러오는 중...</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
         {!loading && !error && posts.length === 0 && (
