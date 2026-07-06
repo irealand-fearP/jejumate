@@ -33,7 +33,13 @@
 - **Task9(파티 등록 폼, 오늘 완료)**: `POST /posts/party` API — 카테고리는 party 5종(`Literal`)만 허용(422로 거부), 정원 1 이상 검증, 4자리 숫자 관리 코드(`owner_secret`) 발급, **등록 즉시 임베딩까지 생성해 RAG 검색 대상에 바로 포함**(처음엔 빠뜨렸다가 테스트로 잡아서 고침 — `test_created_party_post_is_searchable_via_rag`). 프론트 `PartyRegisterModal`(카테고리 칩·내용·정원·마감시간 30분/1시간/2시간/직접입력·닉네임 → 등록 완료 시 관리 코드 표시+복사+localStorage 저장). "+ 파티 등록하기" 버튼은 화면흐름.md 6장의 1단계 유형선택 없이 파티 폼으로 바로 연결(정보공유 글쓰기 API가 없어 스코프 밖). 신청/승인 아코디언(5-5)은 오늘 범위 밖.
   - 테스트 5개 추가(백엔드 전체 69개 통과), 실 Postgres에 curl로 등록→피드 반영→422 검증까지 스모크 테스트 완료. 프론트는 `next build` 통과 확인(윈도우 네이티브 경로 방식, Task8 방식 그대로).
 
+## Day 2.5 진행
+- **Task11(applications 마이그레이션 실적용)**: `app/models.py`에 `Application`(post_id FK·nickname·message(nullable)·status pending/approved/rejected) 추가, `0002_create_applications` 실제 DDL 작성. **주의**: 예전(Day1)에 "번호만 선점"하려고 빈 스텁(`pass`)으로 `alembic upgrade head`를 이미 한 번 돌려서, 실 Postgres의 `alembic_version`이 테이블 없이 `0002_create_applications`로 이미 찍혀 있었음 → `alembic stamp 0001_create_posts`로 버전을 되돌린 뒤 재적용해서 실제 테이블 생성(기존 posts 데이터는 건드리지 않음, 당시 posts는 0건이었음). FK 제약·status CHECK 제약 모두 실 DB에서 위반 시 거부되는 것 확인. 파티 카테고리 값(ride/drink/run/walk/tour)은 Task2부터 이미 posts.category에 포함돼 있어 추가 확장 불필요함을 확인. 테스트 6개 추가(전체 75개 통과).
+- **Task12(owner_secret 흐름 확인)**: Task9에서 이미 구현한 **4자리 숫자 관리 코드** 방식을 그대로 유지. **기획서 원문(3장-7)과의 차이**: 기획서 본문은 "owner_secret 발급"이라고만 돼 있어 긴 랜덤 토큰(uuid 등)으로 오해될 수 있으나, 화면흐름.md 6장이 명시적으로 "관리 코드: 4821"(4자리 숫자, 다른 기기에서도 직접 입력 가능해야 함)로 확정했고 이게 더 최신·구체적 지침이라 그 기준을 따름. 보안상 4자리는 브루트포스에 약하지만(1만 가지) 로그인 없는 해커톤 MVP 특성상 UX 우선으로 의도된 결정이라고 판단 — 승인 API(Task14)에도 그대로 적용.
+
 ## 다음 시작 지점
-- Day 2 태스크(6/7/8/9) 모두 완료. 다음은 Day 2.5: `applications` 테이블(0002 스텁 채우기) + 신청 API/UI + 글쓴이 승인(관리 코드 확인) + 모집 현황(승인 count vs capacity, 폴링). 폴백 규칙(기획서 5장): 지연 시 승인 로직 없이 신청=즉시 참여로 축소 가능하게 승인/카운트 로직을 분리해 구현할 것.
+- **Task13(참여 신청 API+UI)** 진행 예정: `POST /posts/{post_id}/applications`(닉네임+메시지, pending 저장, RAG 임베딩 제외 확인).
+- **Task14(승인/거절+모집현황)**: owner_secret(4자리) 확인 기반 승인/거절, 승인 count vs capacity 서버 체크, 폴링 UI.
+- 폴백 규칙(기획서 5장): 오늘 안에 안 되면 승인 로직 없이 신청=즉시 참여(선착순)로 축소 — 승인과 카운트 로직을 분리해서 구현할 것(전환 쉽게).
 - 프론트 작업 계속할 때: 윈도우 네이티브 경로(`/mnt/c/Users/AI융합원/AppData/Local/Temp/jejumate-build/frontend`, node_modules 설치돼 있음)에서 `rsync`로 `jejumate/frontend` 최신 소스를 동기화한 뒤 그 경로에서 `next dev`/`next build` 실행.
 - **선행 필요**: ANTHROPIC_API_KEY / OPENAI_API_KEY 확보 후(내일 예정) `llm_provider`/`embedding_provider` 설정을 "openai"로 바꾸고 실제 응답 검증.

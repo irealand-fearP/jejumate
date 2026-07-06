@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -17,6 +17,7 @@ CATEGORY_VALUES = (
     "ride", "drink", "run", "walk", "tour",      # party
     "food", "cafe", "stay", "living", "qna",     # info
 )
+APPLICATION_STATUS_VALUES = ("pending", "approved", "rejected")
 
 
 def _utcnow() -> datetime:
@@ -52,4 +53,21 @@ class Post(Base):
         CheckConstraint(f"post_type IN {POST_TYPE_VALUES}", name="ck_posts_post_type"),
         CheckConstraint(f"category IN {CATEGORY_VALUES}", name="ck_posts_category"),
         CheckConstraint(f"status IN {STATUS_VALUES}", name="ck_posts_status"),
+    )
+
+
+class Application(Base):
+    """파티 참여 신청(태스크13·14). RAG 임베딩·검색 대상이 아니다(기획서 3장-11)."""
+
+    __tablename__ = "applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("posts.id"), nullable=False)
+    nickname: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        CheckConstraint(f"status IN {APPLICATION_STATUS_VALUES}", name="ck_applications_status"),
     )
