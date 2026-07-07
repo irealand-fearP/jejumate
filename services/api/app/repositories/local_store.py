@@ -323,6 +323,12 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   properties TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS ingest_cursors (
+  source TEXT PRIMARY KEY,
+  last_id INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
 """
 
 
@@ -1474,3 +1480,54 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         query_log_id=query_log_id,
         persisted=True,
     )
+
+
+def get_ingest_cursor(source: str) -> int:
+    """카톡 실시간 수집 증분 커서(마지막으로 처리한 항목 id). 없으면 0(처음부터)."""
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT last_id FROM ingest_cursors WHERE source = ?", (source,)
+        ).fetchone()
+    return row["last_id"] if row else 0
+
+
+def set_ingest_cursor(source: str, last_id: int) -> None:
+    now = _now()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO ingest_cursors (source, last_id, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(source) DO UPDATE SET last_id = excluded.last_id, updated_at = excluded.updated_at
+            """,
+            (source, last_id, now),
+        )
+
+
+def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]) -> None:
+    """카톡 실시간 수집 메시지 1건을 RAG 근거 문서로 적재한다. 이미 있으면(재실행 등) 무시.
+    기존 scripts/seed_rag_embeddings.py의 카톡 시드(source_type='kakao_chat')와 같은
+    관례를 따른다."""
+    document_id = _stable_id("rag-document", f"kakao-live-{item_id}")
+    title = content if len(content) <= 40 else f"{content[:40]}…"
+    now = _now()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO rag_documents (
+              id, source_type, source_id, title, body, region, category, visibility,
+              is_active, embedding, created_at, updated_at
+            )
+            VALUES (?, 'kakao_chat', ?, ?, ?, '제주', '카톡', 'public', 1, ?, ?, ?)
+            """,
+            (document_id, str(item_id), title, content, json.dumps(embedding), now, now),
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO rag_sources (
+              id, rag_document_id, source_type, title, url, official, created_at
+            )
+            VALUES (?, ?, 'kakao_chat', '카카오톡 채팅 수집', NULL, 0, ?)
+            """,
+            (_stable_id("rag-source", f"kakao-live-{item_id}"), document_id, now),
+        )

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # 그대로 이식 — 관련 없는 문서가 근거로 끼어드는 것을 막는다.
     rag_similarity_threshold: float = 0.5
 
+    # 카톡 실시간 수집 파이프라인. 로컬은 백그라운드 폴링(초 단위), 배포는 서버리스라
+    # 상시 폴링이 안 되므로 GET /api/ingest/kakao?secret=... 수동/크론 트리거를 쓴다.
+    kakao_poll_interval_seconds: int = 45
+    ingest_secret: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
