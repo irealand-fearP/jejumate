@@ -21,6 +21,7 @@ import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
 import { BottomNav } from "./BottomNav";
 import { MeetingTimeline } from "./MeetingTimeline";
+import { PolicySection } from "./PolicySection";
 import styles from "./HomeScreen.module.css";
 
 type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat";
@@ -303,6 +304,8 @@ export function HomeScreen({ data }: { data: HomeData }) {
         <AskEntryCard onOpen={openQuestionSheet} />
 
         <BoardSection />
+
+        <PolicySection policies={data.policies} />
 
         <BottomNav />
 
