@@ -15,6 +15,7 @@ import {
   type NicknameProfile,
   type RagAnswer,
 } from "@/lib/api";
+import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import styles from "./HomeScreen.module.css";
 
 type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat";
@@ -294,6 +295,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
   return (
     <main className={styles.prototypeCanvas}>
       <section className={styles.lockedPhone} aria-label="제주메이트 최종 잠금 시안">
+        <HostPendingBanner variant="overlay" />
         <img
           className={styles.lockedMock}
           src="/assets/jejumate-final-locked.png"

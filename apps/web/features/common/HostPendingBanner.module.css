@@ -1,0 +1,28 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  padding: 10px 14px;
+  background: #ff8a3d;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 950;
+  text-align: left;
+  cursor: pointer;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  box-shadow: 0 4px 14px rgba(20, 42, 12, 0.2);
+}
+
+.inline {
+  border-radius: 8px;
+  margin-bottom: 2px;
+}

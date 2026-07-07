@@ -39,6 +39,7 @@ import {
 } from "@/lib/api";
 import { formatCapacityStatus } from "@/lib/format";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
+import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
 
@@ -338,6 +339,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
   return (
     <MobileShell active="meetings" title="모임" subtitle="닉네임만 공개하고 가볍게 합류해요">
+      <HostPendingBanner variant="inline" />
       <div className={styles.toolbar}>
         {data.filters.map((filter) => (
           <button
