@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
@@ -16,22 +17,13 @@ import {
   type RagAnswer,
 } from "@/lib/api";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
+import { AskEntryCard } from "./AskEntryCard";
+import { BoardSection } from "./BoardSection";
+import { BottomNav } from "./BottomNav";
+import { MeetingTimeline } from "./MeetingTimeline";
 import styles from "./HomeScreen.module.css";
 
 type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat";
-
-type HotspotAction =
-  | { type: "sheet"; key: SheetKey; meetingIndex?: number }
-  | { type: "route"; href: string };
-
-type Hotspot = {
-  action: HotspotAction;
-  label: string;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
 
 type LocalProfile = {
   profileId: string;
@@ -46,30 +38,6 @@ type ResultState = {
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
-
-const hotspots: Hotspot[] = [
-  { action: { type: "sheet", key: "nickname" }, label: "닉네임 만들기", left: 56.8, top: 2.6, width: 15.2, height: 3.2 },
-  { action: { type: "sheet", key: "privacy" }, label: "실명 비공개 안내", left: 74.9, top: 2.6, width: 20.1, height: 3.2 },
-  { action: { type: "sheet", key: "privacy" }, label: "개인정보 안내 배너", left: 4.9, top: 8.5, width: 90.2, height: 5.9 },
-  { action: { type: "route", href: "/meetings" }, label: "전체 모임 보기", left: 81.4, top: 16.9, width: 13.7, height: 3.1 },
-  { action: { type: "route", href: "/meetings" }, label: "전체 필터", left: 4.8, top: 20.7, width: 13.0, height: 3.0 },
-  { action: { type: "route", href: "/meetings" }, label: "밥친구 필터", left: 20.0, top: 20.7, width: 18.0, height: 3.0 },
-  { action: { type: "route", href: "/meetings" }, label: "작업 필터", left: 39.6, top: 20.7, width: 17.9, height: 3.0 },
-  { action: { type: "route", href: "/meetings" }, label: "이동 필터", left: 59.5, top: 20.7, width: 16.5, height: 3.0 },
-  { action: { type: "route", href: "/meetings" }, label: "커피챗 필터", left: 78.0, top: 20.7, width: 17.0, height: 3.0 },
-  { action: { type: "sheet", key: "apply", meetingIndex: 0 }, label: "함덕 점심 같이 먹자 신청", left: 76.4, top: 31.0, width: 18.3, height: 2.4 },
-  { action: { type: "sheet", key: "apply", meetingIndex: 1 }, label: "오션뷰 카페 작업팟 신청", left: 76.4, top: 41.0, width: 18.3, height: 2.4 },
-  { action: { type: "sheet", key: "apply", meetingIndex: 2 }, label: "해안도로 러닝 신청", left: 76.4, top: 51.0, width: 18.3, height: 2.4 },
-  { action: { type: "sheet", key: "apply", meetingIndex: 3 }, label: "공항 서귀포 택시팟 신청", left: 76.4, top: 60.9, width: 18.3, height: 2.4 },
-  { action: { type: "route", href: "/meetings" }, label: "제주 활동 현황", left: 4.6, top: 64.3, width: 90.6, height: 5.3 },
-  { action: { type: "sheet", key: "ask" }, label: "RAG 질문 열기", left: 4.6, top: 70.8, width: 90.6, height: 5.9 },
-  { action: { type: "route", href: "/policies" }, label: "청년 기회 더 보기", left: 81.0, top: 79.0, width: 14.0, height: 3.2 },
-  { action: { type: "route", href: "/policies" }, label: "제주 청년 큐레이션 여행 지원", left: 4.6, top: 81.2, width: 90.6, height: 6.6 },
-  { action: { type: "route", href: "/meetings" }, label: "하단 탭 모임", left: 20.0, top: 94.1, width: 15.0, height: 5.7 },
-  { action: { type: "route", href: "/question" }, label: "하단 탭 질문", left: 39.0, top: 94.1, width: 15.0, height: 5.7 },
-  { action: { type: "route", href: "/policies" }, label: "하단 탭 정책", left: 58.6, top: 94.1, width: 15.0, height: 5.7 },
-  { action: { type: "route", href: "/profile" }, label: "하단 탭 내정보", left: 78.2, top: 94.1, width: 15.0, height: 5.7 },
-];
 
 function buildLocalProfile(profile: NicknameProfile): LocalProfile {
   return {
@@ -138,25 +106,21 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
   }, []);
 
-  function openHotspot(action: HotspotAction) {
+  function openApply(meeting: HomeMeeting) {
     setResult(null);
     setAnswer(null);
+    setSelectedMeeting(meeting);
+    setMessage("");
+    setPrivacyChecked(false);
+    setNickname(profile?.nickname ?? nickname);
+    setSheetKey("apply");
+  }
 
-    if (action.type === "route") {
-      router.push(action.href);
-      return;
-    }
-
-    setSheetKey(action.key);
-    if (action.key === "apply") {
-      setSelectedMeeting(typeof action.meetingIndex === "number" ? data.meetings[action.meetingIndex] ?? null : null);
-      setMessage("");
-      setPrivacyChecked(false);
-      setNickname(profile?.nickname ?? nickname);
-    }
-    if (action.key === "ask") {
-      setQuestion(data.rag_strip.suggestions[0] ?? "");
-    }
+  function openQuestionSheet() {
+    setResult(null);
+    setAnswer(null);
+    setQuestion(data.rag_strip.suggestions[0] ?? "");
+    setSheetKey("ask");
   }
 
   function closeSheet() {
@@ -293,201 +257,232 @@ export function HomeScreen({ data }: { data: HomeData }) {
   }
 
   return (
-    <main className={styles.prototypeCanvas}>
-      <section className={styles.lockedPhone} aria-label="제주메이트 최종 잠금 시안">
-        <HostPendingBanner variant="overlay" />
-        <img
-          className={styles.lockedMock}
-          src="/assets/jejumate-final-locked.png"
-          alt="제주메이트 홈 화면 최종 시안"
-          draggable="false"
+    <main className={styles.canvas}>
+      <section className={styles.phone}>
+        <header className={styles.header}>
+          <div className={styles.logoBlock}>
+            <img src="/assets/jejumate-logo.png" alt="제주메이트" />
+            <p>제주 런케이션 커뮤니티</p>
+          </div>
+          <div className={styles.headerActions}>
+            <button onClick={() => setSheetKey("nickname")} type="button">
+              <UserRound size={17} /> 닉네임
+            </button>
+            <button className={styles.privacyPill} onClick={() => setSheetKey("privacy")} type="button">
+              <LockKeyhole size={18} /> 실명 비공개
+            </button>
+          </div>
+        </header>
+
+        <HostPendingBanner variant="inline" />
+
+        <button className={styles.privacyBanner} onClick={() => setSheetKey("privacy")} type="button">
+          <span>
+            <ShieldCheck size={26} />
+          </span>
+          <strong>닉네임으로 가볍게 둘러보고, 신청할 때만 인증해요!</strong>
+          <img src="/assets/banner-illustration.png" alt="" />
+          <ChevronRight size={24} />
+        </button>
+
+        <MeetingTimeline
+          meetings={data.meetings}
+          filters={data.meeting_filters}
+          openCount={data.meeting_summary.open_count}
+          onApply={openApply}
         />
-        <div className={styles.hotspotLayer} aria-label="서비스 연결 영역">
-          {hotspots.map((hotspot, index) => (
-            <button
-              key={`${hotspot.label}-${index}`}
-              className={styles.hotspot}
-              style={{
-                left: `${hotspot.left}%`,
-                top: `${hotspot.top}%`,
-                width: `${hotspot.width}%`,
-                height: `${hotspot.height}%`,
-              }}
-              onClick={() => openHotspot(hotspot.action)}
-              aria-label={hotspot.label}
-              type="button"
-            />
-          ))}
+
+        <button className={styles.activityCard} onClick={() => router.push("/meetings")} type="button">
+          <img src="/assets/activity-thumbs.png" alt="" />
+          <span>
+            지금 제주 어딘가에서 <b>{data.activity_summary.active_people_count}명</b>이 함께 놀고 있어요!
+          </span>
+          <UsersRound size={25} />
+        </button>
+
+        <AskEntryCard onOpen={openQuestionSheet} />
+
+        <BoardSection />
+
+        <BottomNav />
+
+        <div className={styles.chatShortcut}>
+          {data.meetings[0] ? (
+            <button onClick={() => openChat(data.meetings[0])} type="button" aria-label="최근 모임 채팅">
+              <MessageCircle size={18} />
+            </button>
+          ) : null}
         </div>
-      </section>
 
-      {sheetKey === "nickname" ? (
-        <BottomSheet title="닉네임으로 시작" onClose={closeSheet}>
-          <div className={styles.sheetForm}>
-            <label htmlFor="home-nickname">공개 닉네임</label>
-            <input
-              id="home-nickname"
-              maxLength={20}
-              onChange={(event) => setNickname(event.target.value)}
-              placeholder="예: 바당이"
-              value={nickname}
-            />
-            <p>공개 프로필에는 닉네임만 표시됩니다.</p>
-            <button disabled={busy || nickname.trim().length < 2} onClick={saveNickname} type="button">
-              {busy ? "저장 중" : "닉네임 저장"}
-            </button>
-          </div>
-          {renderResult()}
-        </BottomSheet>
-      ) : null}
-
-      {sheetKey === "privacy" ? (
-        <BottomSheet title="실명 비공개" onClose={closeSheet}>
-          <ul className={styles.privacyList}>
-            <li>공개: 닉네임, 공개 관심사, 신청 상태</li>
-            <li>비공개: 실명, 전화번호, 생년월일, 인증 원본</li>
-            <li>운영자 확인: 신고, 안전 이슈, 정책 악용 의심 상황</li>
-          </ul>
-        </BottomSheet>
-      ) : null}
-
-      {sheetKey === "apply" && selectedMeeting ? (
-        <BottomSheet title={selectedMeeting.title} onClose={closeSheet}>
-          <div className={styles.meetingSummary}>
-            <b>{selectedMeeting.place_label}</b>
-            <span>
-              {selectedMeeting.approved_count}/{selectedMeeting.capacity}명 참여 중 · 호스트 {selectedMeeting.host.nickname}
-            </span>
-          </div>
-          <div className={styles.sheetForm}>
-            <label htmlFor="home-application-nickname">공개 닉네임</label>
-            <input
-              id="home-application-nickname"
-              maxLength={20}
-              onChange={(event) => setNickname(event.target.value)}
-              value={nickname}
-            />
-            <label htmlFor="home-application-message">호스트에게 남길 말</label>
-            <textarea
-              id="home-application-message"
-              maxLength={160}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="선택 입력"
-              value={message}
-            />
-            <button
-              className={styles.checkRow}
-              onClick={() => setPrivacyChecked((checked) => !checked)}
-              type="button"
-            >
-              <span className={privacyChecked ? styles.checkedBox : ""} />
-              실명과 연락처를 메시지에 적지 않았습니다.
-            </button>
-            <button
-              disabled={busy || nickname.trim().length < 2 || !privacyChecked}
-              onClick={submitApplication}
-              type="button"
-            >
-              {busy ? "접수 중" : "신청 제출"}
-            </button>
-            <button
-              className={styles.secondaryAction}
-              disabled={busy || !selectedMeeting}
-              onClick={() => openChat(selectedMeeting)}
-              type="button"
-            >
-              모임 채팅 보기
-            </button>
-          </div>
-          {renderResult()}
-        </BottomSheet>
-      ) : null}
-
-      {sheetKey === "chat" && selectedMeeting ? (
-        <BottomSheet title="모임 채팅" onClose={closeSheet}>
-          <div className={styles.meetingSummary}>
-            <b>{selectedMeeting.title}</b>
-            <span>{selectedMeeting.place_label}</span>
-          </div>
-          <div className={styles.chatNotice}>
-            {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
-          </div>
-          <div className={styles.chatList}>
-            {chatMessages.length ? (
-              chatMessages.map((chat) => (
-                <div className={styles.chatBubble} key={chat.id}>
-                  <b>{chat.sender_nickname}</b>
-                  <span>{chat.content}</span>
-                </div>
-              ))
-            ) : (
-              <div className={styles.emptyChat}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</div>
-            )}
-          </div>
-          <div className={styles.sheetForm}>
-            <label htmlFor="home-chat-nickname">닉네임</label>
-            <input
-              id="home-chat-nickname"
-              maxLength={20}
-              onChange={(event) => setNickname(event.target.value)}
-              value={nickname}
-            />
-            <label htmlFor="home-chat-message">메시지</label>
-            <textarea
-              id="home-chat-message"
-              maxLength={500}
-              onChange={(event) => setChatInput(event.target.value)}
-              placeholder="약속 장소나 준비물을 편하게 이야기해보세요."
-              value={chatInput}
-            />
-            <button
-              disabled={busy || nickname.trim().length < 2 || chatInput.trim().length < 1}
-              onClick={submitChatMessage}
-              type="button"
-            >
-              {busy ? "보내는 중" : "메시지 보내기"}
-            </button>
-          </div>
-          {renderResult()}
-        </BottomSheet>
-      ) : null}
-
-      {sheetKey === "ask" ? (
-        <BottomSheet title="제주메이트 질문" onClose={closeSheet}>
-          <div className={styles.sheetForm}>
-            <label htmlFor="home-rag-question">질문</label>
-            <input
-              id="home-rag-question"
-              maxLength={120}
-              onChange={(event) => setQuestion(event.target.value)}
-              value={question}
-            />
-            <div className={styles.suggestionRow}>
-              {data.rag_strip.suggestions.map((suggestion) => (
-                <button key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
-                  {suggestion}
-                </button>
-              ))}
+        {sheetKey === "nickname" ? (
+          <BottomSheet title="닉네임으로 시작" onClose={closeSheet}>
+            <div className={styles.sheetForm}>
+              <label htmlFor="home-nickname">공개 닉네임</label>
+              <input
+                id="home-nickname"
+                maxLength={20}
+                onChange={(event) => setNickname(event.target.value)}
+                placeholder="예: 바당이"
+                value={nickname}
+              />
+              <p>공개 프로필에는 닉네임만 표시됩니다.</p>
+              <button disabled={busy || nickname.trim().length < 2} onClick={saveNickname} type="button">
+                {busy ? "저장 중" : "닉네임 저장"}
+              </button>
             </div>
-            <button disabled={busy || question.trim().length < 2} onClick={submitQuestion} type="button">
-              {busy ? "답변 생성 중" : "질문하기"}
-            </button>
-          </div>
-          {answer ? (
-            <div className={styles.answerCard}>
-              <b>{answer.answer}</b>
-              <div>
-                {answer.sources.map((source) => (
-                  <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
-                    {source.title}
-                  </a>
+            {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "privacy" ? (
+          <BottomSheet title="실명 비공개" onClose={closeSheet}>
+            <ul className={styles.privacyList}>
+              <li>공개: 닉네임, 공개 관심사, 신청 상태</li>
+              <li>비공개: 실명, 전화번호, 생년월일, 인증 원본</li>
+              <li>운영자 확인: 신고, 안전 이슈, 정책 악용 의심 상황</li>
+            </ul>
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "apply" && selectedMeeting ? (
+          <BottomSheet title={selectedMeeting.title} onClose={closeSheet}>
+            <div className={styles.meetingSummary}>
+              <b>{selectedMeeting.place_label}</b>
+              <span>
+                {selectedMeeting.approved_count}/{selectedMeeting.capacity}명 참여 중 · 호스트{" "}
+                {selectedMeeting.host.nickname}
+              </span>
+            </div>
+            <div className={styles.sheetForm}>
+              <label htmlFor="home-application-nickname">공개 닉네임</label>
+              <input
+                id="home-application-nickname"
+                maxLength={20}
+                onChange={(event) => setNickname(event.target.value)}
+                value={nickname}
+              />
+              <label htmlFor="home-application-message">호스트에게 남길 말</label>
+              <textarea
+                id="home-application-message"
+                maxLength={160}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="선택 입력"
+                value={message}
+              />
+              <button
+                className={styles.checkRow}
+                onClick={() => setPrivacyChecked((checked) => !checked)}
+                type="button"
+              >
+                <span className={privacyChecked ? styles.checkedBox : ""} />
+                실명과 연락처를 메시지에 적지 않았습니다.
+              </button>
+              <button
+                disabled={busy || nickname.trim().length < 2 || !privacyChecked}
+                onClick={submitApplication}
+                type="button"
+              >
+                {busy ? "접수 중" : "신청 제출"}
+              </button>
+              <button
+                className={styles.secondaryAction}
+                disabled={busy || !selectedMeeting}
+                onClick={() => openChat(selectedMeeting)}
+                type="button"
+              >
+                모임 채팅 보기
+              </button>
+            </div>
+            {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "chat" && selectedMeeting ? (
+          <BottomSheet title="모임 채팅" onClose={closeSheet}>
+            <div className={styles.meetingSummary}>
+              <b>{selectedMeeting.title}</b>
+              <span>{selectedMeeting.place_label}</span>
+            </div>
+            <div className={styles.chatNotice}>
+              {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
+            </div>
+            <div className={styles.chatList}>
+              {chatMessages.length ? (
+                chatMessages.map((chat) => (
+                  <div className={styles.chatBubble} key={chat.id}>
+                    <b>{chat.sender_nickname}</b>
+                    <span>{chat.content}</span>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.emptyChat}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</div>
+              )}
+            </div>
+            <div className={styles.sheetForm}>
+              <label htmlFor="home-chat-nickname">닉네임</label>
+              <input
+                id="home-chat-nickname"
+                maxLength={20}
+                onChange={(event) => setNickname(event.target.value)}
+                value={nickname}
+              />
+              <label htmlFor="home-chat-message">메시지</label>
+              <textarea
+                id="home-chat-message"
+                maxLength={500}
+                onChange={(event) => setChatInput(event.target.value)}
+                placeholder="약속 장소나 준비물을 편하게 이야기해보세요."
+                value={chatInput}
+              />
+              <button
+                disabled={busy || nickname.trim().length < 2 || chatInput.trim().length < 1}
+                onClick={submitChatMessage}
+                type="button"
+              >
+                {busy ? "보내는 중" : "메시지 보내기"}
+              </button>
+            </div>
+            {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "ask" ? (
+          <BottomSheet title="제주메이트 질문" onClose={closeSheet}>
+            <div className={styles.sheetForm}>
+              <label htmlFor="home-rag-question">질문</label>
+              <input
+                id="home-rag-question"
+                maxLength={120}
+                onChange={(event) => setQuestion(event.target.value)}
+                value={question}
+              />
+              <div className={styles.suggestionRow}>
+                {data.rag_strip.suggestions.map((suggestion) => (
+                  <button key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
+                    {suggestion}
+                  </button>
                 ))}
               </div>
+              <button disabled={busy || question.trim().length < 2} onClick={submitQuestion} type="button">
+                {busy ? "답변 생성 중" : "질문하기"}
+              </button>
             </div>
-          ) : null}
-          {renderResult()}
-        </BottomSheet>
-      ) : null}
+            {answer ? (
+              <div className={styles.answerCard}>
+                <b>{answer.answer}</b>
+                <div>
+                  {answer.sources.map((source) => (
+                    <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {renderResult()}
+          </BottomSheet>
+        ) : null}
+      </section>
     </main>
   );
 }
