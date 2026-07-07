@@ -7,11 +7,13 @@ from __future__ import annotations
 import math
 import os
 
+from app.core.config import settings
+
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def embed_text(text: str) -> list[float]:
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
             "OPENAI_API_KEY가 설정되지 않았습니다. services/api/.env에 키를 추가해야 "

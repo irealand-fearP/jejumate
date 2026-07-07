@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/0"
     embedding_provider: str = "local"
     llm_provider: str = "local"
+    openai_api_key: str | None = None
 
     # RAG 근거 코사인 유사도 하한선. jejumate/backend(app/config.py)와 동일 기준(0.5)을
     # 그대로 이식 — 관련 없는 문서가 근거로 끼어드는 것을 막는다.
