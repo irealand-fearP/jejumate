@@ -1,5 +1,44 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 오후 갱신 — 정책 기능 삭제 + DB Postgres 이전 + 승인자 채팅
+
+이날 오후에 Claude 팀이 이어서 한 작업(커밋 순, 전부 로컬 커밋까지 완료·GitHub 미푸시):
+
+1. **홈 모임 필터 칩 수정**: 밥친구/작업/이동/커피챗/러닝 버튼이 카테고리 없이 `/meetings`로만
+   가던 것을 `?category=` 쿼리로 실제 필터링되게 수정.
+2. **청년 정책 기능 전면 삭제(제품 결정)**: 서비스 성격과 안 맞다고 판단해 `/policies` 라우트·
+   화면, 백엔드 정책 API·테이블·스키마, RAG 시드의 정책 문서를 모두 제거. RAG는 이제 카톡+
+   큐레이션 콘텐츠만 근거로 쓴다. (홈에 정책 미리보기 섹션을 잠깐 추가했다가 같은 날 다시
+   삭제한 이력이 있음 — 최종은 "정책 기능 없음".)
+3. **신청 모달 문구 교체**: "실명과 연락처를 메시지에 적지 않았습니다" → 노쇼 책임감 안내
+   ("신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다").
+4. **모임 채팅 접근 제어(신규)**: 기존 채팅 API가 승인 여부와 무관하게 아무나 읽고 쓸 수
+   있던 것을 호스트(`owner_secret`)/승인된 신청자(`anonymous_id`)만 접근 가능하도록 403
+   게이팅 추가. `GET /api/meetings/{id}`(모임 단건 조회) 신규 추가.
+5. **내정보 화면 파티션(신규)**: "① 내가 신청해서 승인된 모임" / "② 내가 만든 모임" 두
+   목록을 추가하고 각 항목에서 위 채팅으로 바로 진입 가능.
+6. **SQLite→Postgres 이전(★가장 중요, 배포 신청 유실 버그의 근본 해결)**: 아래 항목 참고.
+
+### SQLite→Postgres 이전 상세
+
+- **배경**: Vercel 서버리스는 인스턴스마다 `/tmp`가 독립돼 있어, 신청 API가 요청 A를 처리한
+  인스턴스와 그 신청을 조회하는 요청 B가 다른 인스턴스에 뜨면 방금 만든 모임/신청이 안 보임.
+  동시요청 15개를 배포 API에 직접 쏴서 4개가 "모임을 찾을 수 없어요" 404로 재현 확인함
+  (사용자 리포트 "신청 처리가 안 되고 있다"의 근본 원인).
+- **해결**: `services/api/app/repositories/local_store.py`에 `DATABASE_URL` 환경변수 유무로
+  SQLite/Postgres를 분기하는 얇은 호환 레이어 추가(`_PgConnectionWrapper`). 로컬 개발은
+  `DATABASE_URL` 미설정이라 기존 SQLite 그대로 동작. Supabase Postgres 17.6(Transaction
+  pooler)에 스키마 생성+시드+RAG 임베딩(카톡 45건 포함) 적재 완료, Vercel `jejumate-api`
+  프로젝트에 `DATABASE_URL`을 환경변수로 등록(Production)하고 재배포 완료.
+- **검증**: 재배포 후 동일한 동시요청 15개 테스트를 배포판에서 재실행 → **15/15 200**.
+  모임 생성→신청→승인→채팅(403→200 접근제어 포함) 전체 흐름, RAG 질문, 게시판 전부 배포
+  판에서 직접 확인. 검증용 테스트 데이터는 정리 완료.
+- **주의**: `requirements.txt`에 `psycopg2-binary` 추가(Supabase 트랜잭션 풀러 호환성 때문에
+  기존 `psycopg`(v3) 대신 채택 — 둘 다 requirements에 있지만 `local_store.py`는 psycopg2만
+  씀). `DATABASE_URL` 값은 Vercel 프로젝트 환경변수에만 있고 이 저장소 어디에도 커밋되지
+  않았다(로컬 `.env`에도 넣지 않음 — 로컬은 SQLite 유지가 방침).
+- 아래 "남은 항목" 1·2번(배포 DB 영구화, 배포 RAG 시드)은 이제 완료 처리.
+
 ## 2026-07-08 최신 전달사항 — 다음 작업자는 여기부터 읽을 것
 
 **최신 본체는 이 로컬 폴더다.**
@@ -15,26 +54,30 @@
 - 웹: `https://jejumate-web.vercel.app`
 - API: `https://jejumate-api.vercel.app`
 - Vercel 프로젝트: `jejumate-web`, `jejumate-api`
-- API Vercel env: `OPENAI_API_KEY` 등록 완료, `JEJUMATE_SQLITE_PATH=/tmp/jejumate.sqlite3`, `API_CORS_ORIGINS`에 웹 도메인 등록 완료
-- 주의: Vercel API는 현재 SQLite를 `/tmp`에 쓰는 서버리스 MVP 배포라 데이터 영구 보존은 보장되지 않는다. 실제 운영 전엔 Postgres/외부 DB로 옮기는 것이 필요하다.
+- API Vercel env: `OPENAI_API_KEY`, `DATABASE_URL`(Supabase Postgres, 2026-07-08 오후 등록) 등록 완료. `API_CORS_ORIGINS`에 웹 도메인 등록 완료
+- `DATABASE_URL`이 있으므로 이제 Postgres를 쓴다(`JEJUMATE_SQLITE_PATH`는 더 이상 배포에서 안 씀 — SQLite는 로컬 개발 전용). 데이터 영구 보존 문제는 해결됨(아래 2026-07-08 오후 갱신 참고).
 
-최신 커밋 흐름:
+최신 커밋 흐름(오래된 순, 위 오후 갱신 항목 포함):
 
 - `82cdb8d` 생활게시판 MVP 마감: 글쓰기·상세·댓글·삭제·신고
 - `f7d7c67` Vercel 배포용 API 어댑터 추가
 - `03cfac3` Vercel 로컬 설정 디렉터리 무시
 - `22229fb` RAG 임베딩 키를 `.env` 설정에서 읽도록 수정
+- `178c6f5` 홈 모임 필터 칩에 카테고리 쿼리 파라미터 연결
+- `dedcbbe` → `581e857` 홈 정책 섹션 추가했다가 같은 날 정책 기능 전면 삭제(제품 결정)
+- `7136c44` 신청 모달 체크 문구를 노쇼 책임감 안내로 교체
+- `5a37f2c` 승인된 참가자+호스트만 보이는 모임별 채팅 접근 제어 구현
+- `9a6da8e` 내정보 화면에 '승인된 모임'/'내가 만든 모임' 파티션 추가
+- `7896053` SQLite/Postgres 이중 지원(DATABASE_URL 있으면 Postgres) — 배포 신청 유실 버그 근본 해결
 
-최신 검증:
+최신 검증(2026-07-08 오후, 배포판 기준):
 
-- `npm.cmd run typecheck` 통과
-- `python -m compileall app` 통과
-- `npm.cmd run build` 통과
-- 배포 웹 `/`, `/board` 200 확인
-- 배포 API `/api/home`, `/api/board` 200 확인
-- 배포 API CORS preflight 200 확인
-- 배포 API 게시판 생성 201, 상세 200, 댓글 201, 신고 201, 삭제 200 확인
-- 배포 RAG `/api/rag/ask` 200 확인. 단, 현재 서버리스 SQLite에 임베딩 시드가 없어 `sources=0`이 나올 수 있다.
+- `npm run typecheck`, `python -m compileall app` 통과
+- 배포 API 동시요청 15개 테스트: Postgres 이전 전 4개 404 → 이전 후 15/15 200
+- 배포 모임 생성→신청→승인→채팅(403→200 접근제어) 전체 흐름 통과
+- 배포 RAG `/api/rag/ask` 근거 포함 응답 확인(카톡 소스 포함)
+- 배포 게시판 조회/작성 정상
+- 로컬 SQLite 스택도 위 전체 흐름 회귀 없음 확인
 
 다음 작업자가 GitHub에서 시작해야 할 경우:
 
@@ -58,6 +101,10 @@ cd C:\Users\AI융합원\jejumate-work\jejumate-fork
 - 에러 규약: 관리코드 불일치 403 / 정원 초과 409 / 이미 처리된 신청 400
 - RAG threshold는 0.5 유지
 - RAG 근거 없으면 sources 빈 배열 + 안내 문구. 임의 문서 반환 금지
+- 모임 채팅(`GET/POST /api/meetings/{id}/chat/messages`)은 호스트(`owner_secret`)나 승인된
+  신청자(`anonymous_id`)만 접근 가능(403 게이팅). 아무나 보이게 되돌리지 말 것.
+- `local_store.py`는 `DATABASE_URL` 있으면 Postgres, 없으면 SQLite로 자동 분기한다. 로컬
+  `.env`에 `DATABASE_URL`을 넣지 말 것(로컬은 SQLite 유지가 방침).
 
 이 폴더는 `jejumate-service`(코덱스 원본)를 2026-07-07에 포크해서 Claude 팀이 이어 작업한 결과물이다.
 **원본 폴더는 한 번도 수정하지 않았고**, 코덱스가 토큰 소진으로 중단한 작업도 여기에 흡수돼 있다.
@@ -132,10 +179,14 @@ git 저장소가 포함돼 있으니 `git log`로 전체 이력을 볼 수 있�
 - Vercel 배포 완료: 웹/API 분리 배포.
 - `services/api/.env`의 `OPENAI_API_KEY`를 RAG 코드가 읽도록 수정 완료.
 
+완료(2026-07-08 오후):
+
+1. ~~배포 DB 영구화~~ → Supabase Postgres로 이전 완료(위 "2026-07-08 오후 갱신" 참고).
+2. ~~배포 RAG 시드~~ → 배포 Postgres에 카톡 45건 포함 임베딩 적재 완료.
+
 남은 항목:
 
-1. **배포 DB 영구화**: Vercel API는 현재 `/tmp` SQLite라 데이터가 영구 보존되지 않는다. 운영 전 Postgres/Neon/Supabase 등 외부 DB 필요.
-2. **배포 RAG 시드**: 로컬은 키가 설정됐지만 배포 서버리스 SQLite에는 임베딩 시드가 영구 적재되지 않는다. 외부 DB + `scripts/seed_rag_embeddings.py` 운영 경로 필요.
 3. 시드 카테고리 균형: 맛집/숙소/생활 데이터 보강. RAG threshold 0.5는 유지하고 데이터만 늘릴 것.
 4. 제품 방향(소유자 결정): 카톡 데이터는 초반 유입용, 유입 후엔 서비스 내 작성 글로만 운영 예정.
 5. 부제 중복 표시 의혹 1건: 실기기에서 "제주 런케이션 커뮤니티"가 두 번 보였다는 리포트가 있었으나 소스·렌더·서버 HTML 모두 1회만 확인됨(HMR 잔상 추정) — 재현되면 조사.
+6. 청년 정책 기능은 제품 결정으로 삭제됨(위 갱신 참고) — 되살릴 계획 없음.
