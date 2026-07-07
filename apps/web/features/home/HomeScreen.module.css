@@ -117,7 +117,11 @@
 
 .privacyBanner img {
   width: 118px;
-  height: 44px;
+  /* 실제 배너 원본은 1584x672(2.357:1). aspect-ratio로 폭 기준 높이를 정확히
+     계산해 레이아웃 흔들림 없이 여백 없는 원본 비율 그대로 표시한다(크롭/레터박스
+     없음). 원본이 표시 폭의 13배 이상이라 레티나에서도 선명하다. */
+  aspect-ratio: 1584 / 672;
+  height: auto;
   object-fit: contain;
 }
 
