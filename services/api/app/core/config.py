@@ -10,6 +10,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3128,http://localhost:3128,"
         "http://127.0.0.1:5173,http://localhost:5173"
     )
+    api_cors_origin_regex: str | None = None
     database_url: str = "postgresql+psycopg://jejumate:jejumate_local@127.0.0.1:5432/jejumate"
     redis_url: str = "redis://127.0.0.1:6379/0"
     embedding_provider: str = "local"

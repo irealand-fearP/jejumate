@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import random
 import sqlite3
 from collections.abc import Iterator
@@ -42,7 +43,7 @@ from app.schemas.interactions import (
 from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
 from app.services.embedding_service import cosine_similarity, embed_text
 
-DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
+DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
 # "NEW" 배지 노출 시간(모임 생성 후). 30분 지나면 자동으로 사라진다.
 NEW_MEETING_WINDOW_MINUTES = 30
