@@ -58,10 +58,14 @@ export function MeetingCard({
         <Icon size={18} strokeWidth={2.2} />
       </div>
       <button className={styles.meetingBody} onClick={() => onApply(meeting)} type="button">
+        {meeting.is_popular || meeting.is_new ? (
+          <span className={styles.meetingBadgeRow}>
+            {meeting.is_popular ? <em>인기</em> : null}
+            {meeting.is_new ? <em>NEW</em> : null}
+          </span>
+        ) : null}
         <span className={styles.meetingTitleLine}>
           <strong>{meeting.title}</strong>
-          {index === 0 ? <em>인기</em> : null}
-          {meeting.category === "run" ? <em>NEW</em> : null}
         </span>
         <small>
           <MapPin size={15} /> {meeting.place_label}

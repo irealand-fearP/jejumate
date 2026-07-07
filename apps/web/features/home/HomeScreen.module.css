@@ -327,7 +327,16 @@
   white-space: nowrap;
 }
 
-.meetingTitleLine em {
+/* 인기/NEW 배지: 제목 옆 인라인이 아니라 제목 위 별도 줄에 둔다(배지 때문에
+   제목이 말줄임되는 문제 방지). 값은 백엔드가 계산해서 내려주는
+   meeting.is_popular/is_new만 그대로 렌더링한다. */
+.meetingBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meetingBadgeRow em {
   flex: 0 0 auto;
   padding: 2px 5px;
   border-radius: 6px;

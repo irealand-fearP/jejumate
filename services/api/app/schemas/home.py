@@ -35,6 +35,10 @@ class HomeMeeting(BaseModel):
     approved_count: int
     status: str
     cta: MeetingCta
+    # 인기/NEW 배지 판정은 백엔드 단일 계산(local_store._meeting_from_row)만 신뢰한다.
+    # 프론트는 이 값을 그대로 렌더링만 하고 자체 판단 로직을 두지 않는다.
+    is_popular: bool
+    is_new: bool
 
 
 class ActivitySummary(BaseModel):

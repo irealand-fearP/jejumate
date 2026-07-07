@@ -25,6 +25,9 @@ export type HomeMeeting = {
     enabled: boolean;
     requires_auth: boolean;
   };
+  // 인기/NEW 배지는 백엔드가 단일 계산해서 내려준다(프론트는 그대로 렌더만).
+  is_popular: boolean;
+  is_new: boolean;
 };
 
 export type HomePolicy = {

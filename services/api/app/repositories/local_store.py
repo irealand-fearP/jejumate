@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 import sqlite3
 from collections.abc import Iterator
@@ -41,6 +42,9 @@ from app.schemas.interactions import (
 from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
+
+# "NEW" 배지 노출 시간(모임 생성 후). 30분 지나면 자동으로 사라진다.
+NEW_MEETING_WINDOW_MINUTES = 30
 
 
 class MeetingNotFoundError(Exception):
@@ -514,7 +518,25 @@ def _seed(connection: sqlite3.Connection) -> None:
         )
 
 
-def _meeting_from_row(row: sqlite3.Row) -> HomeMeeting:
+def _is_popular_meeting(*, capacity: int, approved_count: int) -> bool:
+    """인기 배지: 정원 4명 이상인 모임 중 승인 인원이 정원의 과반수 이상일 때만 표시.
+    "과반수 이상"의 정확한 기준값은 ceil(capacity/2)로 확정한다(정원 4명이면 2명
+    이상, 정원 5명이면 3명 이상 승인돼야 인기)."""
+    if capacity < 4:
+        return False
+    return approved_count >= math.ceil(capacity / 2)
+
+
+def _is_new_meeting(*, created_at: str, now: datetime) -> bool:
+    """NEW 배지: 모임 생성 후 30분 동안만 표시(created_at 기준)."""
+    created_dt = datetime.fromisoformat(created_at)
+    if created_dt.tzinfo is None:
+        created_dt = created_dt.replace(tzinfo=timezone.utc)
+    return now - created_dt <= timedelta(minutes=NEW_MEETING_WINDOW_MINUTES)
+
+
+def _meeting_from_row(row: sqlite3.Row, *, now: datetime | None = None) -> HomeMeeting:
+    now = now or datetime.now(timezone.utc)
     return HomeMeeting(
         id=row["id"],
         category=row["category"],
@@ -527,6 +549,8 @@ def _meeting_from_row(row: sqlite3.Row) -> HomeMeeting:
         approved_count=row["approved_count"],
         status=row["status"],
         cta=MeetingCta(label="신청", enabled=row["status"] == "open", requires_auth=True),
+        is_popular=_is_popular_meeting(capacity=row["capacity"], approved_count=row["approved_count"]),
+        is_new=_is_new_meeting(created_at=row["created_at"], now=now),
     )
 
 
@@ -569,12 +593,14 @@ def list_open_meetings() -> list[HomeMeeting]:
     """모임 목록 페이지(GET /api/meetings) 전용. 홈 미리보기(get_home_data, LIMIT 6)와
     달리 열린 모임 전체를 반환한다 — 버그: 목록 페이지가 홈 미리보기 쿼리를 그대로
     재사용해서 열린 모임이 6개를 넘으면 새로 만든 모임이 목록에서 사라졌었다."""
+    now = datetime.now(timezone.utc)
     with _connect() as connection:
         rows = _open_meeting_rows(connection)
-    return [_meeting_from_row(row) for row in rows]
+    return [_meeting_from_row(row, now=now) for row in rows]
 
 
 def get_home_data() -> HomeResponse:
+    now = datetime.now(timezone.utc)
     with _connect() as connection:
         meeting_rows = _open_meeting_rows(connection, limit=6)
         policy_rows = connection.execute(
@@ -586,11 +612,13 @@ def get_home_data() -> HomeResponse:
             LIMIT 4
             """
         ).fetchall()
+        # "지금 제주 어딘가에서 N명이 놀고 있어요": 마감 안 된(활성) 모임의 호스트
+        # 1명씩 + 그 모임에 승인된 참가자 수를 전부 더한 실제 값(하드코딩 아님).
         active_people_count = connection.execute(
             """
-            SELECT COUNT(DISTINCT anonymous_id)
-            FROM analytics_events
-            WHERE event_name = 'app_opened'
+            SELECT COALESCE(SUM(approved_count), 0) + COUNT(*)
+            FROM meetings
+            WHERE visibility = 'public' AND status IN ('open', 'closing_soon')
             """
         ).fetchone()[0]
 
@@ -599,7 +627,7 @@ def get_home_data() -> HomeResponse:
         privacy_chip=PrivacyChip(label="실명 비공개", is_verified=False),
         meeting_summary=MeetingSummary(open_count=len(meeting_rows)),
         meeting_filters=["전체", "밥친구", "작업", "이동", "커피챗", "러닝"],
-        meetings=[_meeting_from_row(row) for row in meeting_rows],
+        meetings=[_meeting_from_row(row, now=now) for row in meeting_rows],
         activity_summary=ActivitySummary(
             active_people_count=active_people_count,
             thumbnail_keys=["hamdeok_beach", "palm_road", "ocean_cafe", "jeju_street"],
