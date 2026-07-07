@@ -10,8 +10,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.db import Base
-from app.main import app, get_db
+from app.embedding import MockEmbeddingProvider
+from app.main import app, get_db, get_embedder
 from app.models import Post
 
 
@@ -31,6 +33,8 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    # 실제 OPENAI_API_KEY 없이도 돌아가게 임베딩은 mock으로 대체(test_api.py와 동일 패턴).
+    app.dependency_overrides[get_embedder] = lambda: MockEmbeddingProvider()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -97,8 +101,12 @@ def test_rejects_info_category_for_party_registration(client):
     assert res.status_code == 422
 
 
-def test_created_party_post_is_searchable_via_rag(client):
+def test_created_party_post_is_searchable_via_rag(client, monkeypatch):
     """등록 직후 RAG 질문에도 근거로 잡혀야 한다(기획서 2장 데모 시나리오 5번)."""
+    # mock 임베딩은 실제 의미 유사도를 반영하지 않고 코사인 유사도가 음수로도 나올 수 있어
+    # (서로 다른 텍스트의 랜덤 벡터끼리라 무관계) -1.0으로 낮춰 관련도 필터를 완전히 끄고
+    # 이 테스트 본연의 목적(등록 직후 검색 반영)만 검증한다.
+    monkeypatch.setattr(settings, "search_similarity_threshold", -1.0)
     client.post(
         "/posts/party",
         json={

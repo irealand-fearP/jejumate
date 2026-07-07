@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.db import Base
 from app.embedding import MockEmbeddingProvider
 from app.main import app, get_db, get_embedder
@@ -95,7 +96,11 @@ def test_feed_category_filter(client):
     assert body[0]["id"] == str(food.id)
 
 
-def test_search_returns_answer_with_evidence(client):
+def test_search_returns_answer_with_evidence(client, monkeypatch):
+    # 고정 0벡터(post)와 쿼리 벡터 간 코사인 유사도는 0으로 계산되지만, 다른 텍스트의
+    # mock 벡터끼리는 음수도 나올 수 있어 안전하게 -1.0으로 낮춰 관련도 필터를 완전히 끄고
+    # 이 테스트 본연의 목적(응답 형식/근거 필드)만 검증한다.
+    monkeypatch.setattr(settings, "search_similarity_threshold", -1.0)
     post = _seed_post(client, content="함덕 택시팟 구해요")
 
     res = client.post("/search", json={"query": "함덕 가는 택시팟 있어?"})
