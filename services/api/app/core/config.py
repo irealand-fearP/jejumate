@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     embedding_provider: str = "local"
     llm_provider: str = "local"
 
+    # RAG 근거 코사인 유사도 하한선. jejumate/backend(app/config.py)와 동일 기준(0.5)을
+    # 그대로 이식 — 관련 없는 문서가 근거로 끼어드는 것을 막는다.
+    rag_similarity_threshold: float = 0.5
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

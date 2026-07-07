@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -7,6 +8,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
+from app.core.config import settings
 from app.schemas.home import (
     ActivitySummary,
     HomeMeeting,
@@ -27,6 +29,7 @@ from app.schemas.interactions import (
     RagAskResponse,
     RagSource,
 )
+from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
 
@@ -161,6 +164,7 @@ def ensure_database() -> None:
               category TEXT,
               visibility TEXT NOT NULL DEFAULT 'public',
               is_active INTEGER NOT NULL DEFAULT 1,
+              embedding TEXT,
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
@@ -197,6 +201,12 @@ def ensure_database() -> None:
             );
             """
         )
+        try:
+            # 이미 생성돼 있던 기존 rag_documents 테이블에 embedding 컬럼을 안전하게 추가
+            # (신규 생성 시엔 위 CREATE TABLE에 이미 포함돼 있어 여기서는 no-op).
+            connection.execute("ALTER TABLE rag_documents ADD COLUMN embedding TEXT")
+        except sqlite3.OperationalError:
+            pass
         _seed(connection)
         connection.commit()
     finally:
@@ -739,33 +749,30 @@ def _infer_intent(question: str) -> str:
 
 
 def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskResponse:
+    """
+    RAG 근거 검색: jejumate/backend(app/search.py)와 동일하게 OpenAI 임베딩 +
+    코사인 유사도 threshold 방식을 쓴다. 예전의 "키워드 LIKE 매칭 → 매칭 실패 시
+    아무 문서나 반환" 폴백은 제거했다 — threshold 미만이면 근거 없음으로 응답한다.
+    """
     normalized = question.strip()
-    tokens = [token for token in normalized.replace("?", " ").split() if len(token) >= 2]
-    like_terms = [f"%{token}%" for token in tokens] or [f"%{normalized}%"]
-    where = " OR ".join(["title LIKE ? OR body LIKE ?" for _ in like_terms])
-    params = [value for term in like_terms for value in (term, term)]
+    query_vector = embed_text(normalized)
 
     with _connect() as connection:
-        rows = connection.execute(
-            f"""
+        candidates = connection.execute(
+            """
             SELECT *
             FROM rag_documents
-            WHERE is_active = 1 AND ({where})
-            ORDER BY created_at DESC
-            LIMIT 3
-            """,
-            params,
+            WHERE is_active = 1 AND embedding IS NOT NULL
+            """
         ).fetchall()
-        if not rows:
-            rows = connection.execute(
-                """
-                SELECT *
-                FROM rag_documents
-                WHERE is_active = 1
-                ORDER BY created_at DESC
-                LIMIT 2
-                """
-            ).fetchall()
+
+        scored = [
+            (row, cosine_similarity(query_vector, json.loads(row["embedding"])))
+            for row in candidates
+        ]
+        scored = [(row, sim) for row, sim in scored if sim >= settings.rag_similarity_threshold]
+        scored.sort(key=lambda item: item[1], reverse=True)
+        rows = [row for row, _sim in scored[:3]]
 
         source_rows = []
         for row in rows:
@@ -804,18 +811,23 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             ),
         )
 
-    evidence = " ".join(row["body"] for row in rows)
-    answer = (
-        f"{normalized} 기준으로는 {rows[0]['title']} 정보를 먼저 확인하는 것이 좋습니다. "
-        f"{evidence[:180]}{'...' if len(evidence) > 180 else ''}"
-    )
+    if not rows:
+        answer = "지금 조건에 맞는 유효한 정보를 찾지 못했어요. 다른 질문으로 다시 시도해주세요."
+        sources: list[RagSource] = []
+    else:
+        evidence = " ".join(row["body"] for row in rows)
+        answer = (
+            f"{normalized} 기준으로는 {rows[0]['title']} 정보를 먼저 확인하는 것이 좋습니다. "
+            f"{evidence[:180]}{'...' if len(evidence) > 180 else ''}"
+        )
+        sources = [
+            RagSource(title=row["title"], url=row["url"] or "https://jejumate.local", source_type=row["source_type"])
+            for row in source_rows
+        ]
 
     return RagAskResponse(
         answer=answer,
-        sources=[
-            RagSource(title=row["title"], url=row["url"] or "https://jejumate.local", source_type=row["source_type"])
-            for row in source_rows
-        ],
+        sources=sources,
         safety_note="정책 신청 조건과 마감일은 공식 링크에서 최종 확인하세요.",
         suggestions=["신청 가능한 청년정책", "함덕 점심 추천", "비 오는 날 코스"],
         query_log_id=query_log_id,
