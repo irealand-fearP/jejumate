@@ -4,6 +4,9 @@
   display: flex;
   justify-content: center;
   overflow-y: auto;
+  /* 유일한 스크롤 컨테이너. 터치 관성 스크롤이 자연스럽게 동작하도록 명시한다. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   background: #eef3f4;
   scrollbar-width: none;
 }
@@ -18,7 +21,9 @@
   width: min(100vw, 430px);
   min-height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
   max-width: 100vw;
-  padding: 22px 14px 0;
+  /* 하단 내비가 position:fixed로 뷰포트 바닥에 고정되므로, 마지막 콘텐츠가
+     그 밑에 가리지 않게 내비 높이(72px)+여백만큼 하단 패딩을 확보한다. */
+  padding: 22px 14px 96px;
   background: #ffffff;
   box-shadow: 0 24px 60px rgba(12, 42, 45, 0.18);
 }
@@ -418,7 +423,9 @@
   }
 
   .timelineItem {
-    grid-template-columns: 44px 8px 38px minmax(0, 1fr) 70px;
+    /* 정원 배지 컬럼: 폰트 크기(10px)는 기본 규칙과 동일한데 이 폭만 70px로 좁아서
+       "지금 합류 가능" 배지가 잘리는 문제가 있었다. 100px로 넓혀 겹치지 않게 한다. */
+    grid-template-columns: 44px 8px 38px minmax(0, 1fr) 100px;
     gap: 5px;
   }
 
@@ -611,12 +618,15 @@
 }
 
 .bottomNav {
-  position: sticky;
+  /* 콘텐츠 흐름(sticky)에 맡기면 실제 콘텐츠가 짧을 때 내비가 화면 밖으로 밀려나고
+     그 위에 회색 빈 공간이 생기는 버그가 있었다. 뷰포트 바닥에 항상 고정한다. */
+  position: fixed;
+  left: 50%;
   bottom: 0;
   z-index: 5;
-  width: 100%;
+  width: min(100vw, 430px);
   height: 72px;
-  margin: 14px -20px 0;
+  transform: translateX(-50%);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;

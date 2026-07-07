@@ -20,3 +20,18 @@ class ProfilePreviewResponse(BaseModel):
     hidden_fields: list[str] = Field(default_factory=list)
     default_interests: list[str] = Field(default_factory=list)
     safety_notes: list[str] = Field(default_factory=list)
+
+
+class BoardPost(BaseModel):
+    id: str
+    category: str
+    title: str
+    body: str
+    author_nickname: str
+    created_at: str
+
+
+class BoardResponse(BaseModel):
+    categories: list[str]
+    posts: list[BoardPost]
+    notice: str

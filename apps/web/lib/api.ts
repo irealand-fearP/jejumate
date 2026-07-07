@@ -80,6 +80,21 @@ export type PoliciesData = {
   source_note: string;
 };
 
+export type BoardPost = {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  author_nickname: string;
+  created_at: string;
+};
+
+export type BoardData = {
+  categories: string[];
+  posts: BoardPost[];
+  notice: string;
+};
+
 export type ProfilePreviewData = {
   public_fields: string[];
   hidden_fields: string[];
@@ -315,6 +330,10 @@ export async function deleteMyApplication(
 
 export async function getPoliciesData(): Promise<PoliciesData> {
   return getApi<PoliciesData>("/api/policies");
+}
+
+export async function getBoardData(): Promise<BoardData> {
+  return getApi<BoardData>("/api/board");
 }
 
 export async function getProfilePreviewData(): Promise<ProfilePreviewData> {

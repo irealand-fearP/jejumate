@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, home, interactions, meetings, policies, profile
+from app.api.routes import board, health, home, interactions, meetings, policies, profile
 from app.core.config import settings
 
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(board.router, prefix="/api")
     app.include_router(home.router, prefix="/api")
     app.include_router(interactions.router, prefix="/api")
     app.include_router(meetings.router, prefix="/api")

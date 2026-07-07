@@ -39,6 +39,7 @@ from app.schemas.interactions import (
     RagAskResponse,
     RagSource,
 )
+from app.schemas.resources import BoardPost
 from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
@@ -195,6 +196,15 @@ def ensure_database() -> None:
               updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS board_posts (
+              id TEXT PRIMARY KEY,
+              category TEXT NOT NULL,
+              title TEXT NOT NULL,
+              body TEXT NOT NULL,
+              author_nickname TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS rag_documents (
               id TEXT PRIMARY KEY,
               source_type TEXT NOT NULL,
@@ -254,9 +264,67 @@ def ensure_database() -> None:
         except sqlite3.OperationalError:
             pass
         _seed(connection)
+        # 게시판 시드는 모임 시드(_seed)의 meeting_count 가드와 무관하게 항상 확인한다 —
+        # 이미 모임이 있는 기존 개발 DB에서도 board_posts는 비어 있을 수 있기 때문.
+        _seed_board_posts(connection)
         connection.commit()
     finally:
         connection.close()
+
+
+def _seed_board_posts(connection: sqlite3.Connection) -> None:
+    post_count = connection.execute("SELECT COUNT(*) FROM board_posts").fetchone()[0]
+    if post_count:
+        return
+
+    now = _now()
+    board_posts = [
+        (
+            "board-question-taxi",
+            "질문게시판",
+            "제주공항 심야 택시 잘 잡히나요?",
+            "밤 11시 넘어서 도착하는데 공항에서 시내까지 택시 대기가 긴지 궁금해요.",
+            "제주새내기",
+        ),
+        (
+            "board-question-rain",
+            "질문게시판",
+            "비 오는 날 실내 데이트 코스 추천해주세요",
+            "이번 주 내내 비 예보라 실내 위주로 다닐만한 곳 있을까요?",
+            "우산요정",
+        ),
+        (
+            "board-market-desk",
+            "중고거래",
+            "원룸용 접이식 책상 나눔 가격에 팝니다",
+            "이호동 근처, 상태 좋아요. 직거래만 가능합니다.",
+            "이호주민",
+        ),
+        (
+            "board-market-bike",
+            "중고거래",
+            "자전거(생활용) 3개월 사용, 저렴하게 드려요",
+            "타이어 최근 교체했습니다. 서귀포 인근에서 만나요.",
+            "서귀포라이더",
+        ),
+        (
+            "board-share-firstaid",
+            "나눔",
+            "버물리/연고 여유분 나눔합니다",
+            "여행 오면서 넉넉히 챙겨왔는데 남아서 나눔해요.",
+            "제주헬퍼",
+        ),
+    ]
+    for post_id, category, title, body, author_nickname in board_posts:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO board_posts (
+              id, category, title, body, author_nickname, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (post_id, category, title, body, author_nickname, now),
+        )
 
 
 def _seed(connection: sqlite3.Connection) -> None:
@@ -567,6 +635,25 @@ def _policy_from_row(row: sqlite3.Row) -> HomePolicy:
         d_day=max((end_date - date.today()).days, 0),
         official_url=row["official_url"],
     )
+
+
+def _board_post_from_row(row: sqlite3.Row) -> BoardPost:
+    return BoardPost(
+        id=row["id"],
+        category=row["category"],
+        title=row["title"],
+        body=row["body"],
+        author_nickname=row["author_nickname"],
+        created_at=row["created_at"],
+    )
+
+
+def list_board_posts() -> list[BoardPost]:
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT * FROM board_posts ORDER BY datetime(created_at) DESC"
+        ).fetchall()
+    return [_board_post_from_row(row) for row in rows]
 
 
 def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:

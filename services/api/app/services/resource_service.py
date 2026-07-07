@@ -1,5 +1,5 @@
-from app.repositories.local_store import list_open_meetings
-from app.schemas.resources import MeetingsResponse, PoliciesResponse, ProfilePreviewResponse
+from app.repositories.local_store import list_board_posts, list_open_meetings
+from app.schemas.resources import BoardResponse, MeetingsResponse, PoliciesResponse, ProfilePreviewResponse
 from app.services.home_service import get_home_data
 
 
@@ -20,6 +20,14 @@ def get_policies_data() -> PoliciesResponse:
         policies=get_home_data().policies,
         last_synced_at="2026-07-07T09:00:00+09:00",
         source_note="정책 정보는 RAG 답변에 사용되더라도 최종 신청 전 공식 링크 확인이 필요합니다.",
+    )
+
+
+def get_board_data() -> BoardResponse:
+    return BoardResponse(
+        categories=["질문게시판", "중고거래", "나눔"],
+        posts=list_board_posts(),
+        notice="생활게시판 글은 닉네임으로만 공개됩니다.",
     )
 
 

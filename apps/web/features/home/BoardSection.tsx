@@ -10,9 +10,7 @@ const BOARD_ITEMS = [
   { title: "나눔", body: "버물리, 연고처럼 급한 물품을 나눠요", icon: ShieldCheck },
 ];
 
-// 코덱스 원본은 별도 /board 페이지로 연결했지만, 이 fork엔 아직 없는 화면이라
-// 죽은 링크가 되는 걸 막기 위해 이미 있는 /policies로 연결한다(시각 구성만 이식).
-const BOARD_TARGET = "/policies";
+const BOARD_TARGET = "/board";
 
 export function BoardSection() {
   const router = useRouter();
