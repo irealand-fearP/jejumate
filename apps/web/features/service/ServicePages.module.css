@@ -195,6 +195,12 @@
   font-weight: 950;
 }
 
+.actionRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
 .createMeetingButton {
   display: flex;
   align-items: center;
@@ -205,6 +211,39 @@
   border-radius: 8px;
   background: #eefbfa;
   color: #007f81;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.notificationButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #dce6e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #40504e;
+  font-size: 13px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.notificationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fbfb;
+}
+
+.notificationTitle {
+  margin: 0;
+  color: #172024;
   font-size: 13px;
   font-weight: 950;
 }

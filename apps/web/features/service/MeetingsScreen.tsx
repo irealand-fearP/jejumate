@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Bell,
   CalendarClock,
   Car,
   Check,
@@ -14,6 +15,7 @@ import {
   LockKeyhole,
   MapPin,
   Plus,
+  Trash2,
   Utensils,
   UsersRound,
   X,
@@ -22,11 +24,14 @@ import {
   approveMeetingApplication,
   createMeeting,
   createNickname,
+  deleteMyApplication,
   getMeetingApplications,
-  getMeetingStatus,
   getMeetingsData,
+  getMeetingStatus,
+  getMyApplicationNotifications,
   rejectMeetingApplication,
   submitMeetingApplication,
+  type ApplicantNotification,
   type HomeMeeting,
   type MeetingApplicationItem,
   type MeetingsData,
@@ -128,6 +133,13 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   const [manageAuthorized, setManageAuthorized] = useState(false);
   const [manageCodeChecked, setManageCodeChecked] = useState(false);
   const [manageDecisionError, setManageDecisionError] = useState<string | null>(null);
+
+  // 내 신청 알림(코덱스 원본 신규 기능 이식). 호스트 액션이 아니라 신청자 본인 조회라
+  // owner_secret이 아니라 anonymous_id로 스코프한다.
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     const owned = new Set<string>();
@@ -296,6 +308,34 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     ? formatCapacityStatus(manageStatus.approved_count, manageStatus.capacity, manageStatus.is_closed)
     : null;
 
+  async function openNotifications() {
+    setShowNotifications(true);
+    setNotificationsError(null);
+    if (!profile?.anonymousId) {
+      setNotifications([]);
+      return;
+    }
+    try {
+      const res = await getMyApplicationNotifications(profile.anonymousId);
+      setNotifications(res.notifications);
+    } catch {
+      setNotificationsError("알림을 불러오지 못했어요");
+    }
+  }
+
+  async function handleDeleteNotification(notification: ApplicantNotification) {
+    if (!profile?.anonymousId) return;
+    setNotificationBusyId(notification.application_id);
+    try {
+      await deleteMyApplication(notification.meeting_id, notification.application_id, profile.anonymousId);
+      setNotifications((prev) => (prev ?? []).filter((n) => n.application_id !== notification.application_id));
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : "삭제하지 못했어요");
+    } finally {
+      setNotificationBusyId(null);
+    }
+  }
+
   return (
     <MobileShell active="meetings" title="모임" subtitle="닉네임만 공개하고 가볍게 합류해요">
       <div className={styles.toolbar}>
@@ -313,9 +353,14 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
       <div className={styles.notice}>{data.privacy_note}</div>
 
-      <button className={styles.createMeetingButton} onClick={openCreateSheet} type="button">
-        <Plus size={16} /> 모임 만들기
-      </button>
+      <div className={styles.actionRow}>
+        <button className={styles.createMeetingButton} onClick={openCreateSheet} type="button">
+          <Plus size={16} /> 모임 만들기
+        </button>
+        <button className={styles.notificationButton} onClick={openNotifications} type="button">
+          <Bell size={16} /> 내 신청 알림
+        </button>
+      </div>
 
       <section className={styles.meetingList}>
         {visibleMeetings.map((meeting) => {
@@ -659,6 +704,68 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
             <div className={styles.sheetActions}>
               <button className={styles.secondaryButton} onClick={closeManage} type="button">
+                닫기
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showNotifications ? (
+        <div className={styles.sheetBackdrop} onClick={() => setShowNotifications(false)}>
+          <section className={styles.sheet} onClick={(event) => event.stopPropagation()}>
+            <button
+              className={styles.sheetClose}
+              onClick={() => setShowNotifications(false)}
+              type="button"
+              aria-label="닫기"
+            >
+              <X size={20} />
+            </button>
+            <div className={styles.sheetGrip} />
+            <div className={styles.sheetHero}>
+              <span>
+                <Bell size={14} /> 내 신청 알림
+              </span>
+              <h2>신청한 모임 상태</h2>
+            </div>
+
+            <div className={styles.form}>
+              {!profile ? (
+                <div className={styles.result}>아직 신청한 모임이 없어요. 먼저 모임에 신청해보세요.</div>
+              ) : null}
+              {notificationsError ? <div className={styles.result}>{notificationsError}</div> : null}
+
+              {notifications && notifications.length > 0 ? (
+                <ul className={styles.applicantList}>
+                  {notifications.map((notification) => (
+                    <li className={styles.notificationRow} key={notification.application_id}>
+                      <div>
+                        <p className={styles.notificationTitle}>{notification.title}</p>
+                        <p className={styles.meta}>{notification.body}</p>
+                        <p className={styles.meta}>
+                          {notification.meeting_title} · {notification.place_label} · 호스트{" "}
+                          {notification.host_nickname}
+                        </p>
+                      </div>
+                      <button
+                        className={styles.rejectButton}
+                        disabled={notificationBusyId === notification.application_id}
+                        onClick={() => handleDeleteNotification(notification)}
+                        type="button"
+                      >
+                        <Trash2 size={13} /> 삭제
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : profile && notifications ? (
+                <div className={styles.result}>아직 신청한 모임이 없어요.</div>
+              ) : null}
+            </div>
+
+            <div className={styles.sheetActions}>
+              <button className={styles.secondaryButton} onClick={() => setShowNotifications(false)} type="button">
                 닫기
               </button>
             </div>

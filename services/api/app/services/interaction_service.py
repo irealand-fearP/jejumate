@@ -2,6 +2,8 @@ import logging
 
 from app.repositories import local_store
 from app.schemas.interactions import (
+    ApplicantNotificationsResponse,
+    ApplicationDeleteResponse,
     ChatMessagesResponse,
     MeetingApplicationDecisionResponse,
     MeetingApplicationListResponse,
@@ -116,4 +118,14 @@ def decide_meeting_application(
         application_id=application_id,
         owner_secret=owner_secret,
         decision=decision,
+    )
+
+
+def list_my_application_notifications(anonymous_id: str) -> ApplicantNotificationsResponse:
+    return local_store.list_notifications_for_applicant(anonymous_id=anonymous_id)
+
+
+def delete_my_application(meeting_id: str, application_id: str, anonymous_id: str) -> ApplicationDeleteResponse:
+    return local_store.delete_my_application(
+        meeting_id=meeting_id, application_id=application_id, anonymous_id=anonymous_id
     )

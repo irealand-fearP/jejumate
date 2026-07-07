@@ -134,6 +134,30 @@ export type MeetingApplicationDecisionResult = {
   status: string;
 };
 
+export type ApplicationDeleteResult = {
+  application_id: string;
+  meeting_id: string;
+  status: string;
+};
+
+export type ApplicantNotification = {
+  application_id: string;
+  meeting_id: string;
+  meeting_title: string;
+  starts_at: string;
+  place_label: string;
+  host_nickname: string;
+  status: string;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApplicantNotificationsResult = {
+  notifications: ApplicantNotification[];
+};
+
 export type ChatMessage = {
   id: string;
   meeting_id: string;
@@ -192,10 +216,10 @@ async function getApi<TResponse>(path: string): Promise<TResponse> {
   return body.data;
 }
 
-// 승인/거절처럼 바디 없이 query string만 쓰는 POST용. 403/400/409 등의 detail 메시지를
-// 그대로 던져서(정원이 찼어요 등) 화면에 보여줄 수 있게 한다.
-async function postApiQuery<TResponse>(path: string): Promise<TResponse> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { method: "POST" });
+// 승인/거절/삭제처럼 바디 없이 query string만 쓰는 요청용. 403/400/409 등의 detail
+// 메시지를 그대로 던져서(정원이 찼어요 등) 화면에 보여줄 수 있게 한다.
+async function postApiQuery<TResponse>(path: string, method: "POST" | "DELETE" = "POST"): Promise<TResponse> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { method });
 
   if (!response.ok) {
     let detail: string | undefined;
@@ -264,6 +288,25 @@ export async function rejectMeetingApplication(
 ): Promise<MeetingApplicationDecisionResult> {
   return postApiQuery<MeetingApplicationDecisionResult>(
     `/api/meetings/${meetingId}/applications/${applicationId}/reject?owner_secret=${encodeURIComponent(ownerSecret)}`
+  );
+}
+
+// 신청자 알림(내 신청 상태 확인). 호스트 액션이 아니라 신청자 본인 조회라 anonymous_id로 스코프한다.
+export async function getMyApplicationNotifications(anonymousId: string): Promise<ApplicantNotificationsResult> {
+  return getApi<ApplicantNotificationsResult>(
+    `/api/meetings/applications/notifications?anonymous_id=${encodeURIComponent(anonymousId)}`
+  );
+}
+
+// 신청 삭제(본인 취소). 승인/거절과 달리 owner_secret이 아니라 anonymous_id로 본인 확인한다.
+export async function deleteMyApplication(
+  meetingId: string,
+  applicationId: string,
+  anonymousId: string
+): Promise<ApplicationDeleteResult> {
+  return postApiQuery<ApplicationDeleteResult>(
+    `/api/meetings/${meetingId}/applications/${applicationId}?anonymous_id=${encodeURIComponent(anonymousId)}`,
+    "DELETE"
   );
 }
 

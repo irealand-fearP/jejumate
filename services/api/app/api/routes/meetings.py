@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.repositories.local_store import (
     AlreadyProcessedError,
+    ApplicantMismatchError,
     ApplicationNotFoundError,
     CapacityExceededError,
     MeetingNotFoundError,
@@ -9,6 +10,8 @@ from app.repositories.local_store import (
 )
 from app.schemas.common import ApiResponse
 from app.schemas.interactions import (
+    ApplicantNotificationsResponse,
+    ApplicationDeleteResponse,
     MeetingApplicationDecisionResponse,
     MeetingApplicationListResponse,
     MeetingCreateRequest,
@@ -19,8 +22,10 @@ from app.schemas.resources import MeetingsResponse
 from app.services.interaction_service import (
     create_meeting,
     decide_meeting_application,
+    delete_my_application,
     get_meeting_status,
     list_meeting_applications,
+    list_my_application_notifications,
 )
 from app.services.resource_service import get_meetings_data
 
@@ -30,6 +35,13 @@ router = APIRouter(tags=["meetings"])
 @router.get("/meetings", response_model=ApiResponse[MeetingsResponse])
 def meetings() -> ApiResponse[MeetingsResponse]:
     return ApiResponse(request_id="local_service_request", data=get_meetings_data())
+
+
+@router.get("/meetings/applications/notifications", response_model=ApiResponse[ApplicantNotificationsResponse])
+def my_application_notifications(anonymous_id: str) -> ApiResponse[ApplicantNotificationsResponse]:
+    """내 신청 알림(코덱스 원본 신규 기능 이식). 호스트 액션이 아니므로 owner_secret이
+    아니라 신청자 본인의 anonymous_id로 조회한다."""
+    return ApiResponse(request_id="local_service_request", data=list_my_application_notifications(anonymous_id))
 
 
 @router.post("/meetings", response_model=ApiResponse[MeetingCreateResponse], status_code=201)
@@ -107,4 +119,24 @@ def reject_meeting_application(
         raise HTTPException(status_code=403, detail="관리 코드가 일치하지 않아요")
     except AlreadyProcessedError:
         raise HTTPException(status_code=400, detail="이미 처리된 신청이에요")
+    return ApiResponse(request_id="local_service_request", data=data)
+
+
+@router.delete(
+    "/meetings/{meeting_id}/applications/{application_id}",
+    response_model=ApiResponse[ApplicationDeleteResponse],
+)
+def delete_meeting_application(
+    meeting_id: str, application_id: str, anonymous_id: str
+) -> ApiResponse[ApplicationDeleteResponse]:
+    """신청 삭제(코덱스 원본 신규 기능 이식). 신청자 본인 액션이므로 owner_secret이
+    아니라 신청 생성 시 쓴 anonymous_id로 본인 확인한다(승인/거절과는 다른 권한 모델)."""
+    try:
+        data = delete_my_application(meeting_id, application_id, anonymous_id)
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+    except ApplicationNotFoundError:
+        raise HTTPException(status_code=404, detail="신청을 찾을 수 없어요")
+    except ApplicantMismatchError:
+        raise HTTPException(status_code=403, detail="본인 신청만 삭제할 수 있어요")
     return ApiResponse(request_id="local_service_request", data=data)

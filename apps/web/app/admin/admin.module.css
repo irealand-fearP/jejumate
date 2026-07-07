@@ -1,0 +1,179 @@
+.page {
+  min-height: 100vh;
+  background: #edf3f4;
+  color: #111315;
+  padding: 20px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  max-width: 760px;
+  margin: 0 auto 18px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #007f81;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #e0e9eb;
+}
+
+.segmentButton,
+.segmentActive {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.segmentButton {
+  background: transparent;
+  color: #596168;
+}
+
+.segmentActive {
+  background: #ffffff;
+  color: #007f81;
+}
+
+.notice {
+  max-width: 760px;
+  margin: 0 auto 12px;
+  padding: 12px;
+  border: 1px solid #cfe7e3;
+  border-radius: 8px;
+  background: #eefbfa;
+  color: #0c625e;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(20, 54, 58, 0.05);
+}
+
+.itemMain {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.itemTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meetingTitle {
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 950;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e9f8f6;
+  color: #007f81;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.nickname {
+  color: #40504e;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.text {
+  margin: 0;
+  color: #53615f;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.meta {
+  color: #7b8785;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-self: center;
+}
+
+.button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryButton {
+  composes: button;
+  background: #009f9b;
+  color: #ffffff;
+}
+
+.secondaryButton {
+  composes: button;
+  background: #edf3f2;
+  color: #40504e;
+}
+
+.empty {
+  padding: 24px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6a7674;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 850;
+}

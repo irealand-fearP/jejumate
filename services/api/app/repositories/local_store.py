@@ -23,6 +23,9 @@ from app.schemas.home import (
     RagStrip,
 )
 from app.schemas.interactions import (
+    ApplicantNotification,
+    ApplicantNotificationsResponse,
+    ApplicationDeleteResponse,
     ChatMessage,
     ChatMessagesResponse,
     MeetingApplicationDecisionResponse,
@@ -57,6 +60,13 @@ class AlreadyProcessedError(Exception):
 
 
 class CapacityExceededError(Exception):
+    pass
+
+
+class ApplicantMismatchError(Exception):
+    """신청 삭제는 호스트가 아니라 신청자 본인 액션이라 owner_secret이 아니라
+    anonymous_id로 본인 확인한다(OwnerMismatchError와 별개)."""
+
     pass
 
 
@@ -847,6 +857,85 @@ def decide_meeting_application(
             )
 
     return MeetingApplicationDecisionResponse(application_id=application_id, meeting_id=meeting["id"], status=new_status)
+
+
+def list_notifications_for_applicant(*, anonymous_id: str) -> ApplicantNotificationsResponse:
+    """내 신청들의 현재 상태를 알림 형태로 보여준다(코덱스 원본 신규 기능 이식).
+    호스트 액션이 아니라 신청자 본인 조회라 anonymous_id로만 스코프한다."""
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT a.id AS application_id, a.meeting_id, m.title AS meeting_title,
+                   m.starts_at, m.place_label, hp.nickname AS host_nickname,
+                   a.status, a.created_at, a.updated_at
+            FROM meeting_applications a
+            JOIN meetings m ON m.id = a.meeting_id
+            JOIN profiles hp ON hp.id = m.host_profile_id
+            JOIN users u ON u.id = a.applicant_user_id
+            WHERE u.anonymous_id = ?
+            ORDER BY a.updated_at DESC
+            LIMIT 20
+            """,
+            (anonymous_id,),
+        ).fetchall()
+
+    notifications: list[ApplicantNotification] = []
+    for row in rows:
+        status = row["status"]
+        if status == "approved":
+            title, body = "참여 신청이 승인됐어요", f"{row['meeting_title']} 모임에 참여할 수 있어요."
+        elif status == "rejected":
+            title, body = "참여 신청이 거절됐어요", f"{row['meeting_title']} 신청이 거절됐어요. 다른 모임을 둘러봐 주세요."
+        else:
+            title, body = "참여 신청이 접수됐어요", f"{row['meeting_title']} 신청을 호스트가 확인하고 있어요."
+
+        notifications.append(
+            ApplicantNotification(
+                application_id=row["application_id"],
+                meeting_id=row["meeting_id"],
+                meeting_title=row["meeting_title"],
+                starts_at=row["starts_at"],
+                place_label=row["place_label"],
+                host_nickname=row["host_nickname"],
+                status=status,
+                title=title,
+                body=body,
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+        )
+
+    return ApplicantNotificationsResponse(notifications=notifications)
+
+
+def delete_my_application(*, meeting_id: str, application_id: str, anonymous_id: str) -> ApplicationDeleteResponse:
+    """신청자 본인이 자기 신청을 취소/삭제한다(코덱스 원본 신규 기능 이식, owner_secret이
+    아니라 anonymous_id로 본인 확인 — 호스트 액션인 승인/거절과는 별개 권한 모델)."""
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        application = connection.execute(
+            """
+            SELECT a.*, u.anonymous_id AS applicant_anonymous_id
+            FROM meeting_applications a
+            JOIN users u ON u.id = a.applicant_user_id
+            WHERE a.id = ? AND a.meeting_id = ?
+            """,
+            (application_id, meeting["id"]),
+        ).fetchone()
+        if application is None:
+            raise ApplicationNotFoundError(f"Unknown application id: {application_id}")
+        if application["applicant_anonymous_id"] != anonymous_id:
+            raise ApplicantMismatchError("본인 신청만 삭제할 수 있어요")
+
+        now = _now()
+        if application["status"] == "approved":
+            connection.execute(
+                "UPDATE meetings SET approved_count = MAX(approved_count - 1, 0), updated_at = ? WHERE id = ?",
+                (now, meeting["id"]),
+            )
+        connection.execute("DELETE FROM meeting_applications WHERE id = ?", (application_id,))
+
+    return ApplicationDeleteResponse(application_id=application_id, meeting_id=meeting["id"], status="deleted")
 
 
 def _chat_message_from_row(row: sqlite3.Row) -> ChatMessage:

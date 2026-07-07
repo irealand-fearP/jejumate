@@ -78,6 +78,37 @@ class MeetingApplicationDecisionResponse(BaseModel):
     status: str
 
 
+class ApplicationDeleteResponse(BaseModel):
+    """신청자 본인이 자기 신청을 취소/삭제(코덱스 원본의 신규 기능을 이식).
+    호스트 액션이 아니라 신청자 본인 액션이므로 owner_secret이 아니라 신청 생성 시
+    쓴 anonymous_id로 본인 확인한다."""
+
+    application_id: str
+    meeting_id: str
+    status: str
+
+
+class ApplicantNotification(BaseModel):
+    """내 신청 상태 알림(코덱스 원본의 신규 기능을 이식). 승인/거절/대기 상태에 맞는
+    안내 문구를 서버가 만들어 내려준다."""
+
+    application_id: str
+    meeting_id: str
+    meeting_title: str
+    starts_at: str
+    place_label: str
+    host_nickname: str
+    status: str
+    title: str
+    body: str
+    created_at: str
+    updated_at: str
+
+
+class ApplicantNotificationsResponse(BaseModel):
+    notifications: list[ApplicantNotification]
+
+
 class ChatMessageRequest(BaseModel):
     nickname: str = Field(min_length=2, max_length=20)
     content: str = Field(min_length=1, max_length=500)

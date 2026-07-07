@@ -18,3 +18,20 @@ export function getOwnerSecret(meetingId: string): string | null {
     return null;
   }
 }
+
+// admin 콘솔용: 이 기기에서 등록한(관리 코드를 저장해둔) 모든 모임을 나열한다.
+export function listOwnedMeetings(): Array<{ meetingId: string; ownerSecret: string }> {
+  try {
+    const owned: Array<{ meetingId: string; ownerSecret: string }> = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+      const ownerSecret = localStorage.getItem(key);
+      if (!ownerSecret) continue;
+      owned.push({ meetingId: key.slice(STORAGE_PREFIX.length), ownerSecret });
+    }
+    return owned;
+  } catch {
+    return [];
+  }
+}
