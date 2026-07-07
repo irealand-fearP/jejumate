@@ -1,5 +1,64 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 최신 전달사항 — 다음 작업자는 여기부터 읽을 것
+
+**최신 본체는 이 로컬 폴더다.**
+
+- 로컬 최신 본체: `C:\Users\AI융합원\jejumate-work\jejumate-fork`
+- GitHub 백업/공유 브랜치: `https://github.com/irealand-fearP/jejumate` 의 **`codex-latest`**
+- 주의: GitHub `master`는 예전 `backend/`, `frontend/` 구조의 별도 이력이다. **다음 작업은 `master`가 아니라 `codex-latest` 또는 이 로컬 폴더에서 이어갈 것.**
+- 이 로컬 폴더에는 `.env`, `.vercel` 같은 로컬 설정이 있어서 바로 이어 작업하기 가장 좋다.
+- `.env` 값은 절대 출력하지 말 것. `services/api/.env`에 `OPENAI_API_KEY`가 들어가 있으며 git에는 올라가지 않는다.
+
+최신 배포:
+
+- 웹: `https://jejumate-web.vercel.app`
+- API: `https://jejumate-api.vercel.app`
+- Vercel 프로젝트: `jejumate-web`, `jejumate-api`
+- API Vercel env: `OPENAI_API_KEY` 등록 완료, `JEJUMATE_SQLITE_PATH=/tmp/jejumate.sqlite3`, `API_CORS_ORIGINS`에 웹 도메인 등록 완료
+- 주의: Vercel API는 현재 SQLite를 `/tmp`에 쓰는 서버리스 MVP 배포라 데이터 영구 보존은 보장되지 않는다. 실제 운영 전엔 Postgres/외부 DB로 옮기는 것이 필요하다.
+
+최신 커밋 흐름:
+
+- `82cdb8d` 생활게시판 MVP 마감: 글쓰기·상세·댓글·삭제·신고
+- `f7d7c67` Vercel 배포용 API 어댑터 추가
+- `03cfac3` Vercel 로컬 설정 디렉터리 무시
+- `22229fb` RAG 임베딩 키를 `.env` 설정에서 읽도록 수정
+
+최신 검증:
+
+- `npm.cmd run typecheck` 통과
+- `python -m compileall app` 통과
+- `npm.cmd run build` 통과
+- 배포 웹 `/`, `/board` 200 확인
+- 배포 API `/api/home`, `/api/board` 200 확인
+- 배포 API CORS preflight 200 확인
+- 배포 API 게시판 생성 201, 상세 200, 댓글 201, 신고 201, 삭제 200 확인
+- 배포 RAG `/api/rag/ask` 200 확인. 단, 현재 서버리스 SQLite에 임베딩 시드가 없어 `sources=0`이 나올 수 있다.
+
+다음 작업자가 GitHub에서 시작해야 할 경우:
+
+```bash
+git clone https://github.com/irealand-fearP/jejumate
+cd jejumate
+git checkout codex-latest
+```
+
+다음 작업자가 로컬에서 시작할 경우:
+
+```powershell
+cd C:\Users\AI융합원\jejumate-work\jejumate-fork
+```
+
+절대 바꾸지 말아야 할 API 규약:
+
+- 신청 ID 필드명은 모든 응답에서 `application_id`
+- 승인/거절은 `POST /api/meetings/{meeting_id}/applications/{application_id}/approve|reject?owner_secret=XXXX`
+- `owner_secret`은 query parameter
+- 에러 규약: 관리코드 불일치 403 / 정원 초과 409 / 이미 처리된 신청 400
+- RAG threshold는 0.5 유지
+- RAG 근거 없으면 sources 빈 배열 + 안내 문구. 임의 문서 반환 금지
+
 이 폴더는 `jejumate-service`(코덱스 원본)를 2026-07-07에 포크해서 Claude 팀이 이어 작업한 결과물이다.
 **원본 폴더는 한 번도 수정하지 않았고**, 코덱스가 토큰 소진으로 중단한 작업도 여기에 흡수돼 있다.
 git 저장소가 포함돼 있으니 `git log`로 전체 이력을 볼 수 있다.
@@ -37,7 +96,7 @@ git 저장소가 포함돼 있으니 `git log`로 전체 이력을 볼 수 있�
 ## 실행 방법
 
 - API: `services/api`에서 `python -m uvicorn app.main:app --host 0.0.0.0 --port 8125`
-  - **`services/api/.env`에 `OPENAI_API_KEY=...` 필요** (보안상 이 폴더엔 없음 — 소유자에게 요청. 키 없으면 RAG 질문 시 명시적 에러)
+  - **`services/api/.env`에 `OPENAI_API_KEY=...` 필요**. 현재 로컬 폴더에는 키가 들어가 있으나 절대 출력하지 말 것.
 - 웹: `apps/web`에서 `npm install` 후 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8125`로 `next dev --port 3128`
 - SQLite DB(`services/api/.data/jejumate.sqlite3`)는 첫 기동 시 자동 생성·시드. 카톡 45건 임베딩 적재는 `python scripts/seed_rag_embeddings.py`
 
@@ -66,8 +125,17 @@ git 저장소가 포함돼 있으니 `git log`로 전체 이력을 볼 수 있�
 
 ## 남은 일 (이어서 하면 좋은 것)
 
-1. **activity-thumbs.png 교체**: 홈 "지금 제주 어딘가에서 N명" 배너의 썸네일 4장이 아직 실사진 스크린샷 조각이라 새 플랫 일러스트 배너와 톤이 어긋남 — 같은 스타일 일러스트로 교체 권장.
-2. 시드 카테고리 균형(맛집/숙소 데이터 보강 — RAG에서 해당 질문 시 근거 부족).
-3. 생활게시판(/board) 고도화: 현재 목록 최소 구현 — 글쓰기/상세 등은 미구현.
+완료된 항목:
+
+- `activity-thumbs.png` 교체 완료. 홈 "지금 제주 어딘가에서 N명" 배너 썸네일을 새 플랫 일러스트 톤으로 맞춤.
+- 생활게시판(/board) MVP 고도화 완료: 글쓰기, 상세, 댓글 1단계, 본인 글 삭제, 신고, 빈 상태, 작성 시간 표시.
+- Vercel 배포 완료: 웹/API 분리 배포.
+- `services/api/.env`의 `OPENAI_API_KEY`를 RAG 코드가 읽도록 수정 완료.
+
+남은 항목:
+
+1. **배포 DB 영구화**: Vercel API는 현재 `/tmp` SQLite라 데이터가 영구 보존되지 않는다. 운영 전 Postgres/Neon/Supabase 등 외부 DB 필요.
+2. **배포 RAG 시드**: 로컬은 키가 설정됐지만 배포 서버리스 SQLite에는 임베딩 시드가 영구 적재되지 않는다. 외부 DB + `scripts/seed_rag_embeddings.py` 운영 경로 필요.
+3. 시드 카테고리 균형: 맛집/숙소/생활 데이터 보강. RAG threshold 0.5는 유지하고 데이터만 늘릴 것.
 4. 제품 방향(소유자 결정): 카톡 데이터는 초반 유입용, 유입 후엔 서비스 내 작성 글로만 운영 예정.
 5. 부제 중복 표시 의혹 1건: 실기기에서 "제주 런케이션 커뮤니티"가 두 번 보였다는 리포트가 있었으나 소스·렌더·서버 HTML 모두 1회만 확인됨(HMR 잔상 추정) — 재현되면 조사.
