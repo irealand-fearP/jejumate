@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Bell,
   CalendarClock,
@@ -38,6 +39,7 @@ import {
   type MeetingStatus,
 } from "@/lib/api";
 import { formatCapacityStatus } from "@/lib/format";
+import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORY } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
@@ -102,8 +104,14 @@ function getMeetingIcon(category: string) {
 }
 
 export function MeetingsScreen({ data }: { data: MeetingsData }) {
+  const searchParams = useSearchParams();
   const [meetings, setMeetings] = useState(data.meetings);
-  const [activeFilter, setActiveFilter] = useState(data.filters[0] ?? "전체");
+  const [activeFilter, setActiveFilter] = useState(() => {
+    const categoryParam = searchParams.get("category");
+    const filterFromCategory = categoryParam ? CATEGORY_TO_FILTER[categoryParam] : undefined;
+    if (filterFromCategory && data.filters.includes(filterFromCategory)) return filterFromCategory;
+    return data.filters[0] ?? "전체";
+  });
   const [selected, setSelected] = useState<HomeMeeting | null>(null);
   const [profile, setProfile] = useState<LocalProfile | null>(() => readProfile());
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
@@ -192,14 +200,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
   const visibleMeetings = useMemo(() => {
     if (activeFilter === "전체") return meetings;
-    const categoryByFilter: Record<string, string> = {
-      밥친구: "meal",
-      작업: "work",
-      이동: "move",
-      커피챗: "coffee",
-      러닝: "run",
-    };
-    return meetings.filter((meeting) => meeting.category === categoryByFilter[activeFilter]);
+    return meetings.filter((meeting) => meeting.category === FILTER_TO_CATEGORY[activeFilter]);
   }, [activeFilter, meetings]);
 
   async function refreshMeetings() {

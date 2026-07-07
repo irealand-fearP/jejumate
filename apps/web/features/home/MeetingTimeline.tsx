@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import type { HomeMeeting } from "@/lib/api";
+import { FILTER_TO_CATEGORY } from "@/lib/meetingCategories";
 import { MeetingCard } from "./MeetingCard";
 import styles from "./HomeScreen.module.css";
 
@@ -31,16 +32,20 @@ export function MeetingTimeline({
       </div>
 
       <div className={styles.filterRow}>
-        {filters.map((filter) => (
-          <button
-            className={filter === "전체" ? styles.filterActive : styles.filterChip}
-            key={filter}
-            onClick={() => router.push("/meetings")}
-            type="button"
-          >
-            {filter}
-          </button>
-        ))}
+        {filters.map((filter) => {
+          const category = FILTER_TO_CATEGORY[filter];
+          const href = category ? `/meetings?category=${category}` : "/meetings";
+          return (
+            <button
+              className={filter === "전체" ? styles.filterActive : styles.filterChip}
+              key={filter}
+              onClick={() => router.push(href)}
+              type="button"
+            >
+              {filter}
+            </button>
+          );
+        })}
       </div>
 
       <div className={styles.timelineList}>
