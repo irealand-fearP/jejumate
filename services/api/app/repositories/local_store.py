@@ -44,6 +44,12 @@ from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
+# DATABASE_URL이 있으면 Postgres(배포), 없으면 SQLite(로컬 개발)를 쓴다. 서버리스
+# 배포는 인스턴스마다 /tmp가 독립돼 있어 SQLite로는 인스턴스 간 데이터가 유실됐다 —
+# 이게 "신청했는데 처리가 안 된다" 버그의 근본 원인이라 공유 Postgres로 옮긴다.
+DATABASE_URL = os.environ.get("DATABASE_URL")
+USE_POSTGRES = bool(DATABASE_URL)
+
 # "NEW" 배지 노출 시간(모임 생성 후). 30분 지나면 자동으로 사라진다.
 NEW_MEETING_WINDOW_MINUTES = 30
 
@@ -104,11 +110,65 @@ def _new_anonymous_id() -> str:
     return f"anon_{uuid4().hex[:12]}"
 
 
+class _PgConnectionWrapper:
+    """psycopg2 커넥션을 sqlite3.Connection과 비슷한 인터페이스로 감싼다.
+    connection.execute(sql, params)가 커서를 바로 반환하는 sqlite3 관례를 맞추고,
+    SQLite 전용 문법(? 플레이스홀더, INSERT OR IGNORE)을 Postgres 문법으로 옮긴다."""
+
+    def __init__(self, raw) -> None:
+        self._raw = raw
+
+    def execute(self, sql: str, params: tuple = ()):
+        import psycopg2.extras
+
+        translated = sql.replace("?", "%s")
+        if "INSERT OR IGNORE INTO" in translated:
+            translated = translated.replace("INSERT OR IGNORE INTO", "INSERT INTO").rstrip() + "\nON CONFLICT DO NOTHING"
+        cursor = self._raw.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute(translated, params)
+        return cursor
+
+    def commit(self) -> None:
+        self._raw.commit()
+
+    def close(self) -> None:
+        self._raw.close()
+
+
+def _pg_raw_connect() -> _PgConnectionWrapper:
+    import psycopg2
+
+    return _PgConnectionWrapper(psycopg2.connect(DATABASE_URL, connect_timeout=10))
+
+
+def _time_order_expr(column: str) -> str:
+    """오프셋이 섞인(+09:00/+00:00) ISO8601 문자열을 실제 시각으로 정규화해서
+    정렬하기 위한 표현식. SQLite는 datetime(), Postgres는 timestamptz 캐스팅을 쓴다."""
+    return f"({column})::timestamptz" if USE_POSTGRES else f"datetime({column})"
+
+
+def _split_statements(script: str) -> list[str]:
+    return [statement.strip() for statement in script.split(";") if statement.strip()]
+
+
+_DATABASE_ENSURED = False
+
+
 @contextmanager
 def _connect() -> Iterator[sqlite3.Connection]:
-    ensure_database()
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
+    # ensure_database()는 DDL+시드 확인만으로도 Postgres에서 연결을 새로 열고 십수 번
+    # 왕복한다. 매 _connect() 호출마다 반복하면(한 API 요청 안에서도 여러 번 열린다)
+    # Supabase 트랜잭션 풀러의 커넥션을 순식간에 소진해 이후 연결이 멈춰버린다.
+    # 프로세스(서버리스면 콜드스타트 1회)당 한 번만 실행하면 충분하다.
+    global _DATABASE_ENSURED
+    if not _DATABASE_ENSURED:
+        ensure_database()
+        _DATABASE_ENSURED = True
+    if USE_POSTGRES:
+        connection = _pg_raw_connect()
+    else:
+        connection = sqlite3.connect(DB_PATH)
+        connection.row_factory = sqlite3.Row
     try:
         yield connection
         connection.commit()
@@ -116,160 +176,187 @@ def _connect() -> Iterator[sqlite3.Connection]:
         connection.close()
 
 
+_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  role TEXT NOT NULL DEFAULT 'user',
+  status TEXT NOT NULL DEFAULT 'active',
+  anonymous_id TEXT UNIQUE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE,
+  nickname TEXT NOT NULL,
+  avatar_key TEXT NOT NULL DEFAULT 'default_01',
+  bio TEXT,
+  region TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS meetings (
+  id TEXT PRIMARY KEY,
+  source_key TEXT UNIQUE,
+  host_user_id TEXT NOT NULL,
+  host_profile_id TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  place_label TEXT NOT NULL,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT,
+  capacity INTEGER NOT NULL,
+  approved_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'open',
+  visibility TEXT NOT NULL DEFAULT 'public',
+  owner_secret TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meeting_applications (
+  id TEXT PRIMARY KEY,
+  meeting_id TEXT NOT NULL,
+  applicant_user_id TEXT NOT NULL,
+  applicant_profile_id TEXT NOT NULL,
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (meeting_id, applicant_user_id),
+  FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+  FOREIGN KEY (applicant_user_id) REFERENCES users(id),
+  FOREIGN KEY (applicant_profile_id) REFERENCES profiles(id)
+);
+
+CREATE TABLE IF NOT EXISTS meeting_chat_messages (
+  id TEXT PRIMARY KEY,
+  meeting_id TEXT NOT NULL,
+  sender_user_id TEXT NOT NULL,
+  sender_profile_id TEXT NOT NULL,
+  sender_nickname TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  deleted_at TEXT,
+  FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+  FOREIGN KEY (sender_user_id) REFERENCES users(id),
+  FOREIGN KEY (sender_profile_id) REFERENCES profiles(id)
+);
+
+CREATE TABLE IF NOT EXISTS board_posts (
+  id TEXT PRIMARY KEY,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  author_nickname TEXT NOT NULL,
+  author_anonymous_id TEXT,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS board_comments (
+  id TEXT PRIMARY KEY,
+  post_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  author_nickname TEXT NOT NULL,
+  author_anonymous_id TEXT,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (post_id) REFERENCES board_posts(id)
+);
+
+CREATE TABLE IF NOT EXISTS board_reports (
+  id TEXT PRIMARY KEY,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  reporter_anonymous_id TEXT,
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rag_documents (
+  id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  region TEXT,
+  category TEXT,
+  visibility TEXT NOT NULL DEFAULT 'public',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  embedding TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rag_sources (
+  id TEXT PRIMARY KEY,
+  rag_document_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT,
+  official INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (rag_document_id) REFERENCES rag_documents(id)
+);
+
+CREATE TABLE IF NOT EXISTS rag_query_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  anonymous_id TEXT,
+  query TEXT NOT NULL,
+  intent TEXT,
+  used_source_count INTEGER NOT NULL DEFAULT 0,
+  confidence TEXT NOT NULL DEFAULT 'medium',
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  anonymous_id TEXT,
+  event_name TEXT NOT NULL,
+  properties TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+"""
+
+
+def _ensure_database_postgres() -> None:
+    """Postgres는 트랜잭션 하나가 에러 하나로 통째로 abort되므로(SQLite처럼
+    try/except로 넘어갈 수 없다) ALTER는 전부 IF NOT EXISTS로만 처리한다."""
+    connection = _pg_raw_connect()
+    try:
+        for statement in _split_statements(_SCHEMA_SQL):
+            connection.execute(statement)
+        for statement in (
+            "ALTER TABLE rag_documents ADD COLUMN IF NOT EXISTS embedding TEXT",
+            "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS owner_secret TEXT",
+            "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS author_anonymous_id TEXT",
+            "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS deleted_at TEXT",
+        ):
+            connection.execute(statement)
+        connection.commit()
+        _seed(connection)
+        _seed_board_posts(connection)
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def ensure_database() -> None:
+    if USE_POSTGRES:
+        _ensure_database_postgres()
+        return
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     try:
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-              id TEXT PRIMARY KEY,
-              role TEXT NOT NULL DEFAULT 'user',
-              status TEXT NOT NULL DEFAULT 'active',
-              anonymous_id TEXT UNIQUE,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS profiles (
-              id TEXT PRIMARY KEY,
-              user_id TEXT NOT NULL UNIQUE,
-              nickname TEXT NOT NULL,
-              avatar_key TEXT NOT NULL DEFAULT 'default_01',
-              bio TEXT,
-              region TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              FOREIGN KEY (user_id) REFERENCES users(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS meetings (
-              id TEXT PRIMARY KEY,
-              source_key TEXT UNIQUE,
-              host_user_id TEXT NOT NULL,
-              host_profile_id TEXT NOT NULL,
-              category TEXT NOT NULL,
-              title TEXT NOT NULL,
-              description TEXT,
-              place_label TEXT NOT NULL,
-              starts_at TEXT NOT NULL,
-              ends_at TEXT,
-              capacity INTEGER NOT NULL,
-              approved_count INTEGER NOT NULL DEFAULT 0,
-              status TEXT NOT NULL DEFAULT 'open',
-              visibility TEXT NOT NULL DEFAULT 'public',
-              owner_secret TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS meeting_applications (
-              id TEXT PRIMARY KEY,
-              meeting_id TEXT NOT NULL,
-              applicant_user_id TEXT NOT NULL,
-              applicant_profile_id TEXT NOT NULL,
-              message TEXT,
-              status TEXT NOT NULL DEFAULT 'pending',
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              UNIQUE (meeting_id, applicant_user_id),
-              FOREIGN KEY (meeting_id) REFERENCES meetings(id),
-              FOREIGN KEY (applicant_user_id) REFERENCES users(id),
-              FOREIGN KEY (applicant_profile_id) REFERENCES profiles(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS meeting_chat_messages (
-              id TEXT PRIMARY KEY,
-              meeting_id TEXT NOT NULL,
-              sender_user_id TEXT NOT NULL,
-              sender_profile_id TEXT NOT NULL,
-              sender_nickname TEXT NOT NULL,
-              content TEXT NOT NULL,
-              created_at TEXT NOT NULL,
-              deleted_at TEXT,
-              FOREIGN KEY (meeting_id) REFERENCES meetings(id),
-              FOREIGN KEY (sender_user_id) REFERENCES users(id),
-              FOREIGN KEY (sender_profile_id) REFERENCES profiles(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS board_posts (
-              id TEXT PRIMARY KEY,
-              category TEXT NOT NULL,
-              title TEXT NOT NULL,
-              body TEXT NOT NULL,
-              author_nickname TEXT NOT NULL,
-              author_anonymous_id TEXT,
-              deleted_at TEXT,
-              created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS board_comments (
-              id TEXT PRIMARY KEY,
-              post_id TEXT NOT NULL,
-              body TEXT NOT NULL,
-              author_nickname TEXT NOT NULL,
-              author_anonymous_id TEXT,
-              deleted_at TEXT,
-              created_at TEXT NOT NULL,
-              FOREIGN KEY (post_id) REFERENCES board_posts(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS board_reports (
-              id TEXT PRIMARY KEY,
-              target_type TEXT NOT NULL,
-              target_id TEXT NOT NULL,
-              reporter_anonymous_id TEXT,
-              reason TEXT NOT NULL,
-              created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS rag_documents (
-              id TEXT PRIMARY KEY,
-              source_type TEXT NOT NULL,
-              source_id TEXT NOT NULL,
-              title TEXT NOT NULL,
-              body TEXT NOT NULL,
-              region TEXT,
-              category TEXT,
-              visibility TEXT NOT NULL DEFAULT 'public',
-              is_active INTEGER NOT NULL DEFAULT 1,
-              embedding TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS rag_sources (
-              id TEXT PRIMARY KEY,
-              rag_document_id TEXT NOT NULL,
-              source_type TEXT NOT NULL,
-              title TEXT NOT NULL,
-              url TEXT,
-              official INTEGER NOT NULL DEFAULT 0,
-              created_at TEXT NOT NULL,
-              FOREIGN KEY (rag_document_id) REFERENCES rag_documents(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS rag_query_logs (
-              id TEXT PRIMARY KEY,
-              user_id TEXT,
-              anonymous_id TEXT,
-              query TEXT NOT NULL,
-              intent TEXT,
-              used_source_count INTEGER NOT NULL DEFAULT 0,
-              confidence TEXT NOT NULL DEFAULT 'medium',
-              created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS analytics_events (
-              id TEXT PRIMARY KEY,
-              user_id TEXT,
-              anonymous_id TEXT,
-              event_name TEXT NOT NULL,
-              properties TEXT NOT NULL DEFAULT '{}',
-              created_at TEXT NOT NULL
-            );
-            """
-        )
+        connection.executescript(_SCHEMA_SQL)
         try:
             # 이미 생성돼 있던 기존 rag_documents 테이블에 embedding 컬럼을 안전하게 추가
             # (신규 생성 시엔 위 CREATE TABLE에 이미 포함돼 있어 여기서는 no-op).
@@ -606,13 +693,13 @@ def _board_post_from_row(
 def list_board_posts() -> list[BoardPost]:
     with _connect() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT p.*, COUNT(c.id) AS comment_count
             FROM board_posts p
             LEFT JOIN board_comments c ON c.post_id = p.id AND c.deleted_at IS NULL
             WHERE p.deleted_at IS NULL
             GROUP BY p.id
-            ORDER BY datetime(p.created_at) DESC
+            ORDER BY {_time_order_expr('p.created_at')} DESC
             """
         ).fetchall()
     return [_board_post_from_row(row) for row in rows]
@@ -631,11 +718,11 @@ def get_board_post(post_id: str, anonymous_id: str | None = None) -> BoardPost:
             (post_id,),
         ).fetchone()
         comment_rows = connection.execute(
-            """
+            f"""
             SELECT *
             FROM board_comments
             WHERE post_id = ? AND deleted_at IS NULL
-            ORDER BY datetime(created_at) ASC
+            ORDER BY {_time_order_expr('created_at')} ASC
             """,
             (post_id,),
         ).fetchall()
@@ -771,7 +858,7 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
         FROM meetings m
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
-        ORDER BY datetime(m.starts_at) ASC
+        ORDER BY {_time_order_expr('m.starts_at')} ASC
         {limit_clause}
         """,
         params,
