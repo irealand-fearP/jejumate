@@ -30,6 +30,51 @@ class MeetingApplicationResponse(BaseModel):
     persisted: bool = False
 
 
+class MeetingCreateRequest(BaseModel):
+    """모임 등록. jejumate/backend(POST /posts/party)와 동일하게 4자리 관리 코드를 발급한다."""
+
+    category: str = Field(min_length=1, max_length=30)
+    title: str = Field(min_length=1, max_length=60)
+    description: str | None = Field(default=None, max_length=300)
+    place_label: str = Field(min_length=1, max_length=60)
+    capacity: int = Field(ge=1)
+    duration_minutes: int = Field(ge=1)
+    nickname: str = Field(min_length=2, max_length=20)
+    anonymous_id: str | None = Field(default=None, max_length=80)
+
+
+class MeetingCreateResponse(BaseModel):
+    meeting_id: str
+    owner_secret: str
+    starts_at: str
+    ends_at: str
+    persisted: bool = False
+
+
+class MeetingStatusResponse(BaseModel):
+    capacity: int
+    approved_count: int
+    is_closed: bool
+
+
+class MeetingApplicationListItem(BaseModel):
+    id: str | None = None
+    nickname: str
+    message: str | None = None
+    status: str | None = None
+
+
+class MeetingApplicationListResponse(BaseModel):
+    authorized: bool
+    applications: list[MeetingApplicationListItem]
+
+
+class MeetingApplicationDecisionResponse(BaseModel):
+    application_id: str
+    meeting_id: str
+    status: str
+
+
 class ChatMessageRequest(BaseModel):
     nickname: str = Field(min_length=2, max_length=20)
     content: str = Field(min_length=1, max_length=500)

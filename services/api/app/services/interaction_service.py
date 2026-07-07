@@ -3,7 +3,11 @@ import logging
 from app.repositories import local_store
 from app.schemas.interactions import (
     ChatMessagesResponse,
+    MeetingApplicationDecisionResponse,
+    MeetingApplicationListResponse,
     MeetingApplicationResponse,
+    MeetingCreateResponse,
+    MeetingStatusResponse,
     NicknameResponse,
     RagAskResponse,
 )
@@ -71,3 +75,45 @@ def post_meeting_chat_message(
 
 def answer_rag_question(question: str, anonymous_id: str | None = None) -> RagAskResponse:
     return local_store.answer_rag_question(question=question, anonymous_id=anonymous_id)
+
+
+def create_meeting(
+    *,
+    category: str,
+    title: str,
+    description: str | None,
+    place_label: str,
+    capacity: int,
+    duration_minutes: int,
+    nickname: str,
+    anonymous_id: str | None = None,
+) -> MeetingCreateResponse:
+    return local_store.create_meeting(
+        category=category,
+        title=title,
+        description=description,
+        place_label=place_label,
+        capacity=capacity,
+        duration_minutes=duration_minutes,
+        nickname=nickname,
+        anonymous_id=anonymous_id,
+    )
+
+
+def get_meeting_status(meeting_id: str) -> MeetingStatusResponse:
+    return local_store.get_meeting_status(meeting_id=meeting_id)
+
+
+def list_meeting_applications(meeting_id: str, owner_secret: str | None = None) -> MeetingApplicationListResponse:
+    return local_store.list_meeting_applications(meeting_id=meeting_id, owner_secret=owner_secret)
+
+
+def decide_meeting_application(
+    meeting_id: str, application_id: str, owner_secret: str, decision: str
+) -> MeetingApplicationDecisionResponse:
+    return local_store.decide_meeting_application(
+        meeting_id=meeting_id,
+        application_id=application_id,
+        owner_secret=owner_secret,
+        decision=decision,
+    )

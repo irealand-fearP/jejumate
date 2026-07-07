@@ -195,6 +195,109 @@
   font-weight: 950;
 }
 
+.createMeetingButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px dashed #7fd0cc;
+  border-radius: 8px;
+  background: #eefbfa;
+  color: #007f81;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.ownerSecretLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #008d8d;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.ownerSecretCode {
+  margin: 4px 0 0;
+  color: #172024;
+  font-size: 28px;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.emphasizeCapacity {
+  color: #d88700;
+  font-weight: 950;
+}
+
+.ownerCodeRow {
+  display: flex;
+  gap: 8px;
+}
+
+.ownerCodeRow .input {
+  flex: 1;
+}
+
+.applicantList {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.applicantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #20282d;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.applicantActions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.approveButton,
+.rejectButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.approveButton {
+  background: #009f9b;
+  color: #ffffff;
+}
+
+.rejectButton {
+  border: 1px solid #dce6e8;
+  color: #596168;
+  background: #ffffff;
+}
+
+.approvedTag {
+  color: #007f81;
+  font-size: 12px;
+  font-weight: 950;
+}
+
 .button:disabled,
 .primaryButton:disabled,
 .ragSearch button:disabled {

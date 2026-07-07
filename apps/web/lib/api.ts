@@ -102,6 +102,38 @@ export type MeetingApplicationResult = {
   persisted?: boolean;
 };
 
+export type MeetingCreateResult = {
+  meeting_id: string;
+  owner_secret: string;
+  starts_at: string;
+  ends_at: string;
+  persisted?: boolean;
+};
+
+export type MeetingStatus = {
+  capacity: number;
+  approved_count: number;
+  is_closed: boolean;
+};
+
+export type MeetingApplicationItem = {
+  id: string | null;
+  nickname: string;
+  message: string | null;
+  status: string | null;
+};
+
+export type MeetingApplicationListResult = {
+  authorized: boolean;
+  applications: MeetingApplicationItem[];
+};
+
+export type MeetingApplicationDecisionResult = {
+  application_id: string;
+  meeting_id: string;
+  status: string;
+};
+
 export type ChatMessage = {
   id: string;
   meeting_id: string;
@@ -160,12 +192,79 @@ async function getApi<TResponse>(path: string): Promise<TResponse> {
   return body.data;
 }
 
+// 승인/거절처럼 바디 없이 query string만 쓰는 POST용. 403/400/409 등의 detail 메시지를
+// 그대로 던져서(정원이 찼어요 등) 화면에 보여줄 수 있게 한다.
+async function postApiQuery<TResponse>(path: string): Promise<TResponse> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { method: "POST" });
+
+  if (!response.ok) {
+    let detail: string | undefined;
+    try {
+      const errorBody = (await response.json()) as { detail?: string };
+      detail = errorBody?.detail;
+    } catch {
+      // 에러 바디가 JSON이 아니면 무시하고 기본 메시지 사용
+    }
+    throw new Error(detail ?? `API request failed: ${response.status}`);
+  }
+
+  const body = (await response.json()) as ApiResponse<TResponse>;
+  return body.data;
+}
+
 export async function getHomeData(): Promise<HomeData> {
   return getApi<HomeData>("/api/home");
 }
 
 export async function getMeetingsData(): Promise<MeetingsData> {
   return getApi<MeetingsData>("/api/meetings");
+}
+
+export type MeetingCreatePayload = {
+  category: string;
+  title: string;
+  description?: string;
+  place_label: string;
+  capacity: number;
+  duration_minutes: number;
+  nickname: string;
+  anonymous_id?: string;
+};
+
+export async function createMeeting(payload: MeetingCreatePayload): Promise<MeetingCreateResult> {
+  return postApi<MeetingCreateResult, MeetingCreatePayload>("/api/meetings", payload);
+}
+
+export async function getMeetingStatus(meetingId: string): Promise<MeetingStatus> {
+  return getApi<MeetingStatus>(`/api/meetings/${meetingId}/status`);
+}
+
+export async function getMeetingApplications(
+  meetingId: string,
+  ownerSecret?: string
+): Promise<MeetingApplicationListResult> {
+  const query = ownerSecret ? `?owner_secret=${encodeURIComponent(ownerSecret)}` : "";
+  return getApi<MeetingApplicationListResult>(`/api/meetings/${meetingId}/applications${query}`);
+}
+
+export async function approveMeetingApplication(
+  meetingId: string,
+  applicationId: string,
+  ownerSecret: string
+): Promise<MeetingApplicationDecisionResult> {
+  return postApiQuery<MeetingApplicationDecisionResult>(
+    `/api/meetings/${meetingId}/applications/${applicationId}/approve?owner_secret=${encodeURIComponent(ownerSecret)}`
+  );
+}
+
+export async function rejectMeetingApplication(
+  meetingId: string,
+  applicationId: string,
+  ownerSecret: string
+): Promise<MeetingApplicationDecisionResult> {
+  return postApiQuery<MeetingApplicationDecisionResult>(
+    `/api/meetings/${meetingId}/applications/${applicationId}/reject?owner_secret=${encodeURIComponent(ownerSecret)}`
+  );
 }
 
 export async function getPoliciesData(): Promise<PoliciesData> {

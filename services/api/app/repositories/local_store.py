@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import random
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -24,7 +25,12 @@ from app.schemas.home import (
 from app.schemas.interactions import (
     ChatMessage,
     ChatMessagesResponse,
+    MeetingApplicationDecisionResponse,
+    MeetingApplicationListItem,
+    MeetingApplicationListResponse,
     MeetingApplicationResponse,
+    MeetingCreateResponse,
+    MeetingStatusResponse,
     NicknameResponse,
     RagAskResponse,
     RagSource,
@@ -32,6 +38,26 @@ from app.schemas.interactions import (
 from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
+
+
+class MeetingNotFoundError(Exception):
+    pass
+
+
+class ApplicationNotFoundError(Exception):
+    pass
+
+
+class OwnerMismatchError(Exception):
+    pass
+
+
+class AlreadyProcessedError(Exception):
+    pass
+
+
+class CapacityExceededError(Exception):
+    pass
 
 
 def _now() -> str:
@@ -104,6 +130,7 @@ def ensure_database() -> None:
               approved_count INTEGER NOT NULL DEFAULT 0,
               status TEXT NOT NULL DEFAULT 'open',
               visibility TEXT NOT NULL DEFAULT 'public',
+              owner_secret TEXT,
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
@@ -205,6 +232,11 @@ def ensure_database() -> None:
             # 이미 생성돼 있던 기존 rag_documents 테이블에 embedding 컬럼을 안전하게 추가
             # (신규 생성 시엔 위 CREATE TABLE에 이미 포함돼 있어 여기서는 no-op).
             connection.execute("ALTER TABLE rag_documents ADD COLUMN embedding TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            # 이미 생성돼 있던 기존 meetings 테이블에 owner_secret 컬럼을 안전하게 추가.
+            connection.execute("ALTER TABLE meetings ADD COLUMN owner_secret TEXT")
         except sqlite3.OperationalError:
             pass
         _seed(connection)
@@ -661,8 +693,157 @@ def _resolve_meeting(connection: sqlite3.Connection, meeting_id: str) -> sqlite3
         (meeting_id, meeting_id),
     ).fetchone()
     if meeting is None:
-        raise ValueError(f"Unknown meeting id: {meeting_id}")
+        raise MeetingNotFoundError(f"Unknown meeting id: {meeting_id}")
     return meeting
+
+
+def _generate_owner_secret() -> str:
+    """로그인 없이 호스트 권한을 증명할 4자리 관리 코드(jejumate/backend와 동일 방식)."""
+    return f"{random.randint(0, 9999):04d}"
+
+
+def create_meeting(
+    *,
+    category: str,
+    title: str,
+    description: str | None,
+    place_label: str,
+    capacity: int,
+    duration_minutes: int,
+    nickname: str,
+    anonymous_id: str | None,
+) -> MeetingCreateResponse:
+    """모임 등록. jejumate/backend(POST /posts/party)와 동일하게 등록 즉시 4자리
+    관리 코드를 발급하고, 별도 로그인 없이 이 코드로 승인/거절 권한을 증명한다."""
+    profile = create_or_update_profile(nickname=nickname, anonymous_id=anonymous_id)
+    now_dt = datetime.now(timezone.utc)
+    starts_at = now_dt.isoformat()
+    ends_at = (now_dt + timedelta(minutes=duration_minutes)).isoformat()
+    owner_secret = _generate_owner_secret()
+    meeting_id = _new_id()
+
+    with _connect() as connection:
+        user = connection.execute("SELECT * FROM users WHERE anonymous_id = ?", (profile.anonymous_id,)).fetchone()
+        connection.execute(
+            """
+            INSERT INTO meetings (
+              id, source_key, host_user_id, host_profile_id, category, title, description,
+              place_label, starts_at, ends_at, capacity, approved_count, status, visibility,
+              owner_secret, created_at, updated_at
+            )
+            VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', 'public', ?, ?, ?)
+            """,
+            (
+                meeting_id,
+                user["id"],
+                profile.profile_id,
+                category,
+                title,
+                description,
+                place_label,
+                starts_at,
+                ends_at,
+                capacity,
+                owner_secret,
+                now_dt.isoformat(),
+                now_dt.isoformat(),
+            ),
+        )
+
+    return MeetingCreateResponse(
+        meeting_id=meeting_id,
+        owner_secret=owner_secret,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        persisted=True,
+    )
+
+
+def get_meeting_status(*, meeting_id: str) -> MeetingStatusResponse:
+    """모집 현황 폴링용: 승인 count vs 정원, 마감 여부(jejumate/backend GET /posts/{id}/status와 동일)."""
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        return MeetingStatusResponse(
+            capacity=meeting["capacity"],
+            approved_count=meeting["approved_count"],
+            is_closed=meeting["status"] not in ("open", "closing_soon"),
+        )
+
+
+def list_meeting_applications(*, meeting_id: str, owner_secret: str | None) -> MeetingApplicationListResponse:
+    """관리 코드가 맞으면 전체 상세, 아니면 닉네임만(jejumate/backend GET /posts/{id}/applications와 동일).
+    거절된 신청은 목록에서 제외한다."""
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        rows = connection.execute(
+            """
+            SELECT ma.*, p.nickname AS applicant_nickname
+            FROM meeting_applications ma
+            JOIN profiles p ON p.id = ma.applicant_profile_id
+            WHERE ma.meeting_id = ? AND ma.status != 'rejected'
+            ORDER BY ma.created_at ASC
+            """,
+            (meeting["id"],),
+        ).fetchall()
+        authorized = owner_secret is not None and meeting["owner_secret"] == owner_secret
+
+    if authorized:
+        items = [
+            MeetingApplicationListItem(
+                id=row["id"], nickname=row["applicant_nickname"], message=row["message"], status=row["status"]
+            )
+            for row in rows
+        ]
+    else:
+        items = [MeetingApplicationListItem(nickname=row["applicant_nickname"]) for row in rows]
+
+    return MeetingApplicationListResponse(authorized=authorized, applications=items)
+
+
+def decide_meeting_application(
+    *,
+    meeting_id: str,
+    application_id: str,
+    owner_secret: str,
+    decision: str,
+) -> MeetingApplicationDecisionResponse:
+    """승인/거절(jejumate/backend approve_application/reject_application과 동일 규칙):
+    관리 코드 불일치는 OwnerMismatchError, 이미 처리된 신청 재처리는 AlreadyProcessedError,
+    승인 시 정원 초과는 CapacityExceededError로 알린다(라우트에서 403/400/409로 매핑)."""
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        if meeting["owner_secret"] is None or meeting["owner_secret"] != owner_secret:
+            raise OwnerMismatchError("관리 코드가 일치하지 않아요")
+
+        application = connection.execute(
+            "SELECT * FROM meeting_applications WHERE id = ? AND meeting_id = ?",
+            (application_id, meeting["id"]),
+        ).fetchone()
+        if application is None:
+            raise ApplicationNotFoundError(f"Unknown application id: {application_id}")
+
+        if application["status"] != "pending":
+            raise AlreadyProcessedError("이미 처리된 신청이에요")
+
+        if decision == "approve":
+            if meeting["approved_count"] >= meeting["capacity"]:
+                raise CapacityExceededError("정원이 찼어요")
+            new_status = "approved"
+        else:
+            new_status = "rejected"
+
+        now = _now()
+        connection.execute(
+            "UPDATE meeting_applications SET status = ?, updated_at = ? WHERE id = ?",
+            (new_status, now, application_id),
+        )
+        if new_status == "approved":
+            connection.execute(
+                "UPDATE meetings SET approved_count = approved_count + 1, updated_at = ? WHERE id = ?",
+                (now, meeting["id"]),
+            )
+
+    return MeetingApplicationDecisionResponse(application_id=application_id, meeting_id=meeting["id"], status=new_status)
 
 
 def _chat_message_from_row(row: sqlite3.Row) -> ChatMessage:
