@@ -623,25 +623,25 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
               {manageApplications && manageApplications.length > 0 ? (
                 <ul className={styles.applicantList}>
                   {manageApplications.map((application, index) => (
-                    <li className={styles.applicantRow} key={application.id ?? index}>
+                    <li className={styles.applicantRow} key={application.application_id ?? index}>
                       <span>
                         {application.nickname}
                         {manageAuthorized && application.message ? (
                           <span className={styles.meta}> · {application.message}</span>
                         ) : null}
                       </span>
-                      {manageAuthorized && application.id && application.status === "pending" ? (
+                      {manageAuthorized && application.application_id && application.status === "pending" ? (
                         <span className={styles.applicantActions}>
                           <button
                             className={styles.approveButton}
-                            onClick={() => handleDecision(application.id!, "approve")}
+                            onClick={() => handleDecision(application.application_id!, "approve")}
                             type="button"
                           >
                             <Check size={13} /> 승인
                           </button>
                           <button
                             className={styles.rejectButton}
-                            onClick={() => handleDecision(application.id!, "reject")}
+                            onClick={() => handleDecision(application.application_id!, "reject")}
                             type="button"
                           >
                             거절

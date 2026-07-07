@@ -790,7 +790,10 @@ def list_meeting_applications(*, meeting_id: str, owner_secret: str | None) -> M
     if authorized:
         items = [
             MeetingApplicationListItem(
-                id=row["id"], nickname=row["applicant_nickname"], message=row["message"], status=row["status"]
+                application_id=row["id"],
+                nickname=row["applicant_nickname"],
+                message=row["message"],
+                status=row["status"],
             )
             for row in rows
         ]

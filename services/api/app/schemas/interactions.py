@@ -58,7 +58,10 @@ class MeetingStatusResponse(BaseModel):
 
 
 class MeetingApplicationListItem(BaseModel):
-    id: str | None = None
+    # QA 발견(Fork 통합 QA, QA-REPORT.md): 신청 생성 응답(MeetingApplicationResponse)은
+    # application_id 필드를 쓰는데 이 목록 응답만 id를 써서 필드명이 갈렸었다.
+    # application_id로 표준화.
+    application_id: str | None = None
     nickname: str
     message: str | None = None
     status: str | None = None

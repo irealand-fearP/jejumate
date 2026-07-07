@@ -117,7 +117,7 @@ export type MeetingStatus = {
 };
 
 export type MeetingApplicationItem = {
-  id: string | null;
+  application_id: string | null;
   nickname: string;
   message: string | null;
   status: string | null;
