@@ -39,7 +39,7 @@ from app.schemas.interactions import (
     RagAskResponse,
     RagSource,
 )
-from app.schemas.resources import BoardPost
+from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
 from app.services.embedding_service import cosine_similarity, embed_text
 
 DB_PATH = Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"
@@ -65,6 +65,14 @@ class AlreadyProcessedError(Exception):
 
 
 class CapacityExceededError(Exception):
+    pass
+
+
+class BoardPostNotFoundError(Exception):
+    pass
+
+
+class BoardOwnerMismatchError(Exception):
     pass
 
 
@@ -202,6 +210,28 @@ def ensure_database() -> None:
               title TEXT NOT NULL,
               body TEXT NOT NULL,
               author_nickname TEXT NOT NULL,
+              author_anonymous_id TEXT,
+              deleted_at TEXT,
+              created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS board_comments (
+              id TEXT PRIMARY KEY,
+              post_id TEXT NOT NULL,
+              body TEXT NOT NULL,
+              author_nickname TEXT NOT NULL,
+              author_anonymous_id TEXT,
+              deleted_at TEXT,
+              created_at TEXT NOT NULL,
+              FOREIGN KEY (post_id) REFERENCES board_posts(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS board_reports (
+              id TEXT PRIMARY KEY,
+              target_type TEXT NOT NULL,
+              target_id TEXT NOT NULL,
+              reporter_anonymous_id TEXT,
+              reason TEXT NOT NULL,
               created_at TEXT NOT NULL
             );
 
@@ -263,6 +293,14 @@ def ensure_database() -> None:
             connection.execute("ALTER TABLE meetings ADD COLUMN owner_secret TEXT")
         except sqlite3.OperationalError:
             pass
+        for statement in (
+            "ALTER TABLE board_posts ADD COLUMN author_anonymous_id TEXT",
+            "ALTER TABLE board_posts ADD COLUMN deleted_at TEXT",
+        ):
+            try:
+                connection.execute(statement)
+            except sqlite3.OperationalError:
+                pass
         _seed(connection)
         # 게시판 시드는 모임 시드(_seed)의 meeting_count 가드와 무관하게 항상 확인한다 —
         # 이미 모임이 있는 기존 개발 DB에서도 board_posts는 비어 있을 수 있기 때문.
@@ -637,7 +675,22 @@ def _policy_from_row(row: sqlite3.Row) -> HomePolicy:
     )
 
 
-def _board_post_from_row(row: sqlite3.Row) -> BoardPost:
+def _board_comment_from_row(row: sqlite3.Row) -> BoardComment:
+    return BoardComment(
+        id=row["id"],
+        post_id=row["post_id"],
+        body=row["body"],
+        author_nickname=row["author_nickname"],
+        created_at=row["created_at"],
+    )
+
+
+def _board_post_from_row(
+    row: sqlite3.Row,
+    *,
+    comments: list[BoardComment] | None = None,
+    can_delete: bool = False,
+) -> BoardPost:
     return BoardPost(
         id=row["id"],
         category=row["category"],
@@ -645,15 +698,165 @@ def _board_post_from_row(row: sqlite3.Row) -> BoardPost:
         body=row["body"],
         author_nickname=row["author_nickname"],
         created_at=row["created_at"],
+        comment_count=row["comment_count"] if "comment_count" in row.keys() else 0,
+        can_delete=can_delete,
+        comments=comments or [],
     )
 
 
 def list_board_posts() -> list[BoardPost]:
     with _connect() as connection:
         rows = connection.execute(
-            "SELECT * FROM board_posts ORDER BY datetime(created_at) DESC"
+            """
+            SELECT p.*, COUNT(c.id) AS comment_count
+            FROM board_posts p
+            LEFT JOIN board_comments c ON c.post_id = p.id AND c.deleted_at IS NULL
+            WHERE p.deleted_at IS NULL
+            GROUP BY p.id
+            ORDER BY datetime(p.created_at) DESC
+            """
         ).fetchall()
     return [_board_post_from_row(row) for row in rows]
+
+
+def get_board_post(post_id: str, anonymous_id: str | None = None) -> BoardPost:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT p.*, COUNT(c.id) AS comment_count
+            FROM board_posts p
+            LEFT JOIN board_comments c ON c.post_id = p.id AND c.deleted_at IS NULL
+            WHERE p.id = ? AND p.deleted_at IS NULL
+            GROUP BY p.id
+            """,
+            (post_id,),
+        ).fetchone()
+        comment_rows = connection.execute(
+            """
+            SELECT *
+            FROM board_comments
+            WHERE post_id = ? AND deleted_at IS NULL
+            ORDER BY datetime(created_at) ASC
+            """,
+            (post_id,),
+        ).fetchall()
+    if not row:
+        raise BoardPostNotFoundError(f"Unknown board post id: {post_id}")
+    can_delete = bool(anonymous_id and row["author_anonymous_id"] == anonymous_id)
+    return _board_post_from_row(
+        row,
+        comments=[_board_comment_from_row(comment_row) for comment_row in comment_rows],
+        can_delete=can_delete,
+    )
+
+
+def create_board_post(
+    *,
+    category: str,
+    title: str,
+    body: str,
+    author_nickname: str,
+    anonymous_id: str | None,
+) -> BoardPost:
+    post_id = _new_id()
+    created_at = _now()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO board_posts (
+              id, category, title, body, author_nickname, author_anonymous_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                post_id,
+                category.strip(),
+                title.strip(),
+                body.strip(),
+                author_nickname.strip(),
+                anonymous_id,
+                created_at,
+            ),
+        )
+        connection.commit()
+    return get_board_post(post_id, anonymous_id=anonymous_id)
+
+
+def delete_board_post(*, post_id: str, anonymous_id: str) -> BoardDeleteResponse:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT * FROM board_posts WHERE id = ? AND deleted_at IS NULL",
+            (post_id,),
+        ).fetchone()
+        if row is None:
+            raise BoardPostNotFoundError(f"Unknown board post id: {post_id}")
+        if not anonymous_id or row["author_anonymous_id"] != anonymous_id:
+            raise BoardOwnerMismatchError("본인 글만 삭제할 수 있어요")
+
+        now = _now()
+        connection.execute("UPDATE board_posts SET deleted_at = ? WHERE id = ?", (now, post_id))
+        connection.execute("UPDATE board_comments SET deleted_at = ? WHERE post_id = ?", (now, post_id))
+
+    return BoardDeleteResponse(post_id=post_id, status="deleted")
+
+
+def create_board_comment(
+    *,
+    post_id: str,
+    body: str,
+    author_nickname: str,
+    anonymous_id: str | None,
+) -> BoardPost:
+    comment_id = _new_id()
+    created_at = _now()
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT * FROM board_posts WHERE id = ? AND deleted_at IS NULL",
+            (post_id,),
+        ).fetchone()
+        if row is None:
+            raise BoardPostNotFoundError(f"Unknown board post id: {post_id}")
+        connection.execute(
+            """
+            INSERT INTO board_comments (
+              id, post_id, body, author_nickname, author_anonymous_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (comment_id, post_id, body.strip(), author_nickname.strip(), anonymous_id, created_at),
+        )
+
+    return get_board_post(post_id, anonymous_id=anonymous_id)
+
+
+def report_board_target(
+    *,
+    target_type: str,
+    target_id: str,
+    reason: str,
+    anonymous_id: str | None,
+) -> BoardReportResponse:
+    if target_type != "post":
+        raise ValueError("Unsupported report target")
+
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT id FROM board_posts WHERE id = ? AND deleted_at IS NULL",
+            (target_id,),
+        ).fetchone()
+        if row is None:
+            raise BoardPostNotFoundError(f"Unknown board post id: {target_id}")
+        connection.execute(
+            """
+            INSERT INTO board_reports (
+              id, target_type, target_id, reporter_anonymous_id, reason, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (_new_id(), target_type, target_id, anonymous_id, reason.strip(), _now()),
+        )
+
+    return BoardReportResponse(target_type=target_type, target_id=target_id, status="reported")
 
 
 def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:

@@ -1,6 +1,24 @@
-from app.repositories.local_store import list_board_posts, list_open_meetings
-from app.schemas.resources import BoardResponse, MeetingsResponse, PoliciesResponse, ProfilePreviewResponse
+from app.repositories.local_store import (
+    create_board_comment,
+    create_board_post,
+    delete_board_post,
+    get_board_post,
+    list_board_posts,
+    list_open_meetings,
+    report_board_target,
+)
+from app.schemas.resources import (
+    BoardDeleteResponse,
+    BoardPost,
+    BoardReportResponse,
+    BoardResponse,
+    MeetingsResponse,
+    PoliciesResponse,
+    ProfilePreviewResponse,
+)
 from app.services.home_service import get_home_data
+
+BOARD_CATEGORIES = ["질문게시판", "중고거래", "나눔"]
 
 
 def get_meetings_data() -> MeetingsResponse:
@@ -25,9 +43,60 @@ def get_policies_data() -> PoliciesResponse:
 
 def get_board_data() -> BoardResponse:
     return BoardResponse(
-        categories=["질문게시판", "중고거래", "나눔"],
+        categories=BOARD_CATEGORIES,
         posts=list_board_posts(),
         notice="생활게시판 글은 닉네임으로만 공개됩니다.",
+    )
+
+
+def get_board_post_data(post_id: str, anonymous_id: str | None = None) -> BoardPost:
+    return get_board_post(post_id, anonymous_id=anonymous_id)
+
+
+def create_board_post_data(
+    *,
+    category: str,
+    title: str,
+    body: str,
+    author_nickname: str,
+    anonymous_id: str | None,
+) -> BoardPost:
+    if category not in BOARD_CATEGORIES:
+        raise ValueError("Unknown board category")
+    return create_board_post(
+        category=category,
+        title=title,
+        body=body,
+        author_nickname=author_nickname,
+        anonymous_id=anonymous_id,
+    )
+
+
+def delete_board_post_data(post_id: str, anonymous_id: str) -> BoardDeleteResponse:
+    return delete_board_post(post_id=post_id, anonymous_id=anonymous_id)
+
+
+def create_board_comment_data(
+    *,
+    post_id: str,
+    body: str,
+    author_nickname: str,
+    anonymous_id: str | None,
+) -> BoardPost:
+    return create_board_comment(
+        post_id=post_id,
+        body=body,
+        author_nickname=author_nickname,
+        anonymous_id=anonymous_id,
+    )
+
+
+def report_board_post_data(*, post_id: str, reason: str, anonymous_id: str | None) -> BoardReportResponse:
+    return report_board_target(
+        target_type="post",
+        target_id=post_id,
+        reason=reason,
+        anonymous_id=anonymous_id,
     )
 
 

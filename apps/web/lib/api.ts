@@ -87,6 +87,47 @@ export type BoardPost = {
   body: string;
   author_nickname: string;
   created_at: string;
+  comment_count: number;
+  can_delete: boolean;
+  comments: BoardComment[];
+};
+
+export type BoardComment = {
+  id: string;
+  post_id: string;
+  body: string;
+  author_nickname: string;
+  created_at: string;
+};
+
+export type BoardPostCreatePayload = {
+  category: string;
+  title: string;
+  body: string;
+  author_nickname: string;
+  anonymous_id?: string;
+};
+
+export type BoardCommentCreatePayload = {
+  body: string;
+  author_nickname: string;
+  anonymous_id?: string;
+};
+
+export type BoardReportPayload = {
+  reason: string;
+  anonymous_id?: string;
+};
+
+export type BoardDeleteResult = {
+  post_id: string;
+  status: string;
+};
+
+export type BoardReportResult = {
+  target_type: string;
+  target_id: string;
+  status: string;
 };
 
 export type BoardData = {
@@ -334,6 +375,30 @@ export async function getPoliciesData(): Promise<PoliciesData> {
 
 export async function getBoardData(): Promise<BoardData> {
   return getApi<BoardData>("/api/board");
+}
+
+export async function getBoardPost(postId: string, anonymousId?: string): Promise<BoardPost> {
+  const query = anonymousId ? `?anonymous_id=${encodeURIComponent(anonymousId)}` : "";
+  return getApi<BoardPost>(`/api/board/posts/${postId}${query}`);
+}
+
+export async function createBoardPost(payload: BoardPostCreatePayload): Promise<BoardPost> {
+  return postApi<BoardPost, BoardPostCreatePayload>("/api/board/posts", payload);
+}
+
+export async function deleteBoardPost(postId: string, anonymousId: string): Promise<BoardDeleteResult> {
+  return postApiQuery<BoardDeleteResult>(
+    `/api/board/posts/${postId}?anonymous_id=${encodeURIComponent(anonymousId)}`,
+    "DELETE"
+  );
+}
+
+export async function createBoardComment(postId: string, payload: BoardCommentCreatePayload): Promise<BoardPost> {
+  return postApi<BoardPost, BoardCommentCreatePayload>(`/api/board/posts/${postId}/comments`, payload);
+}
+
+export async function reportBoardPost(postId: string, payload: BoardReportPayload): Promise<BoardReportResult> {
+  return postApi<BoardReportResult, BoardReportPayload>(`/api/board/posts/${postId}/reports`, payload);
 }
 
 export async function getProfilePreviewData(): Promise<ProfilePreviewData> {

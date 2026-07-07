@@ -432,6 +432,7 @@
 }
 
 .input,
+.form select,
 .textarea,
 .ragSearch input {
   width: 100%;
@@ -450,6 +451,12 @@
   padding: 0 13px;
 }
 
+.form select {
+  height: 46px;
+  padding: 0 13px;
+  appearance: none;
+}
+
 .textarea {
   min-height: 88px;
   resize: none;
@@ -458,6 +465,7 @@
 }
 
 .input:focus,
+.form select:focus,
 .textarea:focus,
 .ragSearch input:focus {
   border-color: #00aaa7;
@@ -674,10 +682,37 @@
   gap: 10px;
 }
 
+.boardActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.boardWriteButton {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #009f9b;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
 .boardCard {
+  position: relative;
   display: grid;
   gap: 8px;
   padding: 16px 14px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(20, 54, 58, 0.05);
+  text-align: left;
 }
 
 .boardCategoryTag {
@@ -710,6 +745,139 @@
   color: #8a9298;
   font-size: 12px;
   font-weight: 800;
+}
+
+.boardChevron {
+  position: absolute;
+  right: 13px;
+  top: 16px;
+  color: #a1aaaf;
+}
+
+.boardDetail {
+  padding: 15px 14px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #364247;
+  font-size: 14px;
+  line-height: 1.65;
+  font-weight: 750;
+  white-space: pre-wrap;
+}
+
+.boardEmpty {
+  display: grid;
+  gap: 6px;
+  padding: 28px 14px;
+  border: 1px dashed #cfe0e3;
+  border-radius: 8px;
+  background: #f8fbfb;
+  text-align: center;
+}
+
+.boardEmpty b {
+  color: #172024;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.boardEmpty span {
+  color: #687178;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.boardDetailActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.boardDetailActions button {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 1px solid #dce6e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #596168;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.boardDetailActions .dangerButton {
+  border-color: #f1c9c9;
+  background: #fff5f5;
+  color: #c84444;
+}
+
+.commentSection {
+  display: grid;
+  gap: 10px;
+}
+
+.commentSection h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #172024;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.commentList,
+.commentForm {
+  display: grid;
+  gap: 8px;
+}
+
+.commentItem {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: #f4f8f9;
+}
+
+.commentItem b {
+  color: #008d8d;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.commentItem span {
+  color: #364247;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.commentItem small,
+.commentEmpty {
+  color: #8a9298;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.commentEmpty {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fbfb;
+  text-align: center;
+}
+
+.commentForm .primaryButton,
+.form .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
 }
 
 /* 모바일 실기기 폰트 과대 피드백에 따른 타이포 스케일 축소(칩/제목/시간/버튼).
