@@ -30,18 +30,6 @@ export type HomeMeeting = {
   is_new: boolean;
 };
 
-export type HomePolicy = {
-  id: string;
-  title: string;
-  summary: string;
-  region: string;
-  field: string;
-  status: string;
-  application_end_date: string;
-  d_day: number;
-  official_url: string;
-};
-
 export type HomeData = {
   profile_chip: {
     label: string;
@@ -65,19 +53,12 @@ export type HomeData = {
     subtitle: string;
     suggestions: string[];
   };
-  policies: HomePolicy[];
 };
 
 export type MeetingsData = {
   filters: string[];
   meetings: HomeMeeting[];
   privacy_note: string;
-};
-
-export type PoliciesData = {
-  policies: HomePolicy[];
-  last_synced_at: string;
-  source_note: string;
 };
 
 export type BoardPost = {
@@ -367,10 +348,6 @@ export async function deleteMyApplication(
     `/api/meetings/${meetingId}/applications/${applicationId}?anonymous_id=${encodeURIComponent(anonymousId)}`,
     "DELETE"
   );
-}
-
-export async function getPoliciesData(): Promise<PoliciesData> {
-  return getApi<PoliciesData>("/api/policies");
 }
 
 export async function getBoardData(): Promise<BoardData> {

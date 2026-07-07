@@ -36,7 +36,6 @@
 .notice,
 .result,
 .answer,
-.policyCard,
 .profileCard {
   border: 1px solid #e0e9eb;
   border-radius: 8px;
@@ -53,7 +52,6 @@
   font-weight: 750;
 }
 
-.policyList,
 .profileGrid {
   display: grid;
   gap: 10px;
@@ -111,7 +109,6 @@
 }
 
 .body h2,
-.policyCard h2,
 .profileCard h2 {
   margin: 0;
   color: #172024;
@@ -604,43 +601,6 @@
   font-weight: 950;
 }
 
-.policyCard {
-  display: grid;
-  gap: 9px;
-  padding: 16px 14px;
-}
-
-.policyMeta {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  color: #697178;
-  font-size: 13px;
-  font-weight: 750;
-}
-
-.policyMeta span,
-.policyMeta a {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.policyMeta a {
-  color: #008d8d;
-  font-weight: 950;
-}
-
-.dday {
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: #fff1be;
-  color: #d88700;
-  font-size: 12px;
-  font-weight: 950;
-}
-
 .profileCard {
   padding: 16px 14px;
 }
@@ -890,7 +850,6 @@
   }
 
   .body h2,
-  .policyCard h2,
   .profileCard h2,
   .boardCard h2 {
     font-size: 15px;

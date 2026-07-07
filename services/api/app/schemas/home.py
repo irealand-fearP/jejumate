@@ -52,18 +52,6 @@ class RagStrip(BaseModel):
     suggestions: list[str]
 
 
-class HomePolicy(BaseModel):
-    id: str
-    title: str
-    summary: str
-    region: str
-    field: str
-    status: str
-    application_end_date: str
-    d_day: int
-    official_url: str
-
-
 class MeetingSummary(BaseModel):
     open_count: int
 
@@ -76,4 +64,3 @@ class HomeResponse(BaseModel):
     meetings: list[HomeMeeting]
     activity_summary: ActivitySummary
     rag_strip: RagStrip
-    policies: list[HomePolicy]

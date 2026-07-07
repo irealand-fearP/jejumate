@@ -1,18 +1,12 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.home import HomeMeeting, HomePolicy
+from app.schemas.home import HomeMeeting
 
 
 class MeetingsResponse(BaseModel):
     filters: list[str]
     meetings: list[HomeMeeting]
     privacy_note: str
-
-
-class PoliciesResponse(BaseModel):
-    policies: list[HomePolicy]
-    last_synced_at: str
-    source_note: str
 
 
 class ProfilePreviewResponse(BaseModel):

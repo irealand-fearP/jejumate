@@ -7,7 +7,7 @@ import random
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -15,7 +15,6 @@ from app.core.config import settings
 from app.schemas.home import (
     ActivitySummary,
     HomeMeeting,
-    HomePolicy,
     HomeResponse,
     MeetingCta,
     MeetingHost,
@@ -186,23 +185,6 @@ def ensure_database() -> None:
               FOREIGN KEY (meeting_id) REFERENCES meetings(id),
               FOREIGN KEY (sender_user_id) REFERENCES users(id),
               FOREIGN KEY (sender_profile_id) REFERENCES profiles(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS policies (
-              id TEXT PRIMARY KEY,
-              external_id TEXT UNIQUE,
-              title TEXT NOT NULL,
-              summary TEXT NOT NULL,
-              target TEXT,
-              region TEXT NOT NULL,
-              field TEXT NOT NULL,
-              application_start_date TEXT,
-              application_end_date TEXT,
-              status TEXT NOT NULL,
-              official_url TEXT NOT NULL,
-              last_synced_at TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS board_posts (
@@ -493,81 +475,7 @@ def _seed(connection: sqlite3.Connection) -> None:
             ),
         )
 
-    policies = [
-        (
-            "jeju-youth-trip-2026",
-            "제주 청년 큐레이션 여행 지원",
-            "런케이션 기간 중 체류형 여행 경비를 최대 30만원까지 지원",
-            "제주 체류 청년 및 워케이션 참가자",
-            "제주",
-            "여행",
-            "2026-07-01",
-            "2026-08-15",
-            "open",
-            "https://www.jeju.go.kr",
-        ),
-        (
-            "jeju-local-startup-2026",
-            "청년 로컬창업 지원사업 참여자 모집",
-            "로컬 문제를 해결하는 청년 창업팀에 사업화 자금과 멘토링 제공",
-            "만 19~39세 청년 예비창업자",
-            "제주",
-            "창업",
-            "2026-07-05",
-            "2026-08-31",
-            "open",
-            "https://www.jeju.go.kr",
-        ),
-        (
-            "jeju-workation-pass-2026",
-            "제주 워케이션 오피스 패스",
-            "공유오피스, 회의실, 네트워킹 프로그램을 묶어 할인 지원",
-            "제주 체류 근로자 및 프리랜서",
-            "제주",
-            "일자리",
-            "2026-07-10",
-            "2026-09-10",
-            "open",
-            "https://www.jeju.go.kr",
-        ),
-    ]
-    for external_id, title, summary, target, region, field, starts, ends, status, url in policies:
-        connection.execute(
-            """
-            INSERT OR IGNORE INTO policies (
-              id, external_id, title, summary, target, region, field,
-              application_start_date, application_end_date, status, official_url,
-              last_synced_at, created_at, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                _stable_id("policy", external_id),
-                external_id,
-                title,
-                summary,
-                target,
-                region,
-                field,
-                starts,
-                ends,
-                status,
-                url,
-                "2026-07-07T09:00:00+09:00",
-                now,
-                now,
-            ),
-        )
-
     documents = [
-        (
-            "doc-policy-trip",
-            "policy",
-            "jeju-youth-trip-2026",
-            "제주 청년 큐레이션 여행 지원 핵심 조건",
-            "제주 체류 청년은 체류 기간, 참여 프로그램, 증빙 자료 조건을 충족하면 여행 경비 일부를 지원받을 수 있습니다. 신청 마감은 2026년 8월 15일입니다.",
-            "정책",
-        ),
         (
             "doc-hamdeok-food",
             "curated",
@@ -608,9 +516,9 @@ def _seed(connection: sqlite3.Connection) -> None:
                 _stable_id("rag-source", doc_source),
                 document_id,
                 source_type,
-                "제주메이트 검증 데이터" if source_type == "curated" else "제주특별자치도 청년정책",
-                "https://www.jeju.go.kr" if source_type == "policy" else "https://jejumate.local/curation",
-                1 if source_type == "policy" else 0,
+                "제주메이트 검증 데이터",
+                "https://jejumate.local/curation",
+                0,
                 now,
             ),
         )
@@ -658,21 +566,6 @@ def _meeting_from_row(row: sqlite3.Row, *, now: datetime | None = None) -> HomeM
         cta=MeetingCta(label="신청", enabled=row["status"] == "open", requires_auth=True),
         is_popular=_is_popular_meeting(capacity=row["capacity"], approved_count=row["approved_count"]),
         is_new=_is_new_meeting(created_at=row["created_at"], now=now),
-    )
-
-
-def _policy_from_row(row: sqlite3.Row) -> HomePolicy:
-    end_date = date.fromisoformat(row["application_end_date"])
-    return HomePolicy(
-        id=row["id"],
-        title=row["title"],
-        summary=row["summary"],
-        region=row["region"],
-        field=row["field"],
-        status=row["status"],
-        application_end_date=row["application_end_date"],
-        d_day=max((end_date - date.today()).days, 0),
-        official_url=row["official_url"],
     )
 
 
@@ -894,15 +787,6 @@ def get_home_data() -> HomeResponse:
     now = datetime.now(timezone.utc)
     with _connect() as connection:
         meeting_rows = _open_meeting_rows(connection, limit=6)
-        policy_rows = connection.execute(
-            """
-            SELECT *
-            FROM policies
-            WHERE status IN ('open', 'closing_soon')
-            ORDER BY application_end_date ASC
-            LIMIT 4
-            """
-        ).fetchall()
         # "지금 제주 어딘가에서 N명이 놀고 있어요": 마감 안 된(활성) 모임의 호스트
         # 1명씩 + 그 모임에 승인된 참가자 수를 전부 더한 실제 값(하드코딩 아님).
         active_people_count = connection.execute(
@@ -925,10 +809,9 @@ def get_home_data() -> HomeResponse:
         ),
         rag_strip=RagStrip(
             title="제주에서 바로 물어보기",
-            subtitle="정책·장소·모임을 근거와 함께",
-            suggestions=["오늘 신청 가능한 청년정책", "함덕 점심 추천", "비 오는 날 코스"],
+            subtitle="장소·모임을 근거와 함께",
+            suggestions=["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"],
         ),
-        policies=[_policy_from_row(row) for row in policy_rows],
     )
 
 
@@ -1440,8 +1323,8 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     return RagAskResponse(
         answer=answer,
         sources=sources,
-        safety_note="정책 신청 조건과 마감일은 공식 링크에서 최종 확인하세요.",
-        suggestions=["신청 가능한 청년정책", "함덕 점심 추천", "비 오는 날 코스"],
+        safety_note="채팅에서 모은 정보라 최신 상황은 직접 한 번 더 확인해보세요.",
+        suggestions=["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"],
         query_log_id=query_log_id,
         persisted=True,
     )

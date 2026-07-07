@@ -137,8 +137,7 @@
 }
 
 .meetingsSection,
-.boardSection,
-.policySection {
+.boardSection {
   display: grid;
   gap: 12px;
   margin-top: 24px;
@@ -660,56 +659,6 @@
 }
 
 .boardItem small {
-  display: block;
-  margin-top: 5px;
-  color: #687178;
-  font-size: 12px;
-  line-height: 1.3;
-  font-weight: 750;
-}
-
-.policyList {
-  overflow: hidden;
-  border: 1px solid #e0e9eb;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.policyItem {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 20px;
-  align-items: center;
-  gap: 12px;
-  min-height: 72px;
-  padding: 12px;
-  border-bottom: 1px solid #edf1f2;
-  text-align: left;
-}
-
-.policyItem:last-child {
-  border-bottom: 0;
-}
-
-.policyItem > span {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #d8f4ec;
-  color: #008d8d;
-}
-
-.policyItem strong {
-  display: block;
-  color: #172024;
-  font-size: 15px;
-  line-height: 1.2;
-  font-weight: 950;
-}
-
-.policyItem small {
   display: block;
   margin-top: 5px;
   color: #687178;

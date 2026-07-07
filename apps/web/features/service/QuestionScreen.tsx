@@ -6,7 +6,7 @@ import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
 
-const suggestions = ["함덕 맛집", "오늘 정책", "비 오는 코스", "혼자 가기 좋은 카페"];
+const suggestions = ["함덕 맛집", "제주공항 택시팟", "비 오는 코스", "혼자 가기 좋은 카페"];
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
 
 type LocalProfile = {
@@ -50,7 +50,7 @@ export function QuestionScreen() {
   }
 
   return (
-    <MobileShell active="question" title="질문" subtitle="제주 모임, 장소, 정책을 근거와 함께 확인해요">
+    <MobileShell active="question" title="질문" subtitle="제주 모임, 장소를 근거와 함께 확인해요">
       <section className={styles.questionBox}>
         <div className={styles.ragSearch}>
           <Search size={18} />
