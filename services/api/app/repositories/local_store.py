@@ -545,18 +545,38 @@ def _policy_from_row(row: sqlite3.Row) -> HomePolicy:
     )
 
 
+def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
+    """공개+열린 모임 조회. ORDER BY는 문자열이 아니라 datetime()으로 비교한다 —
+    시드 데이터는 +09:00, API로 만든 모임은 +00:00 오프셋을 쓰는데 TEXT 컬럼을
+    그대로 비교하면 실제 시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을
+    정규화해서 비교해준다)."""
+    limit_clause = "LIMIT ?" if limit else ""
+    params: tuple[object, ...] = (limit,) if limit else ()
+    return connection.execute(
+        f"""
+        SELECT m.*, p.nickname AS host_nickname
+        FROM meetings m
+        JOIN profiles p ON p.id = m.host_profile_id
+        WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
+        ORDER BY datetime(m.starts_at) ASC
+        {limit_clause}
+        """,
+        params,
+    ).fetchall()
+
+
+def list_open_meetings() -> list[HomeMeeting]:
+    """모임 목록 페이지(GET /api/meetings) 전용. 홈 미리보기(get_home_data, LIMIT 6)와
+    달리 열린 모임 전체를 반환한다 — 버그: 목록 페이지가 홈 미리보기 쿼리를 그대로
+    재사용해서 열린 모임이 6개를 넘으면 새로 만든 모임이 목록에서 사라졌었다."""
+    with _connect() as connection:
+        rows = _open_meeting_rows(connection)
+    return [_meeting_from_row(row) for row in rows]
+
+
 def get_home_data() -> HomeResponse:
     with _connect() as connection:
-        meeting_rows = connection.execute(
-            """
-            SELECT m.*, p.nickname AS host_nickname
-            FROM meetings m
-            JOIN profiles p ON p.id = m.host_profile_id
-            WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
-            ORDER BY m.starts_at ASC
-            LIMIT 6
-            """
-        ).fetchall()
+        meeting_rows = _open_meeting_rows(connection, limit=6)
         policy_rows = connection.execute(
             """
             SELECT *

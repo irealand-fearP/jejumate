@@ -1,12 +1,16 @@
+from app.repositories.local_store import list_open_meetings
 from app.schemas.resources import MeetingsResponse, PoliciesResponse, ProfilePreviewResponse
 from app.services.home_service import get_home_data
 
 
 def get_meetings_data() -> MeetingsResponse:
+    # 홈 미리보기(get_home_data)는 LIMIT 6이 걸려 있어, 모임 목록 페이지가 이걸 그대로
+    # 재사용하면 열린 모임이 6개를 넘는 순간부터 새로 만든 모임이 목록에서 사라지는
+    # 버그가 있었다. 목록 페이지는 열린 모임 전체(list_open_meetings)를 쓴다.
     home = get_home_data()
     return MeetingsResponse(
         filters=home.meeting_filters,
-        meetings=home.meetings,
+        meetings=list_open_meetings(),
         privacy_note="모임 신청 시 공개되는 정보는 닉네임과 신청 상태입니다.",
     )
 

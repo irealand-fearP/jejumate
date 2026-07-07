@@ -51,6 +51,7 @@ type LocalProfile = {
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
 const STATUS_POLL_INTERVAL_MS = 8000;
+const MEETINGS_POLL_INTERVAL_MS = 15000;
 
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -149,6 +150,28 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     }
     setOwnedMeetingIds(owned);
   }, [meetings]);
+
+  // 등록 직후 refetch(refreshMeetings)와 별개로, 다른 사람이 만든 모임도 놓치지 않게
+  // 주기적으로 목록을 갱신한다(신청 화면이 열려 있을 땐 목록이 밑에서 바뀌어도
+  // 사용자 입력을 방해하지 않도록 건드리지 않는다).
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setInterval(() => {
+      if (selected || showCreateSheet || manageMeeting) return;
+      getMeetingsData()
+        .then((refreshed) => {
+          if (!cancelled) setMeetings(refreshed.meetings);
+        })
+        .catch(() => {
+          // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
+        });
+    }, MEETINGS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, showCreateSheet, manageMeeting]);
 
   useEffect(() => {
     if (!manageMeeting) return;
