@@ -1,6 +1,7 @@
 import logging
 
 from app.repositories import local_store
+from app.schemas.home import HomeMeeting
 from app.schemas.interactions import (
     ApplicantNotificationsResponse,
     ApplicationDeleteResponse,
@@ -57,8 +58,10 @@ def submit_meeting_application(
         )
 
 
-def list_meeting_chat_messages(meeting_id: str) -> ChatMessagesResponse:
-    return local_store.list_chat_messages(meeting_id=meeting_id)
+def list_meeting_chat_messages(
+    meeting_id: str, anonymous_id: str | None = None, owner_secret: str | None = None
+) -> ChatMessagesResponse:
+    return local_store.list_chat_messages(meeting_id=meeting_id, anonymous_id=anonymous_id, owner_secret=owner_secret)
 
 
 def post_meeting_chat_message(
@@ -66,12 +69,14 @@ def post_meeting_chat_message(
     nickname: str,
     content: str,
     anonymous_id: str | None = None,
+    owner_secret: str | None = None,
 ) -> ChatMessagesResponse:
     return local_store.create_chat_message(
         meeting_id=meeting_id,
         nickname=nickname,
         content=content,
         anonymous_id=anonymous_id,
+        owner_secret=owner_secret,
     )
 
 
@@ -104,6 +109,10 @@ def create_meeting(
 
 def get_meeting_status(meeting_id: str) -> MeetingStatusResponse:
     return local_store.get_meeting_status(meeting_id=meeting_id)
+
+
+def get_meeting_detail(meeting_id: str) -> HomeMeeting:
+    return local_store.get_meeting_by_id(meeting_id=meeting_id)
 
 
 def list_meeting_applications(meeting_id: str, owner_secret: str | None = None) -> MeetingApplicationListResponse:

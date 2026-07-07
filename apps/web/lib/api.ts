@@ -249,7 +249,14 @@ async function getApi<TResponse>(path: string): Promise<TResponse> {
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    let detail: string | undefined;
+    try {
+      const errorBody = (await response.json()) as { detail?: string };
+      detail = errorBody?.detail;
+    } catch {
+      // 에러 바디가 JSON이 아니면 무시하고 기본 메시지 사용
+    }
+    throw new Error(detail ?? `API request failed: ${response.status}`);
   }
 
   const body = (await response.json()) as ApiResponse<TResponse>;
@@ -399,18 +406,28 @@ export async function submitMeetingApplication(
   );
 }
 
-export async function getMeetingChatMessages(meetingId: string): Promise<ChatMessagesResult> {
-  return getApi<ChatMessagesResult>(`/api/meetings/${meetingId}/chat/messages`);
+// 모임 채팅은 승인된 신청자(anonymousId) 또는 호스트(ownerSecret)만 볼 수 있다.
+// 어느 쪽도 없으면 백엔드가 403을 준다.
+export async function getMeetingChatMessages(
+  meetingId: string,
+  access: { anonymousId?: string; ownerSecret?: string } = {}
+): Promise<ChatMessagesResult> {
+  const params = new URLSearchParams();
+  if (access.anonymousId) params.set("anonymous_id", access.anonymousId);
+  if (access.ownerSecret) params.set("owner_secret", access.ownerSecret);
+  const query = params.toString();
+  return getApi<ChatMessagesResult>(`/api/meetings/${meetingId}/chat/messages${query ? `?${query}` : ""}`);
 }
 
 export async function sendMeetingChatMessage(
   meetingId: string,
-  payload: { nickname: string; content: string; anonymous_id?: string }
+  payload: { nickname: string; content: string; anonymous_id?: string; owner_secret?: string }
 ): Promise<ChatMessagesResult> {
-  return postApi<ChatMessagesResult, { nickname: string; content: string; anonymous_id?: string }>(
-    `/api/meetings/${meetingId}/chat/messages`,
-    payload
-  );
+  return postApi<ChatMessagesResult, typeof payload>(`/api/meetings/${meetingId}/chat/messages`, payload);
+}
+
+export async function getMeetingDetail(meetingId: string): Promise<HomeMeeting> {
+  return getApi<HomeMeeting>(`/api/meetings/${meetingId}`);
 }
 
 export async function askRag(question: string, anonymousId?: string): Promise<RagAnswer> {

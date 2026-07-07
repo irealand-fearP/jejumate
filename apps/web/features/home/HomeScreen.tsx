@@ -8,6 +8,7 @@ import {
   askRag,
   createNickname,
   getMeetingChatMessages,
+  getMyApplicationNotifications,
   sendMeetingChatMessage,
   submitMeetingApplication,
   type ChatMessage,
@@ -16,6 +17,7 @@ import {
   type NicknameProfile,
   type RagAnswer,
 } from "@/lib/api";
+import { getOwnerSecret } from "@/lib/ownerSecret";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
@@ -97,6 +99,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [result, setResult] = useState<ResultState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const savedProfile = readProfile();
@@ -105,6 +108,25 @@ export function HomeScreen({ data }: { data: HomeData }) {
       setNickname(savedProfile.nickname);
     }
   }, []);
+
+  // 채팅 접근 권한(승인된 신청자) 판단용. 호스트 여부는 getOwnerSecret으로 그때그때 확인한다.
+  useEffect(() => {
+    if (!profile?.anonymousId) return;
+    getMyApplicationNotifications(profile.anonymousId)
+      .then((res) => {
+        const approved = new Set(
+          res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
+        );
+        setApprovedMeetingIds(approved);
+      })
+      .catch(() => {
+        // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
+      });
+  }, [profile?.anonymousId]);
+
+  function hasChatAccess(meetingId: string): boolean {
+    return getOwnerSecret(meetingId) !== null || approvedMeetingIds.has(meetingId);
+  }
 
   function openApply(meeting: HomeMeeting) {
     setResult(null);
@@ -195,11 +217,18 @@ export function HomeScreen({ data }: { data: HomeData }) {
     setBusy(true);
 
     try {
-      const chat = await getMeetingChatMessages(meeting.id);
+      const chat = await getMeetingChatMessages(meeting.id, {
+        anonymousId: profile?.anonymousId,
+        ownerSecret: getOwnerSecret(meeting.id) ?? undefined,
+      });
       setChatMessages(chat.messages);
       setChatNotice(chat.notice);
-    } catch {
-      setResult({ tone: "error", title: "채팅 불러오기 실패", body: "잠시 후 다시 시도해 주세요." });
+    } catch (error) {
+      setResult({
+        tone: "error",
+        title: "채팅 불러오기 실패",
+        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
+      });
     } finally {
       setBusy(false);
     }
@@ -236,12 +265,17 @@ export function HomeScreen({ data }: { data: HomeData }) {
         nickname: currentProfile.nickname,
         content: chatInput.trim(),
         anonymous_id: currentProfile.anonymousId,
+        owner_secret: getOwnerSecret(selectedMeeting.id) ?? undefined,
       });
       setChatMessages(chat.messages);
       setChatNotice(chat.notice);
       setChatInput("");
-    } catch {
-      setResult({ tone: "error", title: "메시지 전송 실패", body: "잠시 후 다시 시도해 주세요." });
+    } catch (error) {
+      setResult({
+        tone: "error",
+        title: "메시지 전송 실패",
+        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
+      });
     } finally {
       setBusy(false);
     }
@@ -384,14 +418,16 @@ export function HomeScreen({ data }: { data: HomeData }) {
               >
                 {busy ? "접수 중" : "신청 제출"}
               </button>
-              <button
-                className={styles.secondaryAction}
-                disabled={busy || !selectedMeeting}
-                onClick={() => openChat(selectedMeeting)}
-                type="button"
-              >
-                모임 채팅 보기
-              </button>
+              {selectedMeeting && hasChatAccess(selectedMeeting.id) ? (
+                <button
+                  className={styles.secondaryAction}
+                  disabled={busy}
+                  onClick={() => openChat(selectedMeeting)}
+                  type="button"
+                >
+                  모임 채팅 보기
+                </button>
+              ) : null}
             </div>
             {renderResult()}
           </BottomSheet>

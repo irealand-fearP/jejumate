@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
+from app.repositories.local_store import ChatAccessDeniedError, MeetingNotFoundError
 from app.schemas.common import ApiResponse
 from app.schemas.interactions import (
     ChatMessageRequest,
@@ -47,11 +48,17 @@ def meeting_application(
 
 
 @router.get("/meetings/{meeting_id}/chat/messages", response_model=ApiResponse[ChatMessagesResponse])
-def meeting_chat_messages(meeting_id: str) -> ApiResponse[ChatMessagesResponse]:
-    return ApiResponse(
-        request_id="local_service_request",
-        data=list_meeting_chat_messages(meeting_id),
-    )
+def meeting_chat_messages(
+    meeting_id: str, anonymous_id: str | None = None, owner_secret: str | None = None
+) -> ApiResponse[ChatMessagesResponse]:
+    """모임 채팅은 승인된 신청자(anonymous_id)와 호스트(owner_secret)만 볼 수 있다."""
+    try:
+        data = list_meeting_chat_messages(meeting_id, anonymous_id=anonymous_id, owner_secret=owner_secret)
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+    except ChatAccessDeniedError:
+        raise HTTPException(status_code=403, detail="승인된 참가자와 호스트만 볼 수 있어요")
+    return ApiResponse(request_id="local_service_request", data=data)
 
 
 @router.post("/meetings/{meeting_id}/chat/messages", response_model=ApiResponse[ChatMessagesResponse])
@@ -59,15 +66,19 @@ def meeting_chat_message(
     meeting_id: str,
     payload: ChatMessageRequest,
 ) -> ApiResponse[ChatMessagesResponse]:
-    return ApiResponse(
-        request_id="local_service_request",
-        data=post_meeting_chat_message(
+    try:
+        data = post_meeting_chat_message(
             meeting_id=meeting_id,
             nickname=payload.nickname,
             content=payload.content,
             anonymous_id=payload.anonymous_id,
-        ),
-    )
+            owner_secret=payload.owner_secret,
+        )
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+    except ChatAccessDeniedError:
+        raise HTTPException(status_code=403, detail="승인된 참가자와 호스트만 보낼 수 있어요")
+    return ApiResponse(request_id="local_service_request", data=data)
 
 
 @router.post("/rag/ask", response_model=ApiResponse[RagAskResponse])

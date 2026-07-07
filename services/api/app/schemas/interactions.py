@@ -113,6 +113,7 @@ class ChatMessageRequest(BaseModel):
     nickname: str = Field(min_length=2, max_length=20)
     content: str = Field(min_length=1, max_length=500)
     anonymous_id: str | None = Field(default=None, max_length=80)
+    owner_secret: str | None = Field(default=None, max_length=4)
 
 
 class ChatMessage(BaseModel):

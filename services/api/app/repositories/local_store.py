@@ -80,6 +80,11 @@ class ApplicantMismatchError(Exception):
     """신청 삭제는 호스트가 아니라 신청자 본인 액션이라 owner_secret이 아니라
     anonymous_id로 본인 확인한다(OwnerMismatchError와 별개)."""
 
+
+class ChatAccessDeniedError(Exception):
+    """모임 채팅은 호스트(owner_secret)와 승인된 신청자(anonymous_id)만 볼 수 있다.
+    대기/거절 상태이거나 아예 신청하지 않은 사람은 여기 걸린다."""
+
     pass
 
 
@@ -991,6 +996,50 @@ def create_meeting(
     )
 
 
+def get_meeting_by_id(*, meeting_id: str) -> HomeMeeting:
+    """내정보 화면의 '내가 만든 모임' 목록 등, 상태(open/closed)와 무관하게 모임 한 건의
+    전체 정보가 필요할 때 쓴다. list_open_meetings/get_home_data와 달리 공개+열린
+    모임으로 제한하지 않는다."""
+    now = datetime.now(timezone.utc)
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT m.*, p.nickname AS host_nickname
+            FROM meetings m
+            JOIN profiles p ON p.id = m.host_profile_id
+            WHERE m.id = ? OR m.source_key = ?
+            """,
+            (meeting_id, meeting_id),
+        ).fetchone()
+        if row is None:
+            raise MeetingNotFoundError(f"Unknown meeting id: {meeting_id}")
+    return _meeting_from_row(row, now=now)
+
+
+def _has_chat_access(
+    connection: sqlite3.Connection,
+    meeting: sqlite3.Row,
+    *,
+    anonymous_id: str | None,
+    owner_secret: str | None,
+) -> bool:
+    if owner_secret and meeting["owner_secret"] == owner_secret:
+        return True
+    if not anonymous_id:
+        return False
+    approved = connection.execute(
+        """
+        SELECT 1
+        FROM meeting_applications a
+        JOIN users u ON u.id = a.applicant_user_id
+        WHERE a.meeting_id = ? AND u.anonymous_id = ? AND a.status = 'approved'
+        LIMIT 1
+        """,
+        (meeting["id"], anonymous_id),
+    ).fetchone()
+    return approved is not None
+
+
 def get_meeting_status(*, meeting_id: str) -> MeetingStatusResponse:
     """모집 현황 폴링용: 승인 count vs 정원, 마감 여부(jejumate/backend GET /posts/{id}/status와 동일)."""
     with _connect() as connection:
@@ -1170,9 +1219,13 @@ def _chat_message_from_row(row: sqlite3.Row) -> ChatMessage:
     )
 
 
-def list_chat_messages(*, meeting_id: str) -> ChatMessagesResponse:
+def list_chat_messages(
+    *, meeting_id: str, anonymous_id: str | None = None, owner_secret: str | None = None
+) -> ChatMessagesResponse:
     with _connect() as connection:
         meeting = _resolve_meeting(connection, meeting_id)
+        if not _has_chat_access(connection, meeting, anonymous_id=anonymous_id, owner_secret=owner_secret):
+            raise ChatAccessDeniedError("승인된 참가자와 호스트만 볼 수 있어요")
         rows = connection.execute(
             """
             SELECT *
@@ -1198,7 +1251,13 @@ def create_chat_message(
     nickname: str,
     content: str,
     anonymous_id: str | None,
+    owner_secret: str | None = None,
 ) -> ChatMessagesResponse:
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        if not _has_chat_access(connection, meeting, anonymous_id=anonymous_id, owner_secret=owner_secret):
+            raise ChatAccessDeniedError("승인된 참가자와 호스트만 보낼 수 있어요")
+
     profile = create_or_update_profile(nickname=nickname, anonymous_id=anonymous_id)
     now = _now()
     with _connect() as connection:
