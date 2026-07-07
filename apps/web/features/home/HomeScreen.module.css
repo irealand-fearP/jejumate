@@ -18,7 +18,7 @@
   width: min(100vw, 430px);
   min-height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
   max-width: 100vw;
-  padding: 22px 20px 0;
+  padding: 22px 14px 0;
   background: #ffffff;
   box-shadow: 0 24px 60px rgba(12, 42, 45, 0.18);
 }
@@ -209,8 +209,8 @@
 .timelineItem {
   position: relative;
   display: grid;
-  grid-template-columns: 58px 16px 54px minmax(0, 1fr) 78px;
-  gap: 8px;
+  grid-template-columns: 48px 10px 44px minmax(0, 1fr) 78px;
+  gap: 6px;
   align-items: center;
   min-height: 92px;
   padding: 12px 0;
@@ -261,8 +261,8 @@
 }
 
 .categoryBubble {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -398,11 +398,11 @@
 
 @media (max-width: 380px) {
   .phone {
-    padding-inline: 16px;
+    padding-inline: 10px;
   }
 
   .timelineItem {
-    grid-template-columns: 52px 12px 44px minmax(0, 1fr) 64px;
+    grid-template-columns: 44px 8px 38px minmax(0, 1fr) 70px;
     gap: 5px;
   }
 
@@ -411,8 +411,8 @@
   }
 
   .categoryBubble {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
   }
 
   .joinColumn span {
