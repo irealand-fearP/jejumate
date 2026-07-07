@@ -9,6 +9,7 @@ from app.repositories.local_store import (
     OwnerMismatchError,
 )
 from app.schemas.common import ApiResponse
+from app.schemas.home import HomeMeeting
 from app.schemas.interactions import (
     ApplicantNotificationsResponse,
     ApplicationDeleteResponse,
@@ -23,6 +24,7 @@ from app.services.interaction_service import (
     create_meeting,
     decide_meeting_application,
     delete_my_application,
+    get_meeting_detail,
     get_meeting_status,
     list_meeting_applications,
     list_my_application_notifications,
@@ -59,6 +61,15 @@ def create_meeting_endpoint(payload: MeetingCreateRequest) -> ApiResponse[Meetin
             anonymous_id=payload.anonymous_id,
         ),
     )
+
+
+@router.get("/meetings/{meeting_id}", response_model=ApiResponse[HomeMeeting])
+def meeting_detail(meeting_id: str) -> ApiResponse[HomeMeeting]:
+    """내정보 '내가 만든 모임' 목록 등 상태와 무관하게 모임 상세가 필요할 때 쓴다."""
+    try:
+        return ApiResponse(request_id="local_service_request", data=get_meeting_detail(meeting_id))
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
 
 
 @router.get("/meetings/{meeting_id}/status", response_model=ApiResponse[MeetingStatusResponse])
