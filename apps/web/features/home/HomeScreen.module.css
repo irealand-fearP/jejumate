@@ -1,31 +1,35 @@
 .canvas {
+  /* 스크롤하지 않는 바깥 프레임. min-height를 쓰면 높이가 콘텐츠만큼 계속 늘어나
+     실제로는 아무것도 스크롤할 게 없는(scrollHeight===clientHeight) 상태가 되고,
+     넘친 콘텐츠는 body{overflow:hidden}에 그냥 잘려서 드래그해도 안 보이는 버그가
+     있었다. 실제 스크롤은 안쪽 .phone이 담당한다(MobileShell과 동일한 구조). */
   width: 100vw;
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
-  overflow-y: auto;
-  /* 유일한 스크롤 컨테이너. 터치 관성 스크롤이 자연스럽게 동작하도록 명시한다. */
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  overflow: hidden;
   background: #eef3f4;
-  scrollbar-width: none;
-}
-
-.canvas::-webkit-scrollbar {
-  display: none;
 }
 
 .phone {
   position: relative;
   box-sizing: border-box;
   width: min(100vw, 430px);
-  min-height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
+  height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
   max-width: 100vw;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
   /* 하단 내비가 position:fixed로 뷰포트 바닥에 고정되므로, 마지막 콘텐츠가
      그 밑에 가리지 않게 내비 높이(72px)+여백만큼 하단 패딩을 확보한다. */
   padding: 22px 14px 96px;
   background: #ffffff;
   box-shadow: 0 24px 60px rgba(12, 42, 45, 0.18);
+}
+
+.phone::-webkit-scrollbar {
+  display: none;
 }
 
 .phone *,
@@ -118,6 +122,8 @@
   font-size: 16px;
   line-height: 1.35;
   font-weight: 950;
+  /* 어절 중간에서 줄바꿈되는 걸 막는다("가볍/게", "신/청할"처럼 어색하게 잘리지 않게). */
+  word-break: keep-all;
 }
 
 .privacyBanner img {
@@ -417,6 +423,59 @@
   box-shadow: 0 8px 18px rgba(0, 159, 155, 0.22);
 }
 
+/* 모바일 실기기에서 폰트가 전체적으로 과대해 보인다는 피드백에 따른 타이포 스케일
+   축소(시간/제목/칩/버튼/섹션 헤더). 데스크톱(기본 규칙)은 그대로 두고 좁은
+   뷰포트에서만 한 단계씩 줄인다. */
+@media (max-width: 480px) {
+  .sectionTitleRow h2 {
+    font-size: 21px;
+  }
+
+  .sectionTitleRow h2 span {
+    font-size: 13px;
+  }
+
+  .filterChip,
+  .filterActive {
+    min-width: 64px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+
+  .timeColumn strong {
+    font-size: 16px;
+  }
+
+  .timeColumn span {
+    font-size: 10px;
+  }
+
+  .meetingTitleLine strong {
+    font-size: 13.5px;
+  }
+
+  .joinColumn b {
+    font-size: 13px;
+  }
+
+  .joinColumn button {
+    width: min(68px, 100%);
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .headerActions button {
+    height: 31px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .privacyBanner strong {
+    font-size: 14px;
+  }
+}
+
 @media (max-width: 380px) {
   .phone {
     padding-inline: 10px;
@@ -429,10 +488,6 @@
     gap: 5px;
   }
 
-  .timeColumn strong {
-    font-size: 19px;
-  }
-
   .categoryBubble {
     width: 38px;
     height: 38px;
@@ -441,11 +496,6 @@
   .joinColumn span {
     padding-inline: 7px;
     font-size: 10px;
-  }
-
-  .joinColumn button {
-    height: 32px;
-    font-size: 13px;
   }
 }
 
@@ -630,11 +680,13 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
-  border: 1px solid #e4ecee;
+  border: 1px solid #dfe8ea;
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 -10px 28px rgba(20, 54, 58, 0.12);
+  /* 반투명(0.98)이면 실기기에서 뒤 콘텐츠 글자가 비쳐 보였다. 완전 불투명 배경 +
+     위쪽 경계를 또렷하게 해서 내비와 콘텐츠를 명확히 분리한다. */
+  background: #ffffff;
+  box-shadow: 0 -2px 0 rgba(20, 54, 58, 0.05), 0 -10px 28px rgba(20, 54, 58, 0.12);
 }
 
 .bottomNav button {

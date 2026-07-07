@@ -280,7 +280,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
           <span>
             <ShieldCheck size={26} />
           </span>
-          <strong>닉네임으로 가볍게 둘러보고, 신청할 때만 인증해요!</strong>
+          <strong>비로그인으로 간단하게!!</strong>
           <img src="/assets/banner-illustration.png" alt="" />
           <ChevronRight size={24} />
         </button>

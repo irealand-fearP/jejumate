@@ -13,6 +13,10 @@ body {
   min-width: 320px;
   min-height: 100%;
   margin: 0;
+  /* 모바일 브라우저의 자동 폰트 확대(font boosting)를 끈다. 이게 없으면 실기기에서
+     일부 텍스트가 CSS font-size보다 훨씬 크게 렌더링된다. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
