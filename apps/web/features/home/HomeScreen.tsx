@@ -375,7 +375,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
                 type="button"
               >
                 <span className={privacyChecked ? styles.checkedBox : ""} />
-                실명과 연락처를 메시지에 적지 않았습니다.
+                신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
               </button>
               <button
                 disabled={busy || nickname.trim().length < 2 || !privacyChecked}
