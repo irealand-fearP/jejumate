@@ -55,7 +55,7 @@ export function MeetingCard({
         <span />
       </div>
       <div className={`${styles.categoryBubble} ${styles[categoryClass]}`}>
-        <Icon size={28} strokeWidth={2.2} />
+        <Icon size={18} strokeWidth={2.2} />
       </div>
       <button className={styles.meetingBody} onClick={() => onApply(meeting)} type="button">
         <span className={styles.meetingTitleLine}>

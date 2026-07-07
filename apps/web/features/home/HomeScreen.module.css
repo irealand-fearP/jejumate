@@ -213,32 +213,33 @@
 .timelineItem {
   position: relative;
   display: grid;
-  grid-template-columns: 48px 10px 44px minmax(0, 1fr) 78px;
+  grid-template-columns: 58px 6px 34px minmax(0, 1fr) 106px;
   gap: 6px;
   align-items: center;
-  min-height: 92px;
-  padding: 12px 0;
+  min-height: 78px;
+  padding: 10px 0;
   border-bottom: 1px solid #edf1f2;
 }
 
 .timeColumn {
   align-self: start;
   display: grid;
-  gap: 10px;
+  gap: 5px;
 }
 
 .timeColumn strong {
   color: #050607;
-  font-size: 21px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 950;
 }
 
 .timeColumn span {
   color: #697178;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .timelineRail {
@@ -265,8 +266,8 @@
 }
 
 .categoryBubble {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -305,7 +306,7 @@
 .meetingBody {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 4px;
   text-align: left;
 }
 
@@ -313,13 +314,13 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
 }
 
 .meetingTitleLine strong {
   overflow: hidden;
   color: #111315;
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 950;
   text-overflow: ellipsis;
@@ -328,11 +329,11 @@
 
 .meetingTitleLine em {
   flex: 0 0 auto;
-  padding: 3px 6px;
-  border-radius: 7px;
+  padding: 2px 5px;
+  border-radius: 6px;
   background: #fff0df;
   color: #e17b00;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
   font-style: normal;
   font-weight: 950;
@@ -342,10 +343,10 @@
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   overflow: hidden;
   color: #687178;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
   font-weight: 750;
   text-overflow: ellipsis;
@@ -361,28 +362,30 @@
   min-width: 0;
   display: grid;
   justify-items: end;
-  gap: 7px;
+  gap: 4px;
 }
 
 .joinColumn b {
   color: #008d8d;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
   font-weight: 950;
 }
 
 .joinColumn span {
+  /* 이 배지("지금 합류 가능 ⚡")는 절대 잘리면 안 된다 — 컬럼 폭(106px)에 맞춰
+     한 줄로 다 들어가는 걸 실측 확인함(잠금 시안 기준). */
   max-width: 100%;
-  overflow: hidden;
-  padding: 6px 9px;
+  overflow: visible;
+  white-space: nowrap;
+  padding: 4px 8px;
   border-radius: 999px;
   background: #e3f7d8;
   color: #319100;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
   font-weight: 900;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: clip;
 }
 
 .joinColumn .capacityHot {
@@ -391,11 +394,11 @@
 
 .joinColumn button {
   width: min(76px, 100%);
-  height: 34px;
+  height: 26px;
   border-radius: 999px;
   background: #009f9b;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 950;
   box-shadow: 0 8px 18px rgba(0, 159, 155, 0.22);
 }
