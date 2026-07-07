@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: jejumate-postgres
+    environment:
+      POSTGRES_USER: jejumate
+      POSTGRES_PASSWORD: jejumate_local
+      POSTGRES_DB: jejumate
+    ports:
+      - "5432:5432"
+    volumes:
+      - jejumate-postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jejumate -d jejumate"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: jejumate-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  jejumate-postgres-data:

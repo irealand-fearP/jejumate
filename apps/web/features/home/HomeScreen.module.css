@@ -1,0 +1,329 @@
+.prototypeCanvas {
+  width: 100vw;
+  height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+  background: #eef3f4;
+}
+
+.lockedPhone {
+  position: relative;
+  width: min(100vw, 430px);
+  height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(12, 42, 45, 0.18);
+}
+
+.lockedMock {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.hotspotLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.hotspot {
+  position: absolute;
+  display: block;
+  border-radius: 12px;
+  opacity: 0;
+}
+
+.hotspot:focus-visible {
+  opacity: 1;
+  outline: 2px solid rgba(0, 159, 155, 0.95);
+  outline-offset: 2px;
+  background: rgba(0, 159, 155, 0.08);
+}
+
+.sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  background: rgba(0, 22, 24, 0.26);
+}
+
+.bottomSheet {
+  position: relative;
+  width: min(100vw, 430px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  padding: 24px 22px 26px;
+  border-radius: 20px 20px 0 0;
+  background: #ffffff;
+  box-shadow: 0 -20px 52px rgba(0, 30, 34, 0.22);
+}
+
+.sheetClose {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  color: #697178;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.bottomSheet h2 {
+  margin: 0 38px 0 0;
+  color: #111315;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.sheetForm {
+  display: grid;
+  gap: 10px;
+}
+
+.sheetForm label {
+  color: #20282d;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.sheetForm input,
+.sheetForm textarea {
+  width: 100%;
+  border: 1px solid #dce6e8;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #111315;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  outline: none;
+}
+
+.sheetForm input {
+  height: 46px;
+  padding: 0 14px;
+}
+
+.sheetForm textarea {
+  min-height: 88px;
+  resize: none;
+  padding: 13px 14px;
+  line-height: 1.45;
+}
+
+.sheetForm input:focus,
+.sheetForm textarea:focus {
+  border-color: #00aaa7;
+  box-shadow: 0 0 0 3px rgba(0, 170, 167, 0.12);
+}
+
+.sheetForm p {
+  margin: 0;
+  color: #596168;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 750;
+}
+
+.sheetForm > button:not(.checkRow) {
+  width: 100%;
+  height: 48px;
+  margin-top: 4px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #00aaa7, #008c91);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.sheetForm > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sheetForm > .secondaryAction {
+  border: 1px solid #c9efed;
+  background: #eefbfa;
+  color: #007f81;
+}
+
+.privacyList {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacyList li {
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: #f4f8f9;
+  color: #596168;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.meetingSummary,
+.resultCard,
+.answerCard {
+  display: grid;
+  gap: 5px;
+  padding: 12px 13px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #f8fbfb;
+}
+
+.meetingSummary b,
+.resultCard b,
+.answerCard b {
+  color: #172024;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 950;
+}
+
+.meetingSummary span,
+.resultCard span {
+  color: #596168;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.checkRow {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #465156;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 850;
+  text-align: left;
+}
+
+.checkRow span {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  border: 1px solid #cbdadd;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.checkRow .checkedBox {
+  border-color: #009f9b;
+  background: #009f9b;
+}
+
+.suggestionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.suggestionRow button,
+.answerCard a {
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #e9f8f6;
+  color: #007f81;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.answerCard {
+  background: #f2fbf9;
+}
+
+.answerCard b {
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 850;
+}
+
+.answerCard div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chatNotice {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff8e7;
+  color: #75531d;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 850;
+}
+
+.chatList {
+  max-height: 240px;
+  overflow-y: auto;
+  display: grid;
+  gap: 9px;
+  padding: 2px;
+}
+
+.chatBubble,
+.emptyChat {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: #f4f8f9;
+}
+
+.chatBubble b {
+  color: #008c91;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.chatBubble span,
+.emptyChat {
+  color: #364247;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.emptyChat {
+  color: #687278;
+  text-align: center;
+}
+
+.success {
+  background: #f1fbf5;
+  border-color: #caead7;
+}
+
+.error {
+  background: #fff4ef;
+  border-color: #f4d1c3;
+}
+
+.info {
+  background: #eefbfa;
+  border-color: #c9efed;
+}

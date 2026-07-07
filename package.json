@@ -1,0 +1,19 @@
+{
+  "name": "jejumate-service",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "typecheck:web": "npm --workspace apps/web run typecheck"
+  },
+  "overrides": {
+    "next": {
+      ".": "15.5.20",
+      "postcss": "8.5.16"
+    }
+  }
+}

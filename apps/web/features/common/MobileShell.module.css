@@ -1,0 +1,123 @@
+.page {
+  width: 100vw;
+  height: 100dvh;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background: #eef3f4;
+}
+
+.phone {
+  position: relative;
+  width: min(100vw, 430px);
+  height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
+  overflow-y: auto;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(12, 42, 45, 0.18);
+  scrollbar-width: none;
+}
+
+.phone::-webkit-scrollbar {
+  display: none;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 20px 20px 17px;
+  border-bottom: 1px solid #e4ecee;
+  background: #ffffff;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #008d8d;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.header h1 {
+  margin: 10px 0 0;
+  color: #111315;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.header p {
+  margin: 7px 0 0;
+  color: #697178;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 750;
+}
+
+.content {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px 94px;
+}
+
+.nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 5;
+  width: min(100vw, 430px);
+  height: 72px;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  border: 1px solid #e4ecee;
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -10px 28px rgba(20, 54, 58, 0.12);
+}
+
+.nav a {
+  position: relative;
+  min-width: 0;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  text-align: center;
+  color: #666d74;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.nav svg {
+  width: 23px;
+  height: 23px;
+  color: #7d878c;
+}
+
+.nav .active {
+  color: #009f9b;
+  font-weight: 950;
+}
+
+.nav .active::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #009f9b;
+}
+
+.nav .active svg {
+  color: #009f9b;
+}

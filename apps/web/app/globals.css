@@ -1,0 +1,40 @@
+:root {
+  font-family: "Noto Sans KR Variable", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  color: #101315;
+  background: #eef3f4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #eef3f4;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

@@ -1,0 +1,66 @@
+{
+  "profile_chip": {
+    "label": "닉네임",
+    "is_set": false
+  },
+  "privacy_chip": {
+    "label": "실명 비공개",
+    "is_verified": false
+  },
+  "meeting_summary": {
+    "open_count": 15
+  },
+  "meeting_filters": ["전체", "밥친구", "작업", "이동", "커피챗"],
+  "meetings": [
+    {
+      "id": "meeting_lunch_hamdeok",
+      "category": "meal",
+      "title": "함덕 점심 같이 먹자",
+      "starts_at": "2026-07-07T11:00:00+09:00",
+      "ends_at": "2026-07-07T13:00:00+09:00",
+      "place_label": "해수욕장 근처",
+      "host": {
+        "profile_id": "profile_badang",
+        "nickname": "바당이",
+        "badge": "host"
+      },
+      "capacity": 4,
+      "approved_count": 2,
+      "status": "open"
+    },
+    {
+      "id": "meeting_work_ocean",
+      "category": "work",
+      "title": "오션뷰 카페 작업팟",
+      "starts_at": "2026-07-07T14:00:00+09:00",
+      "ends_at": "2026-07-07T17:00:00+09:00",
+      "place_label": "오션뷰 카페",
+      "host": {
+        "profile_id": "profile_island",
+        "nickname": "아일랜드",
+        "badge": "host"
+      },
+      "capacity": 5,
+      "approved_count": 1,
+      "status": "open"
+    }
+  ],
+  "rag_strip": {
+    "title": "궁금한 거 바로 물어봐",
+    "subtitle": "근거 있는 제주 답변",
+    "suggestions": ["함덕 맛집", "오늘 정책", "비 오는 코스"]
+  },
+  "policies": [
+    {
+      "id": "policy_curated_trip",
+      "title": "제주 청년 큐레이션 여행 지원",
+      "summary": "여행 경비 최대 30만원 지원",
+      "region": "제주",
+      "field": "여행",
+      "status": "open",
+      "application_end_date": "2026-08-15",
+      "d_day": 39,
+      "official_url": "https://www.jeju.go.kr"
+    }
+  ]
+}

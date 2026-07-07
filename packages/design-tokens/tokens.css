@@ -1,0 +1,13 @@
+:root {
+  --jm-color-teal: #009f9b;
+  --jm-color-teal-dark: #007f81;
+  --jm-color-mint: #d9f5ee;
+  --jm-color-soft-mint: #eefbfa;
+  --jm-color-ink: #111315;
+  --jm-color-muted: #6d747b;
+  --jm-color-line: #e3eaec;
+  --jm-color-page-bg: #edf3f4;
+  --jm-radius-chip: 22px;
+  --jm-radius-card: 12px;
+  --jm-radius-bottom-nav: 13px;
+}
