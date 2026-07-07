@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     # 카톡 실시간 수집 파이프라인. 로컬은 백그라운드 폴링(초 단위), 배포는 서버리스라
     # 상시 폴링이 안 되므로 GET /api/ingest/kakao?secret=... 수동/크론 트리거를 쓴다.
     kakao_poll_interval_seconds: int = 45
+    kakao_ingest_max_items_per_run: int = 20
     ingest_secret: str | None = None
+    cron_secret: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

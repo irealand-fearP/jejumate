@@ -11,6 +11,7 @@ import re
 
 import httpx
 
+from app.core.config import settings
 from app.repositories.local_store import add_kakao_rag_document, get_ingest_cursor, set_ingest_cursor
 from app.services.embedding_service import embed_text
 
@@ -50,6 +51,8 @@ def ingest_new_messages() -> tuple[int, int]:
     cursor = get_ingest_cursor(INGEST_SOURCE)
     items = fetch_new_chats(cursor)
     items.sort(key=lambda item: item["id"])
+    max_items = max(settings.kakao_ingest_max_items_per_run, 1)
+    items = items[:max_items]
 
     ingested = 0
     max_id = cursor

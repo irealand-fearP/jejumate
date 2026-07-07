@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/ingest/kakao",
+      "schedule": "0 18 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

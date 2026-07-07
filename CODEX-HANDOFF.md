@@ -1,5 +1,26 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 코덱스 갱신 — 카톡 수집 파이프라인 배포 연동
+
+우선순위 1번이던 카톡 수집 파이프라인 배포 연동을 진행했다.
+
+- `jejumate-api` Vercel Production 환경변수에 `INGEST_SECRET`, `CRON_SECRET` 등록 완료(값은 출력/문서화하지 않음).
+- `GET /api/ingest/kakao`는 기존 `?secret=` 수동 호출에 더해 Vercel Cron의
+  `Authorization: Bearer <CRON_SECRET>` 호출도 허용하도록 수정.
+- `services/api/vercel.json`에 Vercel Cron 등록 완료. 단, 현재 Vercel 계정이 Hobby 플랜이라
+  1분 주기(`* * * * *`) 배포가 거부되어 자동 크론은 하루 1회(`0 18 * * *`, 한국시간 03:00)로
+  배포했다. 실시간급(30~60초~수 분) 수집은 Vercel Pro 업그레이드 또는 외부 크론 연결이 필요하다.
+- 백로그/함수 실행시간/임베딩 비용을 막기 위해 1회 처리 상한 `KAKAO_INGEST_MAX_ITEMS_PER_RUN=20`
+  설정을 추가했다. 커서는 처리한 항목까지만 전진하므로 다음 실행에서 이어받는다.
+- Production 재배포 완료: `https://jejumate-api.vercel.app` alias 반영 확인.
+- 검증:
+  - `python -m compileall app` 통과.
+  - `GET https://jejumate-api.vercel.app/health` 200 확인.
+  - 무인증 `GET /api/ingest/kakao` 403 확인.
+  - `vercel crons list`에서 `/api/ingest/kakao 0 18 * * *` 등록 확인.
+  - `vercel crons run /api/ingest/kakao` 즉시 트리거 성공.
+  - Vercel 로그에서 `dm.kggstudio.com/chats?after_id=0` 200 및 OpenAI embeddings 200 호출 확인.
+
 ## 2026-07-08 저녁 갱신 — 웹 재배포 + 카톡 실시간 수집 파이프라인(로컬 검증만)
 
 Claude 토큰 소진으로 여기서 코덱스에게 인계. 오후 갱신(바로 아래 섹션)에 이어 저녁에
