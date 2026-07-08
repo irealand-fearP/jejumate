@@ -214,6 +214,7 @@ CREATE TABLE IF NOT EXISTS meetings (
   status TEXT NOT NULL DEFAULT 'open',
   visibility TEXT NOT NULL DEFAULT 'public',
   owner_secret TEXT,
+  source TEXT NOT NULL DEFAULT 'service',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -255,6 +256,7 @@ CREATE TABLE IF NOT EXISTS board_posts (
   author_nickname TEXT NOT NULL,
   author_anonymous_id TEXT,
   deleted_at TEXT,
+  source TEXT NOT NULL DEFAULT 'service',
   created_at TEXT NOT NULL
 );
 
@@ -329,6 +331,11 @@ CREATE TABLE IF NOT EXISTS ingest_cursors (
   last_id INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS coldstart_daily_counts (
+  day TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -342,8 +349,10 @@ def _ensure_database_postgres() -> None:
         for statement in (
             "ALTER TABLE rag_documents ADD COLUMN IF NOT EXISTS embedding TEXT",
             "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS owner_secret TEXT",
+            "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'service'",
             "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS author_anonymous_id TEXT",
             "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS deleted_at TEXT",
+            "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'service'",
         ):
             connection.execute(statement)
         connection.commit()
@@ -375,8 +384,10 @@ def ensure_database() -> None:
         except sqlite3.OperationalError:
             pass
         for statement in (
+            "ALTER TABLE meetings ADD COLUMN source TEXT NOT NULL DEFAULT 'service'",
             "ALTER TABLE board_posts ADD COLUMN author_anonymous_id TEXT",
             "ALTER TABLE board_posts ADD COLUMN deleted_at TEXT",
+            "ALTER TABLE board_posts ADD COLUMN source TEXT NOT NULL DEFAULT 'service'",
         ):
             try:
                 connection.execute(statement)
@@ -650,10 +661,19 @@ def _is_new_meeting(*, created_at: str, now: datetime) -> bool:
 
 def _meeting_from_row(row: sqlite3.Row, *, now: datetime | None = None) -> HomeMeeting:
     now = now or datetime.now(timezone.utc)
+    source = row["source"] if "source" in row.keys() else "service"
+    is_external = source == "kakao_chat"
+    # 오픈채팅 수집 글은 호스트가 없는 외부 글이라 신청/승인 흐름을 붙이지 않는다.
+    cta = (
+        MeetingCta(label="오픈채팅에서 참여", enabled=False, requires_auth=False)
+        if is_external
+        else MeetingCta(label="신청", enabled=row["status"] == "open", requires_auth=True)
+    )
     return HomeMeeting(
         id=row["id"],
         category=row["category"],
         title=row["title"],
+        description=row["description"] if "description" in row.keys() else None,
         starts_at=row["starts_at"],
         ends_at=row["ends_at"],
         place_label=row["place_label"],
@@ -661,9 +681,10 @@ def _meeting_from_row(row: sqlite3.Row, *, now: datetime | None = None) -> HomeM
         capacity=row["capacity"],
         approved_count=row["approved_count"],
         status=row["status"],
-        cta=MeetingCta(label="신청", enabled=row["status"] == "open", requires_auth=True),
-        is_popular=_is_popular_meeting(capacity=row["capacity"], approved_count=row["approved_count"]),
-        is_new=_is_new_meeting(created_at=row["created_at"], now=now),
+        cta=cta,
+        is_popular=False if is_external else _is_popular_meeting(capacity=row["capacity"], approved_count=row["approved_count"]),
+        is_new=False if is_external else _is_new_meeting(created_at=row["created_at"], now=now),
+        source=source,
     )
 
 
@@ -693,6 +714,7 @@ def _board_post_from_row(
         comment_count=row["comment_count"] if "comment_count" in row.keys() else 0,
         can_delete=can_delete,
         comments=comments or [],
+        source=row["source"] if "source" in row.keys() else "service",
     )
 
 
@@ -855,15 +877,24 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
     """공개+열린 모임 조회. ORDER BY는 문자열이 아니라 datetime()으로 비교한다 —
     시드 데이터는 +09:00, API로 만든 모임은 +00:00 오프셋을 쓰는데 TEXT 컬럼을
     그대로 비교하면 실제 시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을
-    정규화해서 비교해준다)."""
+    정규화해서 비교해준다).
+
+    오픈채팅 수집(source='kakao_chat') 모임 후보만 시각이 지나면 자동으로 숨긴다 —
+    호스트가 직접 관리하는 서비스 내 모임은 기존 동작(상태값으로만 판단) 그대로 둔다."""
     limit_clause = "LIMIT ?" if limit else ""
-    params: tuple[object, ...] = (limit,) if limit else ()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    params: tuple[object, ...] = (now_iso, limit) if limit else (now_iso,)
     return connection.execute(
         f"""
         SELECT m.*, p.nickname AS host_nickname
         FROM meetings m
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
+          AND (
+            m.source != 'kakao_chat'
+            OR m.ends_at IS NULL
+            OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')}
+          )
         ORDER BY {_time_order_expr('m.starts_at')} ASC
         {limit_clause}
         """,
@@ -1531,3 +1562,127 @@ def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]
             """,
             (_stable_id("rag-source", f"kakao-live-{item_id}"), document_id, now),
         )
+
+
+# --- 콜드스타트 자동 변환(카톡 메시지 → 모임/게시판 콘텐츠) ---
+
+_KAKAO_HOST_USER_ID = _stable_id("kakao-host-user", "shared")
+_KAKAO_HOST_PROFILE_ID = _stable_id("kakao-host-profile", "shared")
+
+
+def get_coldstart_count_today() -> int:
+    """하루 자동 생성 상한(30건) 체크용. UTC 날짜 기준으로 센다."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT count FROM coldstart_daily_counts WHERE day = ?", (today,)
+        ).fetchone()
+    return row["count"] if row else 0
+
+
+def _increment_coldstart_count_today(connection) -> None:
+    today = datetime.now(timezone.utc).date().isoformat()
+    row = connection.execute(
+        "SELECT count FROM coldstart_daily_counts WHERE day = ?", (today,)
+    ).fetchone()
+    if row:
+        connection.execute(
+            "UPDATE coldstart_daily_counts SET count = ? WHERE day = ?", (row["count"] + 1, today)
+        )
+    else:
+        connection.execute(
+            "INSERT INTO coldstart_daily_counts (day, count) VALUES (?, 1)", (today,)
+        )
+
+
+def has_coldstart_content(item_id: int) -> bool:
+    """이미 이 카톡 메시지를 모임/게시판 콘텐츠로 변환했는지(중복 변환 방지)."""
+    meeting_id = _stable_id("meeting", f"kakao-live-{item_id}")
+    post_id = _stable_id("board-post", f"kakao-live-{item_id}")
+    with _connect() as connection:
+        meeting_row = connection.execute("SELECT 1 FROM meetings WHERE id = ?", (meeting_id,)).fetchone()
+        if meeting_row:
+            return True
+        post_row = connection.execute("SELECT 1 FROM board_posts WHERE id = ?", (post_id,)).fetchone()
+        return post_row is not None
+
+
+def _ensure_kakao_host_profile(connection) -> None:
+    now = _now()
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO users (id, role, status, anonymous_id, created_at, updated_at)
+        VALUES (?, 'system', 'active', 'kakao_open_chat', ?, ?)
+        """,
+        (_KAKAO_HOST_USER_ID, now, now),
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO profiles (id, user_id, nickname, avatar_key, created_at, updated_at)
+        VALUES (?, ?, '오픈채팅', 'default_01', ?, ?)
+        """,
+        (_KAKAO_HOST_PROFILE_ID, _KAKAO_HOST_USER_ID, now, now),
+    )
+
+
+def create_coldstart_meeting(
+    *, item_id: int, title: str, meeting_category: str, description: str, created_at: str
+) -> None:
+    """오픈채팅 동행/이동 구인 글을 모임 후보로 변환한다. 호스트가 없는 외부 글이라
+    owner_secret 없이(NULL) 등록하고, 신청/승인은 프론트에서 cta.enabled=False로 막는다."""
+    meeting_id = _stable_id("meeting", f"kakao-live-{item_id}")
+    try:
+        source_dt = datetime.fromisoformat(created_at)
+    except ValueError:
+        source_dt = datetime.now(timezone.utc)
+    if source_dt.tzinfo is None:
+        source_dt = source_dt.replace(tzinfo=timezone.utc)
+    # 원문에서 정확한 약속 시각을 안정적으로 파싱하기 어려워, 메시지가 올라온 뒤
+    # 하루 정도(+24h, 3시간짜리 창) 유효한 것으로 보고 지나면 자동 숨김 처리한다
+    # (_open_meeting_rows의 source='kakao_chat' 만료 필터).
+    starts_at = (source_dt + timedelta(hours=24)).isoformat()
+    ends_at = (source_dt + timedelta(hours=27)).isoformat()
+    now = _now()
+
+    with _connect() as connection:
+        _ensure_kakao_host_profile(connection)
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO meetings (
+              id, source_key, host_user_id, host_profile_id, category, title, description,
+              place_label, starts_at, ends_at, capacity, approved_count, status, visibility,
+              owner_secret, source, created_at, updated_at
+            )
+            VALUES (?, NULL, ?, ?, ?, ?, ?, '오픈채팅방 참고', ?, ?, 1, 0, 'open', 'public', NULL, 'kakao_chat', ?, ?)
+            """,
+            (
+                meeting_id,
+                _KAKAO_HOST_USER_ID,
+                _KAKAO_HOST_PROFILE_ID,
+                meeting_category,
+                title,
+                description,
+                starts_at,
+                ends_at,
+                now,
+                now,
+            ),
+        )
+        _increment_coldstart_count_today(connection)
+
+
+def create_coldstart_board_post(*, item_id: int, category: str, title: str, body: str) -> None:
+    """오픈채팅 중고·나눔·질문 글을 생활게시판에 같은 배지로 노출한다."""
+    post_id = _stable_id("board-post", f"kakao-live-{item_id}")
+    now = _now()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO board_posts (
+              id, category, title, body, author_nickname, author_anonymous_id, source, created_at
+            )
+            VALUES (?, ?, ?, ?, '오픈채팅', NULL, 'kakao_chat', ?)
+            """,
+            (post_id, category, title, body, now),
+        )
+        _increment_coldstart_count_today(connection)

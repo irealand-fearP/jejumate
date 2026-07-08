@@ -26,6 +26,8 @@ class BoardPost(BaseModel):
     comment_count: int = 0
     can_delete: bool = False
     comments: list["BoardComment"] = Field(default_factory=list)
+    # 'service' | 'kakao_chat'(오픈채팅 수집→콜드스타트 자동 변환).
+    source: str = "service"
 
 
 class BoardComment(BaseModel):

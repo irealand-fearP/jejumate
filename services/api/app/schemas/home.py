@@ -27,6 +27,7 @@ class HomeMeeting(BaseModel):
     id: str
     category: str
     title: str
+    description: str | None = None
     starts_at: str
     ends_at: str
     place_label: str
@@ -39,6 +40,9 @@ class HomeMeeting(BaseModel):
     # 프론트는 이 값을 그대로 렌더링만 하고 자체 판단 로직을 두지 않는다.
     is_popular: bool
     is_new: bool
+    # 'service'(서비스 내 작성) | 'kakao_chat'(오픈채팅 수집→콜드스타트 자동 변환).
+    # 후자는 호스트가 없는 외부 글이라 신청/승인 흐름을 붙이지 않는다(cta.enabled=False).
+    source: str = "service"
 
 
 class ActivitySummary(BaseModel):
