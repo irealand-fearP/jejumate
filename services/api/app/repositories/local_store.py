@@ -388,6 +388,27 @@ def _ensure_database_postgres() -> None:
         ):
             connection.execute(statement)
         connection.commit()
+        # RAG 검색을 파이썬 전수 스캔(문서 전체를 매 질문마다 네트워크로 가져와 코사인
+        # 유사도 계산)이 아니라 DB 안에서 pgvector로 처리하기 위한 컬럼. 문서가 늘어날수록
+        # 전수 스캔은 요청마다 수 초씩 걸리게 된다(2026-07-08 실측: rag_documents 2천건
+        # 근처에서 6초). 확장/컬럼 추가는 멱등이라 실패해도 무해하게 롤백한다.
+        try:
+            connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            connection.execute("ALTER TABLE rag_documents ADD COLUMN IF NOT EXISTS embedding_vec vector(1536)")
+            connection.commit()
+        except Exception:
+            connection._raw.rollback()
+        try:
+            connection.execute("SET maintenance_work_mem = '64MB'")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS rag_documents_embedding_vec_idx "
+                "ON rag_documents USING ivfflat (embedding_vec vector_cosine_ops) WITH (lists = 20)"
+            )
+            connection.commit()
+        except Exception:
+            # 인덱스 없이도 LIMIT 3 최근접 검색 자체는 동작한다(문서 수가 적어 브루트포스도
+            # 빠름) — 인덱스는 성능 최적화일 뿐 필수 전제조건이 아니다.
+            connection._raw.rollback()
         _seed(connection)
         _seed_board_posts(connection)
         connection.commit()
@@ -1519,21 +1540,39 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     query_vector = embed_text(normalized)
 
     with _connect() as connection:
-        candidates = connection.execute(
-            """
-            SELECT *
-            FROM rag_documents
-            WHERE is_active = 1 AND embedding IS NOT NULL
-            """
-        ).fetchall()
+        if USE_POSTGRES:
+            # rag_documents 전체(임베딩 포함)를 매 질문마다 네트워크로 통째로 가져와
+            # 파이썬에서 코사인 유사도를 계산하면, 문서가 늘어날수록(현재 2천건 근처)
+            # 요청마다 수 초가 걸린다. pgvector로 DB 안에서 최근접 3건만 계산해서
+            # 그 3건만 네트워크로 받는다(embedding_vec + ivfflat 인덱스, 백필 완료).
+            vec_literal = "[" + ",".join(str(x) for x in query_vector) + "]"
+            candidates = connection.execute(
+                """
+                SELECT *, 1 - (embedding_vec <=> ?::vector) AS similarity
+                FROM rag_documents
+                WHERE is_active = 1 AND embedding_vec IS NOT NULL
+                ORDER BY embedding_vec <=> ?::vector
+                LIMIT 3
+                """,
+                (vec_literal, vec_literal),
+            ).fetchall()
+            rows = [row for row in candidates if row["similarity"] >= settings.rag_similarity_threshold]
+        else:
+            candidates = connection.execute(
+                """
+                SELECT *
+                FROM rag_documents
+                WHERE is_active = 1 AND embedding IS NOT NULL
+                """
+            ).fetchall()
 
-        scored = [
-            (row, cosine_similarity(query_vector, json.loads(row["embedding"])))
-            for row in candidates
-        ]
-        scored = [(row, sim) for row, sim in scored if sim >= settings.rag_similarity_threshold]
-        scored.sort(key=lambda item: item[1], reverse=True)
-        rows = [row for row, _sim in scored[:3]]
+            scored = [
+                (row, cosine_similarity(query_vector, json.loads(row["embedding"])))
+                for row in candidates
+            ]
+            scored = [(row, sim) for row, sim in scored if sim >= settings.rag_similarity_threshold]
+            scored.sort(key=lambda item: item[1], reverse=True)
+            rows = [row for row, _sim in scored[:3]]
 
         source_rows = []
         for row in rows:
@@ -1666,6 +1705,13 @@ def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]
             """,
             (_stable_id("rag-source", f"kakao-live-{item_id}"), document_id, now),
         )
+        if USE_POSTGRES:
+            # pgvector 컬럼도 같이 채운다 — answer_rag_question의 벡터 검색이 이걸 쓴다.
+            vec_literal = "[" + ",".join(str(x) for x in embedding) + "]"
+            connection.execute(
+                "UPDATE rag_documents SET embedding_vec = ?::vector WHERE id = ?",
+                (vec_literal, document_id),
+            )
 
 
 # --- 콜드스타트 자동 변환(카톡 메시지 → 모임/게시판 콘텐츠) ---
