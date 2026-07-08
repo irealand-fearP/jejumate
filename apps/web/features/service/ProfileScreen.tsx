@@ -5,7 +5,6 @@ import {
   CalendarClock,
   Eye,
   EyeOff,
-  KeyRound,
   MapPin,
   MessageCircle,
   ShieldCheck,
@@ -44,6 +43,17 @@ type ChatTarget = {
   title: string;
   anonymousId?: string;
   ownerSecret?: string;
+};
+
+// '참여중인 파티' 통합 목록 한 줄. 호스트/참가자 두 데이터 소스를 같은 모양으로 맞춰서 함께 정렬·렌더링한다.
+type PartyListItem = {
+  key: string;
+  role: "host" | "participant";
+  title: string;
+  placeLabel: string | null;
+  startsAt: string | null;
+  detailLabel: string | null;
+  chatTarget: ChatTarget | null;
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
@@ -195,6 +205,40 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     }
   }
 
+  // 호스트 목록 + 승인된 참가 목록을 '참여중인 파티' 하나로 합치고 날짜순으로 정렬한다.
+  const participantParties: PartyListItem[] = approvedMeetings.map((meeting) => ({
+    key: `participant-${meeting.application_id}`,
+    role: "participant",
+    title: meeting.meeting_title,
+    placeLabel: meeting.place_label,
+    startsAt: meeting.starts_at,
+    detailLabel: `호스트 ${meeting.host_nickname}`,
+    chatTarget: {
+      meetingId: meeting.meeting_id,
+      title: meeting.meeting_title,
+      anonymousId: profile?.anonymousId,
+    },
+  }));
+
+  const hostParties: PartyListItem[] = ownedMeetings.map((owned) => ({
+    key: `host-${owned.meetingId}`,
+    role: "host",
+    title: owned.meeting?.title ?? "삭제되었거나 찾을 수 없는 모임",
+    placeLabel: owned.meeting?.place_label ?? null,
+    startsAt: owned.meeting?.starts_at ?? null,
+    detailLabel: owned.meeting ? `${owned.meeting.approved_count}/${owned.meeting.capacity}명` : null,
+    chatTarget: owned.meeting
+      ? { meetingId: owned.meetingId, title: owned.meeting.title, ownerSecret: owned.ownerSecret }
+      : null,
+  }));
+
+  const myParties = [...participantParties, ...hostParties].sort((a, b) => {
+    // 날짜 정보가 없는 항목(삭제된 모임 등)은 맨 뒤로 보낸다.
+    if (!a.startsAt) return 1;
+    if (!b.startsAt) return -1;
+    return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+  });
+
   return (
     <MobileShell active="profile" title="내정보" subtitle="공개 정보와 비공개 정보를 분리해 관리해요">
       <section className={styles.profileCard}>
@@ -226,78 +270,33 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
 
       <section className={styles.profileCard}>
         <h2>
-          <CalendarClock size={17} /> 참여 확정된 모임
-        </h2>
-        {!profile ? (
-          <p className={styles.meta}>닉네임을 만들고 모임에 신청하면 여기서 승인 여부를 확인할 수 있어요.</p>
-        ) : approvedMeetings.length === 0 ? (
-          <p className={styles.meta}>아직 승인된 모임이 없어요.</p>
-        ) : (
-          <ul className={styles.applicantList}>
-            {approvedMeetings.map((meeting) => (
-              <li className={styles.notificationRow} key={meeting.application_id}>
-                <div>
-                  <p className={styles.notificationTitle}>{meeting.meeting_title}</p>
-                  <p className={styles.meta}>
-                    <MapPin size={13} /> {meeting.place_label} · 호스트 {meeting.host_nickname}
-                  </p>
-                  <p className={styles.meta}>{formatDateTime(meeting.starts_at)}</p>
-                </div>
-                <button
-                  className={styles.secondaryButton}
-                  onClick={() =>
-                    openChat({
-                      meetingId: meeting.meeting_id,
-                      title: meeting.meeting_title,
-                      anonymousId: profile?.anonymousId,
-                    })
-                  }
-                  type="button"
-                >
-                  <MessageCircle size={14} /> 채팅
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className={styles.profileCard}>
-        <h2>
-          <KeyRound size={17} /> 내가 만든 모임
+          <CalendarClock size={17} /> 참여중인 파티
         </h2>
         {ownedLoading ? (
           <p className={styles.meta}>불러오는 중...</p>
-        ) : ownedMeetings.length === 0 ? (
-          <p className={styles.meta}>아직 만든 모임이 없어요. 모임 탭에서 새로 만들어보세요.</p>
+        ) : myParties.length === 0 ? (
+          <p className={styles.meta}>아직 참여중인 파티가 없어요. 모임에 신청하거나 새로 만들어보세요.</p>
         ) : (
           <ul className={styles.applicantList}>
-            {ownedMeetings.map((owned) => (
-              <li className={styles.notificationRow} key={owned.meetingId}>
+            {myParties.map((party) => (
+              <li className={styles.notificationRow} key={party.key}>
                 <div>
-                  <p className={styles.notificationTitle}>{owned.meeting?.title ?? "삭제되었거나 찾을 수 없는 모임"}</p>
-                  {owned.meeting ? (
-                    <>
-                      <p className={styles.meta}>
-                        <MapPin size={13} /> {owned.meeting.place_label} · {owned.meeting.approved_count}/
-                        {owned.meeting.capacity}명
-                      </p>
-                      <p className={styles.meta}>{formatDateTime(owned.meeting.starts_at)}</p>
-                    </>
+                  <p className={styles.notificationTitle}>
+                    {party.title}{" "}
+                    <span className={party.role === "host" ? styles.roleBadgeHost : styles.roleBadgeParticipant}>
+                      {party.role === "host" ? "호스트" : "참가자"}
+                    </span>
+                  </p>
+                  {party.placeLabel ? (
+                    <p className={styles.meta}>
+                      <MapPin size={13} /> {party.placeLabel}
+                      {party.detailLabel ? ` · ${party.detailLabel}` : ""}
+                    </p>
                   ) : null}
+                  {party.startsAt ? <p className={styles.meta}>{formatDateTime(party.startsAt)}</p> : null}
                 </div>
-                {owned.meeting ? (
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={() =>
-                      openChat({
-                        meetingId: owned.meetingId,
-                        title: owned.meeting?.title ?? "내 모임",
-                        ownerSecret: owned.ownerSecret,
-                      })
-                    }
-                    type="button"
-                  >
+                {party.chatTarget ? (
+                  <button className={styles.secondaryButton} onClick={() => openChat(party.chatTarget as ChatTarget)} type="button">
                     <MessageCircle size={14} /> 채팅
                   </button>
                 ) : null}
