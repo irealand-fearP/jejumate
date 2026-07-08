@@ -46,7 +46,10 @@ export function MeetingTimeline({
       </div>
 
       <div className={styles.timelineList}>
-        {meetings.slice(0, 4).map((meeting, index) => (
+        {/* 백엔드가 이미 홈 미리보기 6개를 확정해서 내려준다(_home_meeting_rows,
+            콜드스타트 콘텐츠 2자리 예약 포함) — 여기서 다시 4개로 자르면 뒤쪽에
+            정렬되는 콜드스타트 항목이 화면에서 통째로 잘려나간다. */}
+        {meetings.map((meeting, index) => (
           <MeetingCard key={meeting.id} meeting={meeting} index={index} onApply={onApply} />
         ))}
       </div>
