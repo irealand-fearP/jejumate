@@ -1,12 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Search, SendHorizonal, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import {
+  CheckCircle2,
+  MessageCircleQuestion,
+  Search,
+  SendHorizonal,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  Sparkles,
+} from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
 
-const suggestions = ["함덕 맛집", "제주공항 택시팟", "비 오는 코스", "혼자 가기 좋은 카페"];
+const suggestions = [
+  "오늘 제주공항에서 같이 이동할 사람 있어?",
+  "함덕 근처 점심 파티 찾아줘",
+  "비 오는 날 갈 만한 코스 있어?",
+  "오픈채팅에서 나온 최신 질문 알려줘",
+];
+
+const quickTopics = ["동행", "맛집", "코스", "생활질문"];
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
 
 type LocalProfile = {
@@ -16,9 +32,9 @@ type LocalProfile = {
 };
 
 const CONFIDENCE_LABEL: Record<RagAnswer["confidence_grade"], string> = {
-  high: "근거와 모두 일치",
-  medium: "근거와 일부 일치",
-  low: "근거와 불일치 감지",
+  high: "근거가 잘 맞아요",
+  medium: "일부 근거가 맞아요",
+  low: "근거 연결이 약해요",
   none: "근거 없음",
 };
 
@@ -57,14 +73,25 @@ export function QuestionScreen() {
     try {
       setAnswer(await askRag(question.trim(), profile?.anonymousId));
     } catch {
-      setError("답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setError("답변을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <MobileShell active="question" title="질문" subtitle="제주 파티, 장소를 근거와 함께 확인해요">
+    <MobileShell active="question" title="질문" subtitle="오픈채팅과 서비스 데이터를 근거로 제주 정보를 찾아요">
+      <section className={styles.askHero}>
+        <div className={styles.askHeroIcon}>
+          <MessageCircleQuestion size={24} />
+        </div>
+        <div>
+          <span>JejuMate AI</span>
+          <h2>지금 제주에서 통하는 답을 찾아드려요</h2>
+          <p>동행, 이동, 맛집, 생활 질문을 실제 수집 글과 서비스 근거로 확인합니다.</p>
+        </div>
+      </section>
+
       <section className={styles.questionBox}>
         <div className={styles.ragSearch}>
           <Search size={18} />
@@ -72,6 +99,10 @@ export function QuestionScreen() {
             id="rag-page-question"
             maxLength={120}
             onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") submit();
+            }}
+            placeholder="예: 오늘 공항에서 애월 가는 택시팟 있어?"
             value={question}
             aria-label="질문"
           />
@@ -84,6 +115,11 @@ export function QuestionScreen() {
             <SendHorizonal size={17} />
           </button>
         </div>
+        <div className={styles.topicRow} aria-label="질문 주제">
+          {quickTopics.map((topic) => (
+            <span key={topic}>{topic}</span>
+          ))}
+        </div>
         <div className={styles.suggestions}>
           {suggestions.map((suggestion) => (
             <button className={styles.chip} key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
@@ -92,6 +128,13 @@ export function QuestionScreen() {
           ))}
         </div>
       </section>
+
+      {busy ? (
+        <section className={styles.answerLoading}>
+          <Sparkles size={16} />
+          <span>근거를 찾고 답변을 정리하는 중이에요.</span>
+        </section>
+      ) : null}
 
       {error ? <div className={styles.result}>{error}</div> : null}
 
@@ -106,20 +149,31 @@ export function QuestionScreen() {
             <div className={`${styles.confidenceBadge} ${styles[`confidence-${answer.confidence_grade}`]}`}>
               {confidenceIcon(answer.confidence_grade)}
               <span>
-                {CONFIDENCE_LABEL[answer.confidence_grade]} (근거 {answer.total_source_count}건 중{" "}
-                {answer.verified_source_count}건 일치)
+                {CONFIDENCE_LABEL[answer.confidence_grade]} · 근거 {answer.total_source_count}건 중{" "}
+                {answer.verified_source_count}건 일치
               </span>
             </div>
           ) : null}
           <p className={styles.meta}>{answer.safety_note}</p>
-          <div className={styles.sources}>
-            {answer.sources.map((source) => (
-              <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
-                {source.supports_answer === false ? "⚠ " : ""}
-                {source.title}
-              </a>
-            ))}
-          </div>
+          {answer.sources.length ? (
+            <div className={styles.sources}>
+              {answer.sources.map((source) => (
+                <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
+                  {source.supports_answer === false ? "검토 필요 · " : ""}
+                  {source.title}
+                </a>
+              ))}
+            </div>
+          ) : null}
+          {answer.suggestions.length ? (
+            <div className={styles.followUpRow}>
+              {answer.suggestions.slice(0, 3).map((suggestion) => (
+                <button key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
     </MobileShell>

@@ -40,10 +40,10 @@ export function MobileShell({
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-            <Link className={active === item.key ? styles.active : ""} href={item.href} key={item.key}>
-              <Icon aria-hidden="true" size={20} strokeWidth={2.4} />
-              <span>{item.label}</span>
-            </Link>
+              <Link className={active === item.key ? styles.active : ""} href={item.href} key={item.key}>
+                <Icon aria-hidden="true" size={20} strokeWidth={2.4} />
+                <span>{item.label}</span>
+              </Link>
             );
           })}
         </nav>
