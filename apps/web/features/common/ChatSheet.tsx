@@ -77,7 +77,7 @@ export function ChatSheet({
 
   async function leaveMeeting() {
     if (!myApplicationId || !profile?.anonymousId) return;
-    if (!window.confirm("정말 이 모임에서 나가시겠어요? 채팅과 참가 정보가 사라져요.")) return;
+    if (!window.confirm("정말 이 파티에서 나가시겠어요? 채팅과 참가 정보가 사라져요.")) return;
 
     setLeaving(true);
     setError(null);
@@ -178,7 +178,7 @@ export function ChatSheet({
         <button className={styles.sheetClose} onClick={onClose} aria-label="닫기" type="button">
           ×
         </button>
-        <h2>모임 채팅</h2>
+        <h2>파티 채팅</h2>
         <div className={styles.meetingSummary}>
           <b>{meetingTitle}</b>
           <span>{meetingPlaceLabel}</span>

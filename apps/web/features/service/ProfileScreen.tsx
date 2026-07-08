@@ -223,7 +223,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   const hostParties: PartyListItem[] = ownedMeetings.map((owned) => ({
     key: `host-${owned.meetingId}`,
     role: "host",
-    title: owned.meeting?.title ?? "삭제되었거나 찾을 수 없는 모임",
+    title: owned.meeting?.title ?? "삭제되었거나 찾을 수 없는 파티",
     placeLabel: owned.meeting?.place_label ?? null,
     startsAt: owned.meeting?.starts_at ?? null,
     detailLabel: owned.meeting ? `${owned.meeting.approved_count}/${owned.meeting.capacity}명` : null,
@@ -275,7 +275,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
         {ownedLoading ? (
           <p className={styles.meta}>불러오는 중...</p>
         ) : myParties.length === 0 ? (
-          <p className={styles.meta}>아직 참여중인 파티가 없어요. 모임에 신청하거나 새로 만들어보세요.</p>
+          <p className={styles.meta}>아직 참여중인 파티가 없어요. 파티에 신청하거나 새로 만들어보세요.</p>
         ) : (
           <ul className={styles.applicantList}>
             {myParties.map((party) => (
@@ -348,7 +348,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
             <div className={styles.sheetGrip} />
             <div className={styles.sheetHero}>
               <span>
-                <MessageCircle size={14} /> 모임 채팅
+                <MessageCircle size={14} /> 파티 채팅
               </span>
               <h2>{chatTarget.title}</h2>
             </div>

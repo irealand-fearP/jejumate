@@ -31,7 +31,7 @@ export function MeetingTimeline({
     <section className={styles.meetingsSection}>
       <div className={styles.sectionTitleRow}>
         <h2>
-          오늘 열려 있는 모임 <span>{openCount}개</span>
+          오늘 열려 있는 파티 <span>{openCount}개</span>
         </h2>
         <Link href="/meetings">
           전체 보기 <ChevronRight size={18} />

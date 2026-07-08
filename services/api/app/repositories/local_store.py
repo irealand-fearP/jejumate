@@ -550,7 +550,7 @@ def _seed(connection: sqlite3.Connection) -> None:
             "profile_badang",
             "meal",
             "함덕 점심 같이 먹자",
-            "함덕 해변 근처에서 점심 먹고 산책까지 이어지는 소규모 밥친구 모임",
+            "함덕 해변 근처에서 점심 먹고 산책까지 이어지는 소규모 밥친구 파티",
             "함덕해수욕장 근처",
             "2026-07-07T11:00:00+09:00",
             "2026-07-07T13:00:00+09:00",
@@ -563,7 +563,7 @@ def _seed(connection: sqlite3.Connection) -> None:
             "profile_island",
             "work",
             "오션뷰 카페 작업팟",
-            "노트북 작업, 짧은 회고, 저녁 전 자유 해산으로 운영되는 워케이션 작업 모임",
+            "노트북 작업, 짧은 회고, 저녁 전 자유 해산으로 운영되는 워케이션 작업 파티",
             "구좌 오션뷰 카페",
             "2026-07-07T14:00:00+09:00",
             "2026-07-07T17:00:00+09:00",
@@ -646,7 +646,7 @@ def _seed(connection: sqlite3.Connection) -> None:
             "curated",
             "hamdeok-food",
             "함덕 점심 추천 동선",
-            "함덕 해수욕장 근처 점심은 혼밥보다 2~4명 밥친구 모임으로 예약하면 대기 시간이 짧고, 식사 후 해변 산책까지 이어가기 좋습니다.",
+            "함덕 해수욕장 근처 점심은 혼밥보다 2~4명 밥친구 파티로 예약하면 대기 시간이 짧고, 식사 후 해변 산책까지 이어가기 좋습니다.",
             "장소",
         ),
         (
@@ -1032,7 +1032,7 @@ def get_home_data() -> HomeResponse:
         ),
         rag_strip=RagStrip(
             title="제주에서 바로 물어보기",
-            subtitle="장소·모임을 근거와 함께",
+            subtitle="장소·파티를 근거와 함께",
             suggestions=["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"],
         ),
     )
@@ -1385,9 +1385,9 @@ def list_notifications_for_applicant(*, anonymous_id: str) -> ApplicantNotificat
     for row in rows:
         status = row["status"]
         if status == "approved":
-            title, body = "참여 신청이 승인됐어요", f"{row['meeting_title']} 모임에 참여할 수 있어요."
+            title, body = "참여 신청이 승인됐어요", f"{row['meeting_title']} 파티에 참여할 수 있어요."
         elif status == "rejected":
-            title, body = "참여 신청이 거절됐어요", f"{row['meeting_title']} 신청이 거절됐어요. 다른 모임을 둘러봐 주세요."
+            title, body = "참여 신청이 거절됐어요", f"{row['meeting_title']} 신청이 거절됐어요. 다른 파티를 둘러봐 주세요."
         else:
             title, body = "참여 신청이 접수됐어요", f"{row['meeting_title']} 신청을 호스트가 확인하고 있어요."
 

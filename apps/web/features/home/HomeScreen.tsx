@@ -361,7 +361,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
 
         <div className={styles.chatShortcut}>
           {data.meetings[0] ? (
-            <button onClick={() => openChat(data.meetings[0])} type="button" aria-label="최근 모임 채팅">
+            <button onClick={() => openChat(data.meetings[0])} type="button" aria-label="최근 파티 채팅">
               <MessageCircle size={18} />
             </button>
           ) : null}
@@ -444,7 +444,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
                   onClick={() => openChat(selectedMeeting)}
                   type="button"
                 >
-                  모임 채팅 보기
+                  파티 채팅 보기
                 </button>
               ) : null}
             </div>
@@ -527,7 +527,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
         {sheetKey === "notifications" ? (
           <BottomSheet title="내 신청 알림" onClose={closeSheet}>
             {!profile ? (
-              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요. 먼저 모임에 신청해 보세요.</p>
+              <p className={styles.notificationEmpty}>아직 신청한 파티가 없어요. 먼저 파티에 신청해 보세요.</p>
             ) : null}
             {notificationsError ? (
               <div className={`${styles.resultCard} ${styles.error}`}>
@@ -548,7 +548,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
                 ))}
               </ul>
             ) : profile && notifications ? (
-              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요.</p>
+              <p className={styles.notificationEmpty}>아직 신청한 파티가 없어요.</p>
             ) : null}
           </BottomSheet>
         ) : null}

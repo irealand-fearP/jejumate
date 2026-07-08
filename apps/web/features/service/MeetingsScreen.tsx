@@ -473,7 +473,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   }
 
   return (
-    <MobileShell active="meetings" title="모임" subtitle="닉네임만 공개하고 가볍게 합류해요">
+    <MobileShell active="meetings" title="파티" subtitle="닉네임만 공개하고 가볍게 합류해요">
       <HostPendingBanner variant="inline" />
       <ApplicantNotificationBanner variant="inline" />
       <div className={styles.toolbar}>
@@ -493,7 +493,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
       <div className={styles.actionRow}>
         <button className={styles.createMeetingButton} onClick={openCreateSheet} type="button">
-          <Plus size={16} /> 모임 만들기
+          <Plus size={16} /> 파티 만들기
         </button>
         <button className={styles.notificationButton} onClick={openNotifications} type="button">
           <Bell size={16} /> 내 신청 알림
@@ -548,7 +548,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                         onClick={() => setChatMeeting(meeting)}
                         type="button"
                       >
-                        모임 채팅 보기
+                        파티 채팅 보기
                       </button>
                     ) : null}
                     <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
@@ -663,9 +663,9 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
             <div className={styles.sheetGrip} />
             <div className={styles.sheetHero}>
               <span>
-                <Plus size={14} /> 모임 만들기
+                <Plus size={14} /> 파티 만들기
               </span>
-              <h2>{createResult ? "등록 완료" : "새 모임 등록"}</h2>
+              <h2>{createResult ? "등록 완료" : "새 파티 등록"}</h2>
               {!createResult ? <p>로그인 없이 4자리 관리 코드로 신청을 승인/거절할 수 있어요</p> : null}
             </div>
 
@@ -782,7 +782,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                 ) : (
                   <>
                     <label className={styles.label} htmlFor="create-host-nickname">
-                      닉네임 설정 (모임을 만들려면 먼저 필요해요)
+                      닉네임 설정 (파티를 만들려면 먼저 필요해요)
                     </label>
                     <div className={styles.ownerCodeRow}>
                       <input
@@ -837,7 +837,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
             <div className={styles.sheetGrip} />
             <div className={styles.sheetHero}>
               <span>
-                <KeyRound size={14} /> 내 모임 관리
+                <KeyRound size={14} /> 내 파티 관리
               </span>
               <h2>{manageMeeting.title}</h2>
               {manageCapacityInfo ? (
@@ -936,12 +936,12 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
               <span>
                 <Bell size={14} /> 내 신청 알림
               </span>
-              <h2>신청한 모임 상태</h2>
+              <h2>신청한 파티 상태</h2>
             </div>
 
             <div className={styles.form}>
               {!profile ? (
-                <div className={styles.result}>아직 신청한 모임이 없어요. 먼저 모임에 신청해보세요.</div>
+                <div className={styles.result}>아직 신청한 파티가 없어요. 먼저 파티에 신청해보세요.</div>
               ) : null}
               {notificationsError ? <div className={styles.result}>{notificationsError}</div> : null}
 
@@ -969,7 +969,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                   ))}
                 </ul>
               ) : profile && notifications ? (
-                <div className={styles.result}>아직 신청한 모임이 없어요.</div>
+                <div className={styles.result}>아직 신청한 파티가 없어요.</div>
               ) : null}
             </div>
 

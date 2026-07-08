@@ -28,7 +28,7 @@ def get_meetings_data() -> MeetingsResponse:
     return MeetingsResponse(
         filters=home.meeting_filters,
         meetings=list_open_meetings(),
-        privacy_note="모임 신청 시 공개되는 정보는 닉네임과 신청 상태입니다.",
+        privacy_note="파티 신청 시 공개되는 정보는 닉네임과 신청 상태입니다.",
     )
 
 
