@@ -37,8 +37,27 @@ _EMOJI_PATTERN = re.compile(
 # ㅋㅋㅋ/ㅇㅇ/ㅎㅎ/물음표 반복처럼 반응만 있고 내용이 없는 메시지는 근거로 못 쓴다.
 _REACTION_ONLY_PATTERN = re.compile(r"^[ㅋㅎㅇㄴㄷㄱㅜㅠ~!?.,\s]+$")
 
+# 카카오톡 자체 시스템 알림(입장/퇴장, 삭제된 메시지 표시)이 실제 대화 내용에 그대로
+# 붙어 들어오는 경우가 있다(실데이터 점검 결과 1,971건 중 223건, 11.3%). 닉네임 구간을
+# 물음표/느낌표/마침표가 없는 짧은 문자열로 제한해, 앞에 붙은 실제 문장까지 같이
+# 지워지지 않게 한다.
+_SYSTEM_NOTICE_PATTERN = re.compile(
+    r"[^\n?!.~,]{1,20}님이 (들어왔습니다|나갔습니다)\.?|메시지가 삭제되었습니다\.?"
+)
+
 _PHONE_PATTERN = re.compile(r"01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}")
+# 지역번호 유선전화(02, 031~064 등). 상업 광고·기관 안내에서 종종 등장(예: 064-xxx-xxxx).
+_LANDLINE_PATTERN = re.compile(r"0(2|[3-6][1-4])[-.\s]?\d{3,4}[-.\s]?\d{4}")
 _URL_PATTERN = re.compile(r"https?://\S+")
+_INSTAGRAM_HANDLE_PATTERN = re.compile(r"@[A-Za-z0-9_.]{2,30}")
+
+
+def _strip_system_notices(content: str) -> str:
+    """카카오톡 자체 시스템 알림(입장/퇴장, 삭제된 메시지 표시)만 제거하고 나머지
+    실제 대화 내용은 그대로 살린다."""
+    cleaned = _SYSTEM_NOTICE_PATTERN.sub("", content)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
 
 _TYPE_TO_BOARD_CATEGORY = {
     "secondhand": "중고거래",
@@ -60,10 +79,12 @@ def _is_noise(content: str) -> bool:
 
 
 def mask_personal_info(text: str) -> str:
-    """전화번호·URL을 지워서 원문을 서비스 콘텐츠(모임/게시판/RAG 근거)로 옮길 때
-    개인정보가 그대로 노출되지 않게 한다."""
+    """전화번호(휴대폰·유선)·URL·인스타그램 핸들을 지워서 원문을 서비스 콘텐츠
+    (모임/게시판/RAG 근거)로 옮길 때 개인정보·연락처가 그대로 노출되지 않게 한다."""
     text = _URL_PATTERN.sub("[링크 비공개]", text)
     text = _PHONE_PATTERN.sub("[연락처 비공개]", text)
+    text = _LANDLINE_PATTERN.sub("[연락처 비공개]", text)
+    text = _INSTAGRAM_HANDLE_PATTERN.sub("[SNS 계정 비공개]", text)
     return text
 
 
@@ -118,6 +139,7 @@ def ingest_new_messages() -> tuple[int, int]:
     for item in items:
         item_id = item["id"]
         content = mask_personal_info((item.get("content") or "").strip())
+        content = _strip_system_notices(content)
         if not _is_noise(content):
             embedding = embed_text(content)
             add_kakao_rag_document(item_id=item_id, content=content, embedding=embedding)
