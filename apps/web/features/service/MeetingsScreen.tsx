@@ -167,8 +167,10 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
 
   // 모임 채팅(ChatSheet 공용 컴포넌트). 접근 조건은 HomeScreen의 hasChatAccess와 동일하다
-  // — 호스트(ownedMeetingIds) 또는 승인된 신청자(approvedMeetingIds).
-  const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
+  // — 호스트(ownedMeetingIds) 또는 승인된 신청자(approvedApplications).
+  // 승인된 신청의 meeting_id -> application_id 매핑. 채팅 접근 권한 판단은 물론
+  // 탈퇴 버튼에 필요한 application_id 조회에도 이 맵을 그대로 쓴다.
+  const [approvedApplications, setApprovedApplications] = useState<Map<string, string>>(new Map());
   const [chatMeeting, setChatMeeting] = useState<HomeMeeting | null>(null);
 
   useEffect(() => {
@@ -185,10 +187,12 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     if (!profile?.anonymousId) return;
     getMyApplicationNotifications(profile.anonymousId)
       .then((res) => {
-        const approved = new Set(
-          res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
+        const approved = new Map(
+          res.notifications
+            .filter((n) => n.status === "approved")
+            .map((n) => [n.meeting_id, n.application_id] as const)
         );
-        setApprovedMeetingIds(approved);
+        setApprovedApplications(approved);
       })
       .catch(() => {
         // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
@@ -196,7 +200,20 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   }, [profile?.anonymousId]);
 
   function hasChatAccess(meetingId: string): boolean {
-    return ownedMeetingIds.has(meetingId) || approvedMeetingIds.has(meetingId);
+    return ownedMeetingIds.has(meetingId) || approvedApplications.has(meetingId);
+  }
+
+  // 파티 탈퇴가 성공한 뒤 호출된다 — 이 모임에 대한 승인 상태를 지워서 채팅 접근권한과
+  // 탈퇴 버튼이 다시 렌더링될 때 즉시 사라지게 하고, 모임 목록도 새로 불러와 참가 인원 표시를 갱신한다.
+  function handleMeetingLeft(meetingId: string) {
+    setApprovedApplications((prev) => {
+      const next = new Map(prev);
+      next.delete(meetingId);
+      return next;
+    });
+    refreshMeetings().catch(() => {
+      // 목록 갱신 실패는 조용히 넘어간다 — 다음 폴링에서 다시 시도된다.
+    });
   }
 
   function handleChatProfileCreated(nextProfile: LocalProfile) {
@@ -973,6 +990,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
           hasAccess={hasChatAccess(chatMeeting.id)}
           profile={profile}
           onProfileCreated={handleChatProfileCreated}
+          myApplicationId={approvedApplications.get(chatMeeting.id)}
+          onLeft={() => handleMeetingLeft(chatMeeting.id)}
           onClose={() => setChatMeeting(null)}
         />
       ) : null}

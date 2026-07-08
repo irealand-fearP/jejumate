@@ -109,7 +109,9 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [result, setResult] = useState<ResultState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
+  // 승인된 신청의 meeting_id -> application_id 매핑. 채팅 접근 권한 판단은 물론
+  // 탈퇴 버튼에 필요한 application_id 조회에도 이 맵을 그대로 쓴다.
+  const [approvedApplications, setApprovedApplications] = useState<Map<string, string>>(new Map());
   const [unseenNotificationCount, setUnseenNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -131,10 +133,12 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
     getMyApplicationNotifications(profile.anonymousId)
       .then((res) => {
-        const approved = new Set(
-          res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
+        const approved = new Map(
+          res.notifications
+            .filter((n) => n.status === "approved")
+            .map((n) => [n.meeting_id, n.application_id] as const)
         );
-        setApprovedMeetingIds(approved);
+        setApprovedApplications(approved);
         setUnseenNotificationCount(countUnseenNotifications(res.notifications));
       })
       .catch(() => {
@@ -143,7 +147,17 @@ export function HomeScreen({ data }: { data: HomeData }) {
   }, [profile?.anonymousId]);
 
   function hasChatAccess(meetingId: string): boolean {
-    return getOwnerSecret(meetingId) !== null || approvedMeetingIds.has(meetingId);
+    return getOwnerSecret(meetingId) !== null || approvedApplications.has(meetingId);
+  }
+
+  // 파티 탈퇴가 성공한 뒤 호출된다 — 이 모임에 대한 승인 상태를 지워서 채팅 접근권한과
+  // 탈퇴 버튼이 다시 렌더링될 때 즉시 사라지게 한다.
+  function handleMeetingLeft(meetingId: string) {
+    setApprovedApplications((prev) => {
+      const next = new Map(prev);
+      next.delete(meetingId);
+      return next;
+    });
   }
 
   function openApply(meeting: HomeMeeting) {
@@ -467,6 +481,8 @@ export function HomeScreen({ data }: { data: HomeData }) {
             hasAccess={hasChatAccess(selectedMeeting.id)}
             profile={profile}
             onProfileCreated={saveProfileLocally}
+            myApplicationId={approvedApplications.get(selectedMeeting.id)}
+            onLeft={() => handleMeetingLeft(selectedMeeting.id)}
             onClose={closeSheet}
           />
         ) : null}
