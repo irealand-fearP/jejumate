@@ -1,5 +1,12 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 밤 Claude 갱신 — DB 리전 이전(서울) + RAG 성능 수정(pgvector)
+
+- **배포 DB가 시드니→서울 리전으로 이전됨**: Vercel `jejumate-api` Production의 `DATABASE_URL`이 새 Supabase 프로젝트(ap-northeast-2, Transaction pooler 6543)로 교체됨. 스키마·시드·카톡 데이터(2,344건 재수집, 1,971건 실제 적재) 전부 새 DB에 재구축 완료. **기존 시드니 프로젝트는 더 이상 안 쓴다** — 확인 끝나면 Supabase에서 삭제해도 무방(사용자 판단).
+- **RAG 응답 속도 핵심 수정**: `answer_rag_question`이 질문마다 `rag_documents` 전체(문서 수 증가로 6초+ 소요)를 네트워크로 가져와 파이썬에서 코사인 유사도를 계산하던 방식을 **pgvector**로 교체 — DB 안에서 최근접 3건만 계산해서 그 3건만 받는다(`embedding_vec vector(1536)` 컬럼 + ivfflat 인덱스, `services/api/app/repositories/local_store.py`). 배포판 실측: RAG 질문 응답 9~18초 → 2.4~4.4초. SQLite(로컬) 경로는 데이터가 적어 기존 브루트포스 유지, 안 건드림.
+- **주의**: 새 문서를 `rag_documents`에 넣는 코드는 `embedding_vec`도 같이 채워야 벡터 검색 대상에 포함된다(`add_kakao_rag_document`는 이미 반영됨 — 다른 삽입 경로를 추가하면 동일 패턴 적용할 것). `ensure_database()`가 pgvector 확장·컬럼·인덱스를 멱등하게 자동 생성하므로 새 DB로 다시 이전해도 별도 마이그레이션 스크립트 없이 동작한다(인덱스는 메모리 제약으로 실패해도 무해하게 스킵됨 — 브루트포스보다는 훨씬 빠른 exact search로 폴백).
+- Postgres 커넥션도 이제 요청마다 새로 맺지 않고 프로세스(warm 인스턴스) 생존 기간 동안 재사용한다(이전엔 매번 연결+해제라 리전 왕복 지연이 누적됐음).
+
 ## 2026-07-08 Claude 갱신 — 카톡 수집 실시간화(외부 크론) + 코덱스 2단계분 재인수 검수 완료
 
 - 코덱스 1·2단계(크론 연동 d8bf3b5, 실클릭 결함수정 0530f94) 재인수: dev 회귀 전 항목 통과(typecheck·compileall·API 규약·로컬 SQLite 신청 흐름·ingest 이중 인증·홈 Link 라우팅). 발견 결함 없음.
