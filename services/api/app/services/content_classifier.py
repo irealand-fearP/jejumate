@@ -10,7 +10,7 @@ import os
 
 from app.core.config import settings
 
-CHAT_MODEL = "gpt-4o-mini"
+CHAT_MODEL = "gpt-5-mini"
 
 # 생활게시판 기존 3카테고리 + 모임 후보(meetup) + 그 외(other, 변환 안 함).
 CONTENT_TYPES = ["meetup", "secondhand", "share", "question", "other"]
@@ -47,7 +47,10 @@ def classify_message(content: str) -> dict:
             {"role": "user", "content": content},
         ],
         response_format={"type": "json_object"},
-        temperature=0,
+        # gpt-5-mini(추론 모델)는 temperature 커스텀 값을 지원하지 않는다(기본값 1만 허용).
+        # 대신 reasoning_effort로 비용/속도를 낮춘다 — 이 분류는 단순 태스크라 minimal로 충분.
+        reasoning_effort="minimal",
+        max_completion_tokens=200,
     )
     try:
         data = json.loads(response.choices[0].message.content or "{}")

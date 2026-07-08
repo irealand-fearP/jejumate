@@ -611,6 +611,32 @@
   font-weight: 800;
 }
 
+.confidenceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.confidence-high {
+  background: #e6f7ed;
+  color: #0f8a45;
+}
+
+.confidence-medium {
+  background: #fff6e5;
+  color: #b7791f;
+}
+
+.confidence-low {
+  background: #fdecec;
+  color: #c0392b;
+}
+
 .sources {
   display: flex;
   flex-wrap: wrap;

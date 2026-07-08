@@ -41,6 +41,7 @@ from app.schemas.interactions import (
 )
 from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
 from app.services.embedding_service import cosine_similarity, embed_text
+from app.services.rag_answer_service import confidence_grade, generate_verified_answer
 
 DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
@@ -1509,12 +1510,13 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             user = connection.execute("SELECT * FROM users WHERE anonymous_id = ?", (anonymous_id,)).fetchone()
 
         query_log_id = _new_id()
+        confidence_for_log = "none" if not rows else "medium"
         connection.execute(
             """
             INSERT INTO rag_query_logs (
               id, user_id, anonymous_id, query, intent, used_source_count, confidence, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, 'medium', ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 query_log_id,
@@ -1523,23 +1525,40 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
                 normalized,
                 _infer_intent(normalized),
                 len(source_rows),
+                confidence_for_log,
                 _now(),
             ),
         )
 
     if not rows:
+        # threshold 미달: 근거가 없으므로 LLM을 호출하지 않는다(비용 절약).
         answer = "지금 조건에 맞는 유효한 정보를 찾지 못했어요. 다른 질문으로 다시 시도해주세요."
         sources: list[RagSource] = []
+        confidence = "none"
+        verified_count = 0
+        total_count = 0
     else:
-        evidence = " ".join(row["body"] for row in rows)
-        answer = (
-            f"{normalized} 기준으로는 {rows[0]['title']} 정보를 먼저 확인하는 것이 좋습니다. "
-            f"{evidence[:180]}{'...' if len(evidence) > 180 else ''}"
-        )
+        documents = [{"index": i, "title": row["title"], "body": row["body"]} for i, row in enumerate(rows)]
+        result = generate_verified_answer(question=normalized, documents=documents)
+        answer = result.answer
+        confidence = confidence_grade(result.supports)
+        verified_count = sum(1 for supported in result.supports if supported)
+        total_count = len(result.supports)
         sources = [
-            RagSource(title=row["title"], url=row["url"] or "https://jejumate.local", source_type=row["source_type"])
-            for row in source_rows
+            RagSource(
+                title=row["title"],
+                url=row["url"] or "https://jejumate.local",
+                source_type=row["source_type"],
+                supports_answer=result.supports[i] if i < len(result.supports) else None,
+            )
+            for i, row in enumerate(source_rows)
         ]
+        # 실제 검증 결과로 로그의 confidence를 갱신(위 INSERT 시점엔 LLM 호출 전이라 알 수 없었음).
+        with _connect() as connection:
+            connection.execute(
+                "UPDATE rag_query_logs SET confidence = ? WHERE id = ?",
+                (confidence, query_log_id),
+            )
 
     return RagAskResponse(
         answer=answer,
@@ -1548,6 +1567,9 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         suggestions=["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"],
         query_log_id=query_log_id,
         persisted=True,
+        confidence_grade=confidence,
+        verified_source_count=verified_count,
+        total_source_count=total_count,
     )
 
 

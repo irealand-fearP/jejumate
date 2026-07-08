@@ -224,11 +224,15 @@ export type RagAnswer = {
     title: string;
     url: string;
     source_type: string;
+    supports_answer?: boolean | null;
   }>;
   safety_note: string;
   suggestions: string[];
   query_log_id?: string | null;
   persisted?: boolean;
+  confidence_grade: "none" | "high" | "medium" | "low";
+  verified_source_count: number;
+  total_source_count: number;
 };
 
 async function postApi<TResponse, TPayload>(path: string, payload: TPayload): Promise<TResponse> {
