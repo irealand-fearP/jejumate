@@ -1,5 +1,16 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 Claude 갱신 — 카톡 수집 실시간화(외부 크론) + 코덱스 2단계분 재인수 검수 완료
+
+- 코덱스 1·2단계(크론 연동 d8bf3b5, 실클릭 결함수정 0530f94) 재인수: dev 회귀 전 항목 통과(typecheck·compileall·API 규약·로컬 SQLite 신청 흐름·ingest 이중 인증·홈 Link 라우팅). 발견 결함 없음.
+- **카톡 수집이 이제 5분 주기 실시간급으로 돈다**: Vercel Hobby 크론(하루 1회)의 보완으로 GitHub Actions 크론을 등록했다.
+  - 위치: GitHub `master` 브랜치의 `.github/workflows/kakao-ingest.yml` (5분마다 `/api/ingest/kakao` 호출, 타임아웃 240초 — 실측 실행 80초대)
+  - 인증: GitHub Actions 시크릿 `KAKAO_INGEST_URL`(시크릿 포함 전체 URL). **INGEST_SECRET은 회전됨**(기존 sensitive 값 회수 불가로 새 값 발급·Vercel 갱신·재배포 완료). 값은 어디에도 기록 안 함 — 필요하면 Vercel env에서 pull 가능(Encrypted 타입).
+  - 검증: 수동 호출 200(ingested 16, cursor 전진), workflow_dispatch 실행 success.
+  - 주의: 워크플로는 master 브랜치에 있다(GitHub Actions 스케줄은 기본 브랜치에서만 동작). codex-latest 브랜치 코드와 별개로 관리됨.
+- 루트 package.json에 npm init 잔상(엉뚱한 의존성·commonjs 선언) 미커밋 변경이 있어 되돌렸다. 루트 package.json은 워크스페이스 설정만 유지할 것.
+
+
 ## 2026-07-08 코덱스 갱신 — 2단계 배포판 실클릭 검증+즉시 수정
 
 배포판(`https://jejumate-web.vercel.app`, `https://jejumate-api.vercel.app`)에서 실제 브라우저 클릭으로
