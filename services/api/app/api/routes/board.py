@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.repositories.local_store import BoardOwnerMismatchError, BoardPostNotFoundError
 from app.schemas.common import ApiResponse
@@ -25,9 +25,9 @@ router = APIRouter(tags=["board"])
 
 
 @router.get("/board", response_model=ApiResponse[BoardResponse])
-def board() -> ApiResponse[BoardResponse]:
-    # 카톡 실시간 수집 피기백(서버리스는 백그라운드 루프가 없어 조회 요청에 얹는다).
-    maybe_ingest_kakao_now()
+def board(background_tasks: BackgroundTasks) -> ApiResponse[BoardResponse]:
+    # 카톡 실시간 수집 피기백. 응답 지연에 영향 없도록 BackgroundTasks로 등록.
+    background_tasks.add_task(maybe_ingest_kakao_now)
     return ApiResponse(request_id="local_service_request", data=get_board_data())
 
 
