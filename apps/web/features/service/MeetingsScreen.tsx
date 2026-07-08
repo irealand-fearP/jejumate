@@ -39,7 +39,7 @@ import {
   type MeetingStatus,
 } from "@/lib/api";
 import { formatCapacityStatus } from "@/lib/format";
-import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORY } from "@/lib/meetingCategories";
+import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
@@ -85,19 +85,26 @@ const categoryIcon: Record<string, typeof UsersRound> = {
   run: Dumbbell,
 };
 
+// 모임 생성 폼의 카테고리 칩. 화면 필터(전체/이동/밥친구/러닝/기타/오픈채팅)와 맞춰
+// 사용자가 직접 만드는 모임엔 없는 '전체'·'오픈채팅'은 제외했다. '기타' 선택 시
+// 저장값은 새 category 값 "other"를 쓴다(백엔드에 enum 제약이 없어 추가해도 안전하고,
+// 기존 work/coffee와 구분해두면 나중에 집계할 때 헷갈리지 않는다) — meetingCategories.ts의
+// FILTER_TO_CATEGORIES.기타에도 포함되어 있어 필터링과도 어긋나지 않는다.
 const CREATE_CATEGORIES = [
-  { value: "meal", label: "밥친구" },
-  { value: "work", label: "작업" },
   { value: "move", label: "이동" },
-  { value: "coffee", label: "커피챗" },
+  { value: "meal", label: "밥친구" },
   { value: "run", label: "러닝" },
+  { value: "other", label: "기타" },
 ];
 
-const DURATION_OPTIONS = [
-  { label: "30분", minutes: 30 },
-  { label: "1시간", minutes: 60 },
-  { label: "2시간", minutes: 120 },
-];
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+// <input type="datetime-local"> 기본값 포맷(오프셋 없음, 브라우저 로컬 시각 그대로).
+function toDatetimeLocalValue(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 function getMeetingIcon(category: string) {
   return categoryIcon[category] ?? UsersRound;
@@ -107,6 +114,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   const searchParams = useSearchParams();
   const [meetings, setMeetings] = useState(data.meetings);
   const [activeFilter, setActiveFilter] = useState(() => {
+    if (searchParams.get("source") === "kakao_chat" && data.filters.includes("오픈채팅")) return "오픈채팅";
     const categoryParam = searchParams.get("category");
     const filterFromCategory = categoryParam ? CATEGORY_TO_FILTER[categoryParam] : undefined;
     if (filterFromCategory && data.filters.includes(filterFromCategory)) return filterFromCategory;
@@ -127,8 +135,12 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   const [createDescription, setCreateDescription] = useState("");
   const [createPlace, setCreatePlace] = useState("");
   const [createCapacity, setCreateCapacity] = useState(2);
-  const [createDuration, setCreateDuration] = useState(60);
-  const [createNicknameValue, setCreateNicknameValue] = useState(profile?.nickname ?? "");
+  const [createStartsAt, setCreateStartsAt] = useState(() => toDatetimeLocalValue(new Date()));
+  const [createEndsAt, setCreateEndsAt] = useState(() => toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
+  // 호스트 닉네임은 내정보(로컬 프로필)를 그대로 쓴다. 아직 닉네임이 없는 사용자를 위한
+  // 안내용 인라인 입력(제출 시 쓰는 값이 아니라 프로필을 새로 만들 때만 사용).
+  const [createNicknameDraft, setCreateNicknameDraft] = useState("");
+  const [createNicknameSaving, setCreateNicknameSaving] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createResult, setCreateResult] = useState<{ meetingId: string; ownerSecret: string } | null>(null);
@@ -200,7 +212,9 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
   const visibleMeetings = useMemo(() => {
     if (activeFilter === "전체") return meetings;
-    return meetings.filter((meeting) => meeting.category === FILTER_TO_CATEGORY[activeFilter]);
+    if (activeFilter === "오픈채팅") return meetings.filter((meeting) => meeting.source === "kakao_chat");
+    const categories = FILTER_TO_CATEGORIES[activeFilter] ?? [];
+    return meetings.filter((meeting) => categories.includes(meeting.category));
   }, [activeFilter, meetings]);
 
   async function refreshMeetings() {
@@ -249,7 +263,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   }
 
   function openCreateSheet() {
-    setCreateNicknameValue(profile?.nickname ?? createNicknameValue);
+    setCreateNicknameDraft("");
     setShowCreateSheet(true);
   }
 
@@ -259,15 +273,45 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     setCreateDescription("");
     setCreatePlace("");
     setCreateCapacity(2);
-    setCreateDuration(60);
+    setCreateStartsAt(toDatetimeLocalValue(new Date()));
+    setCreateEndsAt(toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
+    setCreateNicknameDraft("");
     setCreateError(null);
     setCreateResult(null);
     setCreateCopied(false);
   }
 
+  async function saveCreateNickname() {
+    if (createNicknameDraft.trim().length < 2) return;
+    setCreateNicknameSaving(true);
+    setCreateError(null);
+    try {
+      const created = await createNickname(createNicknameDraft.trim(), profile?.anonymousId);
+      const nextProfile = {
+        profileId: created.profile_id,
+        nickname: created.nickname,
+        anonymousId: created.anonymous_id,
+      };
+      window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+      setProfile(nextProfile);
+    } catch {
+      setCreateError("닉네임 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setCreateNicknameSaving(false);
+    }
+  }
+
   async function submitCreate() {
-    if (createTitle.trim().length < 1 || createPlace.trim().length < 1 || createNicknameValue.trim().length < 2) {
-      setCreateError("제목, 장소, 닉네임을 모두 입력해주세요");
+    if (!profile) {
+      setCreateError("먼저 닉네임을 설정해주세요");
+      return;
+    }
+    if (createTitle.trim().length < 1 || createPlace.trim().length < 1) {
+      setCreateError("제목과 만남의 장소를 모두 입력해주세요");
+      return;
+    }
+    if (new Date(createEndsAt).getTime() <= new Date(createStartsAt).getTime()) {
+      setCreateError("마감 시각은 시작 시각보다 늦어야 해요");
       return;
     }
     setCreateSubmitting(true);
@@ -279,9 +323,10 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         description: createDescription.trim() || undefined,
         place_label: createPlace.trim(),
         capacity: createCapacity,
-        duration_minutes: createDuration,
-        nickname: createNicknameValue.trim(),
-        anonymous_id: profile?.anonymousId,
+        starts_at: createStartsAt,
+        ends_at: createEndsAt,
+        nickname: profile.nickname,
+        anonymous_id: profile.anonymousId,
       });
       saveOwnerSecret(created.meeting_id, created.owner_secret);
       setCreateResult({ meetingId: created.meeting_id, ownerSecret: created.owner_secret });
@@ -607,7 +652,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                 />
 
                 <label className={styles.label} htmlFor="create-place">
-                  장소
+                  만남의 장소
                 </label>
                 <input
                   className={styles.input}
@@ -630,31 +675,55 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                   value={createCapacity}
                 />
 
-                <label className={styles.label}>마감 시간</label>
-                <div className={styles.toolbar}>
-                  {DURATION_OPTIONS.map((option) => (
-                    <button
-                      className={`${styles.chip} ${createDuration === option.minutes ? styles.chipActive : ""}`}
-                      key={option.minutes}
-                      onClick={() => setCreateDuration(option.minutes)}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                <label className={styles.label} htmlFor="create-nickname">
-                  호스트 닉네임
+                <label className={styles.label} htmlFor="create-starts-at">
+                  시작 날짜/시간 설정
                 </label>
                 <input
                   className={styles.input}
-                  id="create-nickname"
-                  maxLength={20}
-                  onChange={(event) => setCreateNicknameValue(event.target.value)}
-                  placeholder="예: 바당이"
-                  value={createNicknameValue}
+                  id="create-starts-at"
+                  onChange={(event) => setCreateStartsAt(event.target.value)}
+                  type="datetime-local"
+                  value={createStartsAt}
                 />
+
+                <label className={styles.label} htmlFor="create-ends-at">
+                  마감 날짜/시간 설정
+                </label>
+                <input
+                  className={styles.input}
+                  id="create-ends-at"
+                  onChange={(event) => setCreateEndsAt(event.target.value)}
+                  type="datetime-local"
+                  value={createEndsAt}
+                />
+
+                {profile ? (
+                  <p className={styles.meta}>호스트 닉네임: {profile.nickname}</p>
+                ) : (
+                  <>
+                    <label className={styles.label} htmlFor="create-host-nickname">
+                      닉네임 설정 (모임을 만들려면 먼저 필요해요)
+                    </label>
+                    <div className={styles.ownerCodeRow}>
+                      <input
+                        className={styles.input}
+                        id="create-host-nickname"
+                        maxLength={20}
+                        onChange={(event) => setCreateNicknameDraft(event.target.value)}
+                        placeholder="예: 바당이"
+                        value={createNicknameDraft}
+                      />
+                      <button
+                        className={styles.secondaryButton}
+                        disabled={createNicknameDraft.trim().length < 2 || createNicknameSaving}
+                        onClick={saveCreateNickname}
+                        type="button"
+                      >
+                        {createNicknameSaving ? "저장 중" : "저장"}
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 {createError ? <div className={styles.result}>{createError}</div> : null}
               </div>
@@ -667,7 +736,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
               {!createResult ? (
                 <button
                   className={styles.primaryButton}
-                  disabled={createSubmitting}
+                  disabled={createSubmitting || !profile}
                   onClick={submitCreate}
                   type="button"
                 >

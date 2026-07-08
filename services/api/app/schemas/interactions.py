@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class NicknameRequest(BaseModel):
@@ -31,16 +33,34 @@ class MeetingApplicationResponse(BaseModel):
 
 
 class MeetingCreateRequest(BaseModel):
-    """모임 등록. jejumate/backend(POST /posts/party)와 동일하게 4자리 관리 코드를 발급한다."""
+    """모임 등록. jejumate/backend(POST /posts/party)와 동일하게 4자리 관리 코드를 발급한다.
+
+    starts_at/ends_at은 사용자가 직접 고른 로컬(Asia/Seoul 기준) 날짜·시간 문자열이다
+    (예: "2026-07-10T14:30", <input type="datetime-local"> 값 그대로). 과거엔 등록
+    시점을 시작 시각으로 고정하고 duration_minutes로 마감 시각을 계산했지만, 사용자가
+    시작·마감을 직접 지정하도록 바뀌었다.
+    """
 
     category: str = Field(min_length=1, max_length=30)
     title: str = Field(min_length=1, max_length=60)
     description: str | None = Field(default=None, max_length=300)
     place_label: str = Field(min_length=1, max_length=60)
     capacity: int = Field(ge=1)
-    duration_minutes: int = Field(ge=1)
+    starts_at: str
+    ends_at: str
     nickname: str = Field(min_length=2, max_length=20)
     anonymous_id: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def _check_time_order(self) -> "MeetingCreateRequest":
+        try:
+            starts = datetime.fromisoformat(self.starts_at)
+            ends = datetime.fromisoformat(self.ends_at)
+        except ValueError as exc:
+            raise ValueError("시작/마감 시각 형식이 올바르지 않습니다") from exc
+        if ends <= starts:
+            raise ValueError("마감 시각은 시작 시각보다 늦어야 합니다")
+        return self
 
 
 class MeetingCreateResponse(BaseModel):

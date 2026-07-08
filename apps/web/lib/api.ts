@@ -306,7 +306,10 @@ export type MeetingCreatePayload = {
   description?: string;
   place_label: string;
   capacity: number;
-  duration_minutes: number;
+  // <input type="datetime-local"> 값 그대로(예: "2026-07-10T14:30", 오프셋 없음).
+  // 백엔드가 이를 Asia/Seoul 로컬 시각으로 해석해 UTC로 변환·저장한다.
+  starts_at: string;
+  ends_at: string;
   nickname: string;
   anonymous_id?: string;
 };

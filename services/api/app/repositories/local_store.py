@@ -969,7 +969,7 @@ def get_home_data() -> HomeResponse:
         profile_chip=ProfileChip(label="닉네임", is_set=False),
         privacy_chip=PrivacyChip(label="실명 비공개", is_verified=False),
         meeting_summary=MeetingSummary(open_count=len(meeting_rows)),
-        meeting_filters=["전체", "밥친구", "작업", "이동", "커피챗", "러닝"],
+        meeting_filters=["전체", "이동", "밥친구", "러닝", "기타", "오픈채팅"],
         meetings=[_meeting_from_row(row, now=now) for row in meeting_rows],
         activity_summary=ActivitySummary(
             active_people_count=active_people_count,
@@ -1102,6 +1102,17 @@ def _generate_owner_secret() -> str:
     return f"{random.randint(0, 9999):04d}"
 
 
+_KST = timezone(timedelta(hours=9))
+
+
+def _local_kst_to_utc_iso(value: str) -> str:
+    """<input type="datetime-local">가 주는 오프셋 없는 문자열(예: "2026-07-10T14:30")을
+    사용자가 실제로 보고 고른 한국 시간(Asia/Seoul)으로 해석해 UTC ISO로 변환한다.
+    DB의 다른 타임스탬프들과 동일하게 UTC로 저장해야 _time_order_expr 정렬이 맞는다."""
+    naive = datetime.fromisoformat(value)
+    return naive.replace(tzinfo=_KST).astimezone(timezone.utc).isoformat()
+
+
 def create_meeting(
     *,
     category: str,
@@ -1109,16 +1120,18 @@ def create_meeting(
     description: str | None,
     place_label: str,
     capacity: int,
-    duration_minutes: int,
+    starts_at: str,
+    ends_at: str,
     nickname: str,
     anonymous_id: str | None,
 ) -> MeetingCreateResponse:
     """모임 등록. jejumate/backend(POST /posts/party)와 동일하게 등록 즉시 4자리
-    관리 코드를 발급하고, 별도 로그인 없이 이 코드로 승인/거절 권한을 증명한다."""
+    관리 코드를 발급하고, 별도 로그인 없이 이 코드로 승인/거절 권한을 증명한다.
+    starts_at/ends_at은 사용자가 직접 고른 시작·마감 시각(로컬/KST)이다."""
     profile = create_or_update_profile(nickname=nickname, anonymous_id=anonymous_id)
     now_dt = datetime.now(timezone.utc)
-    starts_at = now_dt.isoformat()
-    ends_at = (now_dt + timedelta(minutes=duration_minutes)).isoformat()
+    starts_at = _local_kst_to_utc_iso(starts_at)
+    ends_at = _local_kst_to_utc_iso(ends_at)
     owner_secret = _generate_owner_secret()
     meeting_id = _new_id()
 

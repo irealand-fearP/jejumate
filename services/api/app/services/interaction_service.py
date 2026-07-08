@@ -65,7 +65,8 @@ def create_meeting(
     description: str | None,
     place_label: str,
     capacity: int,
-    duration_minutes: int,
+    starts_at: str,
+    ends_at: str,
     nickname: str,
     anonymous_id: str | None = None,
 ) -> MeetingCreateResponse:
@@ -75,7 +76,8 @@ def create_meeting(
         description=description,
         place_label=place_label,
         capacity=capacity,
-        duration_minutes=duration_minutes,
+        starts_at=starts_at,
+        ends_at=ends_at,
         nickname=nickname,
         anonymous_id=anonymous_id,
     )
