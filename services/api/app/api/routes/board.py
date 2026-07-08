@@ -11,7 +11,6 @@ from app.schemas.resources import (
     BoardReportResponse,
     BoardResponse,
 )
-from app.services.kakao_ingest import maybe_ingest_kakao_now
 from app.services.resource_service import (
     create_board_comment_data,
     create_board_post_data,
@@ -26,12 +25,9 @@ router = APIRouter(tags=["board"])
 
 @router.get("/board", response_model=ApiResponse[BoardResponse])
 def board() -> ApiResponse[BoardResponse]:
-    # 카톡 실시간 수집 피기백(서버리스는 백그라운드 루프가 없어 조회 요청에 얹는다).
-    # BackgroundTasks로 응답 이후 실행되게 해봤지만(2f8f0a6), 실측 결과 Vercel Python
-    # 런타임이 백그라운드 작업 완료까지 응답을 안 끝내(사실상 동기와 동일하면서
-    # 코드만 복잡해짐) 되돌렸다 — 그래서 그냥 동기 호출 + 처리 건수를 아주 작게
-    # 캡(kakao_ingest_piggyback_max_items)하는 쪽으로 지연을 줄인다.
-    maybe_ingest_kakao_now()
+    # 카톡 실시간 수집 피기백은 여기서 더 이상 호출하지 않는다 — Vercel 프로덕션 실측
+    # (연속 호출 2.5~11초)이 핵심 화면 응답 속도를 갉아먹어 제거했다. 카톡 수집은
+    # GitHub Actions 5분 크론(.github/workflows/kakao-ingest.yml)만으로 계속된다.
     return ApiResponse(request_id="local_service_request", data=get_board_data())
 
 

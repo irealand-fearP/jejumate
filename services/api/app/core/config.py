@@ -23,21 +23,19 @@ class Settings(BaseSettings):
     rag_similarity_threshold: float = 0.5
 
     # 카톡 실시간 수집 파이프라인. 로컬은 FastAPI startup에서 띄우는 백그라운드
-    # asyncio 루프가 이 간격으로 반복 폴링한다. 배포(서버리스)는 상시 루프를 못 돌리는
-    # 대신, 자주 호출되는 GET /api/home·/api/meetings·/api/board가 호출될 때마다
-    # "마지막 시도로부터 이 간격이 지났으면 그 요청 처리에 얹어서 한 번 수집"하는
-    # 방식으로 사실상 상시 수집을 흉내낸다(maybe_ingest_kakao_now). 그 외
-    # GET /api/ingest/kakao?secret=...로 수동/크론 트리거도 여전히 가능하다.
+    # asyncio 루프가 이 간격으로 반복 폴링한다(로컬 전용, 무해함). 배포는
+    # GET /api/ingest/kakao?secret=...를 GitHub Actions 5분 크론이 호출하는 방식만
+    # 쓴다 — 한때 /api/home·/api/meetings·/api/board 조회 요청에 얹어(피기백,
+    # maybe_ingest_kakao_now) 사실상 상시 수집을 흉내내봤지만(BackgroundTasks까지
+    # 시도), Vercel 프로덕션 실측(연속 호출 2.5~11초)이 핵심 화면(모임생성→신청→
+    # 승인→채팅) 응답 속도를 갉아먹어 그 세 라우트에서는 호출을 뺐다. 함수 자체는
+    # kakao_ingest.py에 남아 있다(플랫폼이 바뀌면 재사용 가능).
     kakao_poll_interval_seconds: int = 20
     # 크론(GET /api/ingest/kakao)·로컬 백그라운드 루프 전용 상한. 이쪽은 실사용
     # 요청을 막지 않으므로 넉넉하게 잡아도 된다(밀렸을 때 한 번에 많이 처리).
     kakao_ingest_max_items_per_run: int = 50
-    # 피기백(GET /api/home·/api/meetings·/api/board에 얹혀 실행) 전용 상한.
-    # BackgroundTasks로 응답 이후에 실행되게 해봤지만(커밋 2f8f0a6), Vercel Python
-    # 런타임이 백그라운드 작업이 끝날 때까지 응답을 마무리하지 않아(실측: 배포판에서
-    # 2.1~12초, 사실상 동기와 동일) 되돌렸다 — 그래서 동기 호출을 유지한 채 처리
-    # 건수 자체를 최대한 줄여서 지연을 낮춘다(임베딩 호출 1건당 0.5~1초 직결).
-    # 대량 적체는 크론(GET /api/ingest/kakao, 5분 주기)이 마저 처리한다.
+    # (미사용) 피기백 전용 상한 — 라우트에서 더 이상 호출 안 하지만 maybe_ingest_kakao_now
+    # 자체는 남겨뒀으니 값도 같이 남겨둔다.
     kakao_ingest_piggyback_max_items: int = 1
     ingest_secret: str | None = None
     cron_secret: str | None = None
