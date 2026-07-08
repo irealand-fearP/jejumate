@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { Bell, ChevronRight, Info, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
@@ -511,6 +511,12 @@ export function HomeScreen({ data }: { data: HomeData }) {
             {answer ? (
               <div className={styles.answerCard}>
                 <b>{answer.answer}</b>
+                {answer.answer_source === "general_knowledge" ? (
+                  <div className={styles.generalKnowledgeBadge}>
+                    <Info size={14} />
+                    <span>커뮤니티 근거 없음 · 일반 지식 참고 답변</span>
+                  </div>
+                ) : null}
                 <div>
                   {answer.sources.map((source) => (
                     <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">

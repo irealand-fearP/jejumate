@@ -41,7 +41,11 @@ from app.schemas.interactions import (
 )
 from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
 from app.services.embedding_service import cosine_similarity, embed_text
-from app.services.rag_answer_service import confidence_grade, generate_verified_answer
+from app.services.rag_answer_service import (
+    confidence_grade,
+    generate_general_answer,
+    generate_verified_answer,
+)
 
 DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
@@ -1620,12 +1624,14 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         )
 
     if not rows:
-        # threshold 미달: 근거가 없으므로 LLM을 호출하지 않는다(비용 절약).
-        answer = "지금 조건에 맞는 유효한 정보를 찾지 못했어요. 다른 질문으로 다시 시도해주세요."
+        # threshold 미달: 근거는 없지만, 정적 회피 문구 대신 LLM의 일반 지식으로 답한다.
+        # confidence_grade는 여전히 "none"(근거 0개인 사실은 그대로).
+        answer = generate_general_answer(question=normalized)
         sources: list[RagSource] = []
         confidence = "none"
         verified_count = 0
         total_count = 0
+        answer_source = "general_knowledge"
     else:
         documents = [{"index": i, "title": row["title"], "body": row["body"]} for i, row in enumerate(rows)]
         result = generate_verified_answer(question=normalized, documents=documents)
@@ -1633,6 +1639,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         confidence = confidence_grade(result.supports)
         verified_count = sum(1 for supported in result.supports if supported)
         total_count = len(result.supports)
+        answer_source = "community"
         sources = [
             RagSource(
                 title=row["title"],
@@ -1659,6 +1666,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         confidence_grade=confidence,
         verified_source_count=verified_count,
         total_source_count=total_count,
+        answer_source=answer_source,
     )
 
 

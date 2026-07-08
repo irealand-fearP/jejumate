@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Search, SendHorizonal, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { CheckCircle2, Info, Search, SendHorizonal, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
@@ -109,6 +109,12 @@ export function QuestionScreen() {
                 {CONFIDENCE_LABEL[answer.confidence_grade]} (근거 {answer.total_source_count}건 중{" "}
                 {answer.verified_source_count}건 일치)
               </span>
+            </div>
+          ) : null}
+          {answer.answer_source === "general_knowledge" ? (
+            <div className={styles.generalKnowledgeBadge}>
+              <Info size={14} />
+              <span>커뮤니티 근거 없음 · 일반 지식 참고 답변</span>
             </div>
           ) : null}
           <p className={styles.meta}>{answer.safety_note}</p>

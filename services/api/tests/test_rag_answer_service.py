@@ -11,7 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.rag_answer_service import confidence_grade, generate_verified_answer
+from app.services.rag_answer_service import (
+    confidence_grade,
+    generate_general_answer,
+    generate_verified_answer,
+)
 
 
 def _fake_openai_response(payload: dict) -> MagicMock:
@@ -93,6 +97,54 @@ def test_generate_verified_answer_requires_api_key(mock_settings):
     with patch.dict("os.environ", {}, clear=True):
         with pytest.raises(RuntimeError):
             generate_verified_answer(question="질문", documents=[{"index": 0, "title": "A", "body": "b"}])
+
+
+@patch("app.services.rag_answer_service.settings")
+def test_generate_general_answer_calls_openai_with_question_only(mock_settings):
+    """근거 문서 없이(rows=0) 일반 지식으로 답할 때도 gpt-5-mini를 같은 비용 설정으로 호출하는지 확인."""
+    mock_settings.openai_api_key = "test-key"
+    fake_response = MagicMock()
+    fake_response.choices = [MagicMock(message=MagicMock(content="화성 표면 아래 얼음 형태로 물이 있다고 알려져 있습니다."))]
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = fake_response
+        mock_openai_cls.return_value = mock_client
+
+        answer = generate_general_answer(question="화성에 물이 있나요?")
+
+    assert answer == "화성 표면 아래 얼음 형태로 물이 있다고 알려져 있습니다."
+
+    call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["model"] == "gpt-5-mini"
+    assert call_kwargs["reasoning_effort"] == "minimal"
+    assert call_kwargs["max_completion_tokens"] == 700
+    user_message = call_kwargs["messages"][1]["content"]
+    assert "화성에 물이 있나요?" in user_message
+
+
+@patch("app.services.rag_answer_service.settings")
+def test_generate_general_answer_falls_back_on_empty_content(mock_settings):
+    mock_settings.openai_api_key = "test-key"
+    fake_response = MagicMock()
+    fake_response.choices = [MagicMock(message=MagicMock(content=""))]
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = fake_response
+        mock_openai_cls.return_value = mock_client
+
+        answer = generate_general_answer(question="질문")
+
+    assert answer.strip() != ""
+
+
+@patch("app.services.rag_answer_service.settings")
+def test_generate_general_answer_requires_api_key(mock_settings):
+    mock_settings.openai_api_key = None
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(RuntimeError):
+            generate_general_answer(question="질문")
 
 
 @pytest.mark.parametrize(

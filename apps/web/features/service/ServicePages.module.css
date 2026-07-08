@@ -660,6 +660,20 @@
   color: #c0392b;
 }
 
+/* 일반 지식 폴백 배지: 신뢰도 배지(초록/노랑/빨강)와 겹치지 않는 회색 계열 경고 톤 */
+.generalKnowledgeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  width: fit-content;
+  background: #eef1f4;
+  color: #5b6772;
+}
+
 .sources {
   display: flex;
   flex-wrap: wrap;
