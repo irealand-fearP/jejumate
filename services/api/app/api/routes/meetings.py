@@ -73,7 +73,7 @@ def meeting_detail(meeting_id: str) -> ApiResponse[HomeMeeting]:
     try:
         return ApiResponse(request_id="local_service_request", data=get_meeting_detail(meeting_id))
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
 
 
 @router.get("/meetings/{meeting_id}/status", response_model=ApiResponse[MeetingStatusResponse])
@@ -81,7 +81,7 @@ def meeting_status(meeting_id: str) -> ApiResponse[MeetingStatusResponse]:
     try:
         return ApiResponse(request_id="local_service_request", data=get_meeting_status(meeting_id))
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
 
 
 @router.get("/meetings/{meeting_id}/applications", response_model=ApiResponse[MeetingApplicationListResponse])
@@ -92,7 +92,7 @@ def meeting_applications(meeting_id: str, owner_secret: str | None = None) -> Ap
             data=list_meeting_applications(meeting_id, owner_secret),
         )
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
 
 
 @router.post(
@@ -105,7 +105,7 @@ def approve_meeting_application(
     try:
         data = decide_meeting_application(meeting_id, application_id, owner_secret, "approve")
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
     except ApplicationNotFoundError:
         raise HTTPException(status_code=404, detail="신청을 찾을 수 없어요")
     except OwnerMismatchError:
@@ -127,7 +127,7 @@ def reject_meeting_application(
     try:
         data = decide_meeting_application(meeting_id, application_id, owner_secret, "reject")
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
     except ApplicationNotFoundError:
         raise HTTPException(status_code=404, detail="신청을 찾을 수 없어요")
     except OwnerMismatchError:
@@ -149,7 +149,7 @@ def delete_meeting_application(
     try:
         data = delete_my_application(meeting_id, application_id, anonymous_id)
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
     except ApplicationNotFoundError:
         raise HTTPException(status_code=404, detail="신청을 찾을 수 없어요")
     except ApplicantMismatchError:

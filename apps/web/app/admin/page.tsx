@@ -57,7 +57,7 @@ export default function AdminPage() {
           nextRows.push({
             meetingId,
             ownerSecret,
-            meetingTitle: titleById.get(meetingId) ?? `모임 ${meetingId.slice(0, 8)}`,
+            meetingTitle: titleById.get(meetingId) ?? `파티 ${meetingId.slice(0, 8)}`,
             application,
           });
         }
@@ -97,7 +97,7 @@ export default function AdminPage() {
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Host Console</p>
-          <h1 className={styles.title}>모임 신청함</h1>
+          <h1 className={styles.title}>파티 신청함</h1>
         </div>
         <div className={styles.segment}>
           <button
@@ -120,7 +120,7 @@ export default function AdminPage() {
       {message ? <div className={styles.notice}>{message}</div> : null}
       {!message && loaded && ownedCount === 0 ? (
         <div className={styles.notice}>
-          이 기기에서 등록한 모임이 없어요. 모임 화면에서 &quot;+ 모임 만들기&quot;로 등록하면 여기서 관리할 수 있어요.
+          이 기기에서 등록한 파티가 없어요. 파티 화면에서 &quot;+ 파티 만들기&quot;로 등록하면 여기서 관리할 수 있어요.
         </div>
       ) : null}
 

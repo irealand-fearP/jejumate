@@ -184,6 +184,29 @@
   font-weight: 950;
 }
 
+/* '참여중인 파티' 목록에서 내 역할(호스트/참가자)을 구분해 보여주는 작은 배지. */
+.roleBadgeHost,
+.roleBadgeParticipant {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.roleBadgeHost {
+  background: #e9f8f6;
+  color: #007f81;
+}
+
+.roleBadgeParticipant {
+  background: #eef1f3;
+  color: #566067;
+}
+
 .joinPanel {
   grid-column: 2;
   display: flex;

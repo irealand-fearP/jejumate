@@ -64,7 +64,7 @@ export function QuestionScreen() {
   }
 
   return (
-    <MobileShell active="question" title="질문" subtitle="제주 모임, 장소를 근거와 함께 확인해요">
+    <MobileShell active="question" title="질문" subtitle="제주 파티, 장소를 근거와 함께 확인해요">
       <section className={styles.questionBox}>
         <div className={styles.ragSearch}>
           <Search size={18} />

@@ -9,7 +9,7 @@ import styles from "./HomeScreen.module.css";
 // 유지한다. 홈 화면은 잠금 캔버스 레이아웃이라 MobileShell을 감싸 쓰지 않고 자체 탭바를 쓰지만,
 // 라우트/라벨/아이콘은 다른 화면들과 일치시켜 혼동이 없게 한다.
 const NAV_ITEMS = [
-  { href: "/meetings", label: "모임", icon: UsersRound },
+  { href: "/meetings", label: "파티", icon: UsersRound },
   { href: "/question", label: "질문", icon: MessageCircleQuestion },
   { href: "/", label: "홈", icon: Home },
   { href: "/board", label: "생활", icon: ClipboardList },

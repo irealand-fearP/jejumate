@@ -55,7 +55,7 @@ def meeting_chat_messages(
     try:
         data = list_meeting_chat_messages(meeting_id, anonymous_id=anonymous_id, owner_secret=owner_secret)
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
     except ChatAccessDeniedError:
         raise HTTPException(status_code=403, detail="승인된 참가자와 호스트만 볼 수 있어요")
     return ApiResponse(request_id="local_service_request", data=data)
@@ -75,7 +75,7 @@ def meeting_chat_message(
             owner_secret=payload.owner_secret,
         )
     except MeetingNotFoundError:
-        raise HTTPException(status_code=404, detail="모임을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
     except ChatAccessDeniedError:
         raise HTTPException(status_code=403, detail="승인된 참가자와 호스트만 보낼 수 있어요")
     return ApiResponse(request_id="local_service_request", data=data)

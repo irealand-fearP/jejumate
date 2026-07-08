@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   createNickname,
+  deleteMyApplication,
   getMeetingChatMessages,
   sendMeetingChatMessage,
   type ChatMessage,
@@ -37,6 +38,13 @@ type ChatSheetProps = {
   profile: ChatSheetProfile | null;
   /** 채팅 중 프로필이 새로 만들어졌을 때 상위 화면 상태(및 localStorage)를 동기화하는 콜백. */
   onProfileCreated: (profile: ChatSheetProfile) => void;
+  /**
+   * 현재 프로필이 이 모임에 승인된 신청자로 갖고 있는 신청 ID.
+   * 값이 있어야만(=승인된 참가자) 탈퇴 버튼을 보여준다 — 호스트는 별도 흐름(모임 관리)이 있으므로 제외.
+   */
+  myApplicationId?: string;
+  /** 탈퇴가 성공적으로 처리된 뒤 상위 화면이 접근 권한/목록 상태를 갱신할 수 있게 알리는 콜백. */
+  onLeft?: () => void;
   onClose: () => void;
 };
 
@@ -51,6 +59,8 @@ export function ChatSheet({
   hasAccess,
   profile,
   onProfileCreated,
+  myApplicationId,
+  onLeft,
   onClose,
 }: ChatSheetProps) {
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
@@ -59,6 +69,31 @@ export function ChatSheet({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ChatSheetErrorState | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  // 호스트는 자기 모임을 "탈퇴"하지 않는다(모임 관리/삭제는 별도 흐름) — 탈퇴 버튼은
+  // 호스트가 아니면서 승인된 신청 ID를 가진 경우에만 노출한다.
+  const isHost = getOwnerSecret(meetingId) !== null;
+  const canLeaveMeeting = !isHost && Boolean(myApplicationId) && Boolean(profile?.anonymousId);
+
+  async function leaveMeeting() {
+    if (!myApplicationId || !profile?.anonymousId) return;
+    if (!window.confirm("정말 이 파티에서 나가시겠어요? 채팅과 참가 정보가 사라져요.")) return;
+
+    setLeaving(true);
+    setError(null);
+    try {
+      await deleteMyApplication(meetingId, myApplicationId, profile.anonymousId);
+      onLeft?.();
+      onClose();
+    } catch (err) {
+      setError({
+        title: "탈퇴 실패",
+        body: err instanceof Error ? err.message : "잠시 후 다시 시도해 주세요.",
+      });
+    } finally {
+      setLeaving(false);
+    }
+  }
 
   // 최초 로드 + 4초 폴링. 이 컴포넌트가 열려있는 동안에만 마운트되므로, 시트를 닫으면
   // (=언마운트되면) cleanup으로 interval이 확실히 멈춘다 — 원본의 setInterval + cleanup 패턴 그대로.
@@ -143,11 +178,21 @@ export function ChatSheet({
         <button className={styles.sheetClose} onClick={onClose} aria-label="닫기" type="button">
           ×
         </button>
-        <h2>모임 채팅</h2>
+        <h2>파티 채팅</h2>
         <div className={styles.meetingSummary}>
           <b>{meetingTitle}</b>
           <span>{meetingPlaceLabel}</span>
         </div>
+        {canLeaveMeeting ? (
+          <button
+            className={styles.leaveButton}
+            disabled={leaving}
+            onClick={leaveMeeting}
+            type="button"
+          >
+            {leaving ? "나가는 중" : "파티 탈퇴"}
+          </button>
+        ) : null}
         <div className={styles.chatNotice}>
           {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
         </div>
