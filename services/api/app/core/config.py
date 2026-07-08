@@ -29,7 +29,13 @@ class Settings(BaseSettings):
     # 방식으로 사실상 상시 수집을 흉내낸다(maybe_ingest_kakao_now). 그 외
     # GET /api/ingest/kakao?secret=...로 수동/크론 트리거도 여전히 가능하다.
     kakao_poll_interval_seconds: int = 20
+    # 크론(GET /api/ingest/kakao)·로컬 백그라운드 루프 전용 상한. 이쪽은 실사용
+    # 요청을 막지 않으므로 넉넉하게 잡아도 된다(밀렸을 때 한 번에 많이 처리).
     kakao_ingest_max_items_per_run: int = 50
+    # 피기백(GET /api/home·/api/meetings·/api/board에 얹혀 실행) 전용 상한.
+    # 여기는 실제 유저 응답 지연으로 직결되므로(임베딩 호출 1건당 0.5~1초) 아주
+    # 작게 유지한다 — 대량 적체는 크론이 마저 처리한다.
+    kakao_ingest_piggyback_max_items: int = 3
     ingest_secret: str | None = None
     cron_secret: str | None = None
 

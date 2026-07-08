@@ -128,15 +128,20 @@ def convert_to_coldstart_content(*, item_id: int, content: str, created_at: str)
     return None
 
 
-def ingest_new_messages() -> tuple[int, int]:
+def ingest_new_messages(*, max_items: int | None = None) -> tuple[int, int]:
     """새 메시지를 커서 이후로 가져와 노이즈를 거르고 임베딩·적재 + 콜드스타트 변환한다.
     (적재 건수, 갱신된 커서)를 반환. 항목 하나 처리할 때마다 커서를 전진시켜서,
-    중간에 실패해도 이미 처리한 범위는 다음 실행에서 다시 안 건드린다."""
+    중간에 실패해도 이미 처리한 범위는 다음 실행에서 다시 안 건드린다.
+
+    max_items를 안 넘기면 크론/수동 트리거·로컬 백그라운드 루프용 기본 상한
+    (kakao_ingest_max_items_per_run, 넉넉함)을 쓴다. 피기백 경로(maybe_ingest_kakao_now)는
+    실사용 요청을 막지 않도록 훨씬 작은 상한을 명시적으로 넘긴다."""
     cursor = get_ingest_cursor(INGEST_SOURCE)
     items = fetch_new_chats(cursor)
     items.sort(key=lambda item: item["id"])
-    max_items = max(settings.kakao_ingest_max_items_per_run, 1)
-    items = items[:max_items]
+    effective_max_items = max_items if max_items is not None else settings.kakao_ingest_max_items_per_run
+    effective_max_items = max(effective_max_items, 1)
+    items = items[:effective_max_items]
 
     ingested = 0
     max_id = cursor
@@ -164,11 +169,16 @@ def maybe_ingest_kakao_now() -> None:
     동시 요청 대비: try_claim_kakao_ingest_attempt()가 원자적 UPDATE로 한 번에
     하나만 통과시킨다. 카톡 API가 응답 없거나 에러여도, 혹은 그 외 어떤 예외가
     나도 절대 이 함수 밖(본 요청의 모임/게시판/홈 응답)으로 전파시키지 않는다 —
-    조용히 넘어가고 다음 요청에서 다시 시도한다."""
+    조용히 넘어가고 다음 요청에서 다시 시도한다.
+
+    한 번에 kakao_ingest_piggyback_max_items(기본 3)건만 처리한다 — 실사용 요청에
+    얹혀 도는 경로라 임베딩 호출이 쌓이면(1건당 0.5~1초) 그대로 응답 지연이 되기
+    때문이다. 대량으로 밀려 있으면 나머지는 크론(GET /api/ingest/kakao, 5분 주기)이
+    kakao_ingest_max_items_per_run(기본 50)로 마저 처리한다."""
     try:
         if not try_claim_kakao_ingest_attempt(INGEST_SOURCE, settings.kakao_poll_interval_seconds):
             return
-        count, cursor = ingest_new_messages()
+        count, cursor = ingest_new_messages(max_items=settings.kakao_ingest_piggyback_max_items)
         if count:
             logger.info("피기백 카톡 수집: %s건 적재, 커서 %s", count, cursor)
     except Exception:  # noqa: BLE001 - 본 요청(조회 API)은 절대 실패시키면 안 된다.

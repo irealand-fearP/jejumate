@@ -14,13 +14,14 @@ from unittest.mock import patch
 
 import pytest
 
+from app.core.config import settings
 from app.repositories.local_store import (
     _connect,
     get_ingest_cursor,
     set_ingest_cursor,
     try_claim_kakao_ingest_attempt,
 )
-from app.services.kakao_ingest import maybe_ingest_kakao_now
+from app.services.kakao_ingest import ingest_new_messages, maybe_ingest_kakao_now
 
 
 def _cleanup(source: str) -> None:
@@ -78,3 +79,33 @@ def test_maybe_ingest_kakao_now_skips_when_not_claimed(mock_claim):
     with patch("app.services.kakao_ingest.ingest_new_messages") as mock_ingest:
         maybe_ingest_kakao_now()
         mock_ingest.assert_not_called()
+
+
+@patch("app.services.kakao_ingest.try_claim_kakao_ingest_attempt", return_value=True)
+def test_maybe_ingest_kakao_now_uses_small_piggyback_limit(mock_claim):
+    # 실사용 요청에 얹혀 도는 경로라 대량 적체 시에도 크게 처리하면 안 된다(응답 지연
+    # 회귀 재발 방지). 크론/수동 트리거용 kakao_ingest_max_items_per_run(기본 50)이
+    # 아니라 훨씬 작은 kakao_ingest_piggyback_max_items(기본 3)로 호출해야 한다.
+    with patch("app.services.kakao_ingest.ingest_new_messages", return_value=(0, 0)) as mock_ingest:
+        maybe_ingest_kakao_now()
+        mock_ingest.assert_called_once_with(max_items=settings.kakao_ingest_piggyback_max_items)
+    assert settings.kakao_ingest_piggyback_max_items <= 5
+
+
+@patch("app.services.kakao_ingest.embed_text", return_value=[0.0])
+@patch("app.services.kakao_ingest.get_ingest_cursor", return_value=0)
+@patch("app.services.kakao_ingest.fetch_new_chats")
+def test_ingest_new_messages_respects_max_items_override(mock_fetch, mock_get_cursor, mock_embed):
+    # 밀려있는 메시지가 많아도(여기선 10건) max_items로 넘긴 상한(3건)까지만 처리해야
+    # 한다 — 피기백 경로가 대량 적체 상황에서도 몇 건만 건드리는지 직접 확인.
+    mock_fetch.return_value = [
+        {"id": i, "content": f"충분히 긴 실제 대화 내용입니다 {i}", "created_at": "2026-07-09T00:00:00+00:00"}
+        for i in range(1, 11)
+    ]
+    with patch("app.services.kakao_ingest.add_kakao_rag_document"), patch(
+        "app.services.kakao_ingest.convert_to_coldstart_content"
+    ), patch("app.services.kakao_ingest.set_ingest_cursor"):
+        ingested, _cursor = ingest_new_messages(max_items=3)
+
+    assert ingested == 3
+    assert mock_embed.call_count == 3
