@@ -61,7 +61,12 @@ export function QuestionScreen() {
             value={question}
             aria-label="질문"
           />
-          <button disabled={busy || question.trim().length < 2} onClick={submit} type="button">
+          <button
+            aria-label="질문하기"
+            disabled={busy || question.trim().length < 2}
+            onClick={submit}
+            type="button"
+          >
             <SendHorizonal size={17} />
           </button>
         </div>

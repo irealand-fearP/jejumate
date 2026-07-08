@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ChevronRight, ClipboardList, Search, ShieldCheck } from "lucide-react";
 import styles from "./HomeScreen.module.css";
 
@@ -13,25 +13,22 @@ const BOARD_ITEMS = [
 const BOARD_TARGET = "/board";
 
 export function BoardSection() {
-  const router = useRouter();
-
   return (
     <section className={styles.boardSection}>
       <div className={styles.sectionTitleRow}>
         <h2>생활게시판</h2>
-        <button onClick={() => router.push(BOARD_TARGET)} type="button">
+        <Link href={BOARD_TARGET}>
           더 보기 <ChevronRight size={18} />
-        </button>
+        </Link>
       </div>
       <div className={styles.boardList}>
         {BOARD_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
-            <button
+            <Link
               className={styles.boardItem}
+              href={BOARD_TARGET}
               key={item.title}
-              onClick={() => router.push(BOARD_TARGET)}
-              type="button"
             >
               <span>
                 <Icon size={22} />
@@ -41,7 +38,7 @@ export function BoardSection() {
                 <small>{item.body}</small>
               </div>
               <ChevronRight size={20} />
-            </button>
+            </Link>
           );
         })}
       </div>

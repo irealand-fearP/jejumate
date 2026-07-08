@@ -1,5 +1,45 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-08 코덱스 갱신 — 2단계 배포판 실클릭 검증+즉시 수정
+
+배포판(`https://jejumate-web.vercel.app`, `https://jejumate-api.vercel.app`)에서 실제 브라우저 클릭으로
+등록→신청→승인→채팅과 주요 버튼을 검증하고 발견한 결함을 수정했다.
+
+수정한 결함:
+
+- 홈 화면의 라우팅 버튼(`모임`, `전체 보기`, 활동 카드, 생활게시판 `더 보기`/카드)이 클릭돼도
+  이동하지 않는 문제가 있었다. 홈 전용 `router.push` 버튼을 실제 `Link`로 바꿔 브라우저 기본
+  내비게이션이 항상 동작하게 수정했다.
+- 배포 웹에서 API 쓰기 요청(`POST /api/meetings`)이 CORS preflight에서 막혔다. API 기본 CORS에
+  `https://jejumate-web.vercel.app`을 추가했고, Vercel `jejumate-api` Production 환경변수
+  `API_CORS_ORIGINS`도 같은 값으로 등록 후 API 재배포했다.
+- 신청/닉네임 저장 경로가 예전 `interactions_repository`를 먼저 시도하다 실패하면 fallback하는
+  구조라, 배포 로그에 `Postgres ... unavailable; using local service database`가 찍히고 신청 유실
+  위험이 있었다. `interaction_service.py`를 `local_store` 단일 경로로 통일했다. 배포에서는
+  `DATABASE_URL`이 있으므로 이 경로가 Postgres다.
+- 질문 페이지 제출 버튼이 아이콘만 있고 접근 가능한 이름이 없었다. `aria-label="질문하기"` 추가.
+
+배포/검증:
+
+- API 재배포 완료: `https://jejumate-api.vercel.app` alias 반영.
+- 웹 재배포 완료: `https://jejumate-web.vercel.app` alias 반영.
+- 검증 통과:
+  - `python -m compileall app`
+  - `npm.cmd run typecheck:web`
+  - `npm.cmd run build:web`
+  - CORS preflight `OPTIONS /api/meetings`: 200, `Access-Control-Allow-Origin=https://jejumate-web.vercel.app`
+  - 홈 링크 실클릭: 하단 `모임`, `전체 보기`, 활동 카드 → `/meetings`; 생활게시판 `더 보기`/카드 → `/board`
+  - 배포판 실제 클릭 전체 흐름: 모임 생성 201 → 신청 200 → 승인 200 → 내정보 승인 모임 노출 → 채팅 메시지 200
+    - 검증용 최종 모임: `QA Flow Real 73466865`, meeting id `8e365115-9742-4b9f-b846-4ecfa4541f26`
+  - 질문/RAG: `POST /api/rag/ask` 200, 화면에 답변 표시 확인
+  - 생활게시판: 글쓰기 201 → 상세 표시 → 댓글 201 → 신고 201 → 본인 글 삭제 200
+
+주의:
+
+- 배포 DB에 `QA ...` 테스트 모임 몇 건이 남아 있다. 현재 모임 삭제 API가 없어서 정리하지 못했다.
+- 브라우저 콘솔에 URL 없는 404 한 줄이 보이지만, Playwright response 이벤트로 잡히는 4xx 기능 요청은
+  없었다. 현 검증 범위에서는 기능 영향 없음.
+
 ## 2026-07-08 코덱스 갱신 — 카톡 수집 파이프라인 배포 연동
 
 우선순위 1번이던 카톡 수집 파이프라인 배포 연동을 진행했다.

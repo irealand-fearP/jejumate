@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
@@ -326,13 +327,13 @@ export function HomeScreen({ data }: { data: HomeData }) {
           onApply={openApply}
         />
 
-        <button className={styles.activityCard} onClick={() => router.push("/meetings")} type="button">
+        <Link className={styles.activityCard} href="/meetings">
           <img src="/assets/activity-thumbs.png" alt="" />
           <span>
             지금 제주 어딘가에서 <b>{data.activity_summary.active_people_count}명</b>이 함께 놀고 있어요!
           </span>
           <UsersRound size={25} />
-        </button>
+        </Link>
 
         <AskEntryCard onOpen={openQuestionSheet} />
 

@@ -169,7 +169,8 @@
   vertical-align: middle;
 }
 
-.sectionTitleRow button {
+.sectionTitleRow button,
+.sectionTitleRow a {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -177,6 +178,7 @@
   font-size: 14px;
   font-weight: 850;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .filterRow {
@@ -203,6 +205,7 @@
   border-radius: 999px;
   font-size: 14px;
   font-weight: 900;
+  text-decoration: none;
 }
 
 .filterChip {
@@ -509,6 +512,7 @@
   padding: 8px;
   background: #ffffff;
   text-align: left;
+  text-decoration: none;
 }
 
 .activityCard img {
@@ -624,6 +628,7 @@
   padding: 12px;
   border-bottom: 1px solid #edf1f2;
   text-align: left;
+  text-decoration: none;
 }
 
 .boardItem:last-child {
@@ -689,7 +694,8 @@
   box-shadow: 0 -2px 0 rgba(20, 54, 58, 0.05), 0 -10px 28px rgba(20, 54, 58, 0.12);
 }
 
-.bottomNav button {
+.bottomNav button,
+.bottomNav a {
   position: relative;
   min-width: 0;
   height: 58px;
@@ -700,6 +706,7 @@
   color: #666d74;
   font-size: 12px;
   font-weight: 900;
+  text-decoration: none;
 }
 
 .bottomNav svg {

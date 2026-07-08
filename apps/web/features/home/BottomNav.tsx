@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ClipboardList, Home, MessageCircleQuestion, UserRound, UsersRound } from "lucide-react";
 import styles from "./HomeScreen.module.css";
 
@@ -16,7 +17,6 @@ const NAV_ITEMS = [
 ];
 
 export function BottomNav() {
-  const router = useRouter();
   const pathname = usePathname();
 
   return (
@@ -25,15 +25,14 @@ export function BottomNav() {
         const Icon = item.icon;
         const isActive = pathname === item.href;
         return (
-          <button
+          <Link
             className={isActive ? styles.navActive : ""}
+            href={item.href}
             key={item.href}
-            onClick={() => router.push(item.href)}
-            type="button"
           >
             <Icon size={23} />
             <span>{item.label}</span>
-          </button>
+          </Link>
         );
       })}
     </nav>

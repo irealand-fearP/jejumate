@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { HomeMeeting } from "@/lib/api";
 import { FILTER_TO_CATEGORY } from "@/lib/meetingCategories";
@@ -18,17 +18,15 @@ export function MeetingTimeline({
   openCount: number;
   onApply: (meeting: HomeMeeting) => void;
 }) {
-  const router = useRouter();
-
   return (
     <section className={styles.meetingsSection}>
       <div className={styles.sectionTitleRow}>
         <h2>
           오늘 열려 있는 모임 <span>{openCount}개</span>
         </h2>
-        <button onClick={() => router.push("/meetings")} type="button">
+        <Link href="/meetings">
           전체 보기 <ChevronRight size={18} />
-        </button>
+        </Link>
       </div>
 
       <div className={styles.filterRow}>
@@ -36,14 +34,13 @@ export function MeetingTimeline({
           const category = FILTER_TO_CATEGORY[filter];
           const href = category ? `/meetings?category=${category}` : "/meetings";
           return (
-            <button
+            <Link
               className={filter === "전체" ? styles.filterActive : styles.filterChip}
+              href={href}
               key={filter}
-              onClick={() => router.push(href)}
-              type="button"
             >
               {filter}
-            </button>
+            </Link>
           );
         })}
       </div>
