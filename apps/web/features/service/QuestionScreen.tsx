@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Info, Search, SendHorizonal, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
+import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import styles from "./ServicePages.module.css";
 
 const suggestions = ["함덕 맛집", "제주공항 택시팟", "비 오는 코스", "혼자 가기 좋은 카페"];
@@ -126,6 +127,9 @@ export function QuestionScreen() {
               </a>
             ))}
           </div>
+          {answer.answer_source === "community" ? (
+            <PlaceMapSection places={answer.sources.map((source) => ({ title: source.title, url: source.url }))} />
+          ) : null}
         </section>
       ) : null}
     </MobileShell>

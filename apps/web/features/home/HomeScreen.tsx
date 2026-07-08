@@ -21,6 +21,7 @@ import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applican
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
+import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
 import { BottomNav } from "./BottomNav";
@@ -524,6 +525,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
                     </a>
                   ))}
                 </div>
+                {answer.answer_source === "community" ? (
+                  <PlaceMapSection
+                    places={answer.sources.map((source) => ({ title: source.title, url: source.url }))}
+                  />
+                ) : null}
               </div>
             ) : null}
             {renderResult()}

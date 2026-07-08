@@ -1,0 +1,49 @@
+.placeMapSection {
+  display: grid;
+  gap: 10px;
+}
+
+.toggleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dce6e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #007f81;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.placeList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.placeItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #364247;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.placeItem a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #007f81;
+  font-weight: 950;
+  white-space: nowrap;
+}
