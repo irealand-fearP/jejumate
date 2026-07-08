@@ -4,18 +4,20 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { Bell, ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
   getMyApplicationNotifications,
   submitMeetingApplication,
+  type ApplicantNotification,
   type HomeData,
   type HomeMeeting,
   type NicknameProfile,
   type RagAnswer,
 } from "@/lib/api";
 import { getOwnerSecret } from "@/lib/ownerSecret";
+import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applicantNotifications";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
@@ -25,7 +27,7 @@ import { BottomNav } from "./BottomNav";
 import { MeetingTimeline } from "./MeetingTimeline";
 import styles from "./HomeScreen.module.css";
 
-type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat" | "external";
+type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat" | "external" | "notifications";
 
 type LocalProfile = {
   profileId: string;
@@ -60,6 +62,17 @@ function readProfile(): LocalProfile | null {
     window.localStorage.removeItem(PROFILE_STORAGE_KEY);
     return null;
   }
+}
+
+// 승인/거절인데 마지막으로 알림을 확인한 시각 이후 갱신된 건수 — 배지에 그대로 쓴다.
+function countUnseenNotifications(notifications: ApplicantNotification[]): number {
+  const seenAt = getNotificationsSeenAt();
+  const seenAtMs = seenAt ? new Date(seenAt).getTime() : 0;
+  return notifications.filter(
+    (notification) =>
+      (notification.status === "approved" || notification.status === "rejected") &&
+      new Date(notification.updated_at).getTime() > seenAtMs
+  ).length;
 }
 
 function BottomSheet({
@@ -97,6 +110,9 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [result, setResult] = useState<ResultState | null>(null);
   const [busy, setBusy] = useState(false);
   const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
+  const [unseenNotificationCount, setUnseenNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   useEffect(() => {
     const savedProfile = readProfile();
@@ -106,18 +122,23 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
   }, []);
 
-  // 채팅 접근 권한(승인된 신청자) 판단용. 호스트 여부는 getOwnerSecret으로 그때그때 확인한다.
+  // 채팅 접근 권한(승인된 신청자) 판단, 알림 뱃지 표시용. 호스트 여부는 getOwnerSecret으로
+  // 그때그때 확인한다.
   useEffect(() => {
-    if (!profile?.anonymousId) return;
+    if (!profile?.anonymousId) {
+      setUnseenNotificationCount(0);
+      return;
+    }
     getMyApplicationNotifications(profile.anonymousId)
       .then((res) => {
         const approved = new Set(
           res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
         );
         setApprovedMeetingIds(approved);
+        setUnseenNotificationCount(countUnseenNotifications(res.notifications));
       })
       .catch(() => {
-        // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
+        // 조회 실패는 조용히 넘어간다 — 채팅 버튼/뱃지가 안 보이는 것 이상의 영향은 없다.
       });
   }, [profile?.anonymousId]);
 
@@ -145,6 +166,27 @@ export function HomeScreen({ data }: { data: HomeData }) {
     setAnswer(null);
     setQuestion(data.rag_strip.suggestions[0] ?? "");
     setSheetKey("ask");
+  }
+
+  // '내 신청 알림 확인' 진입점 — 항상 노출되는 버튼에서 호출되며, 신청 결과 목록을
+  // 다시 불러와 시트로 보여준다. 연 시점에 확인 시각을 갱신해 뱃지를 지운다.
+  async function openNotifications() {
+    setSheetKey("notifications");
+    setNotificationsError(null);
+
+    if (!profile?.anonymousId) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const res = await getMyApplicationNotifications(profile.anonymousId);
+      setNotifications(res.notifications);
+      markNotificationsSeenNow();
+      setUnseenNotificationCount(0);
+    } catch {
+      setNotificationsError("알림을 불러오지 못했어요");
+    }
   }
 
   function closeSheet() {
@@ -259,6 +301,16 @@ export function HomeScreen({ data }: { data: HomeData }) {
             </button>
           </div>
         </header>
+
+        <button className={styles.notificationEntryButton} onClick={openNotifications} type="button">
+          <Bell size={16} />
+          내 신청 알림 확인
+          {unseenNotificationCount > 0 ? (
+            <span className={styles.notificationBadge}>
+              {unseenNotificationCount > 9 ? "9+" : unseenNotificationCount}
+            </span>
+          ) : null}
+        </button>
 
         <HostPendingBanner variant="inline" />
         <ApplicantNotificationBanner variant="inline" />
@@ -453,6 +505,35 @@ export function HomeScreen({ data }: { data: HomeData }) {
               </div>
             ) : null}
             {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "notifications" ? (
+          <BottomSheet title="내 신청 알림" onClose={closeSheet}>
+            {!profile ? (
+              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요. 먼저 모임에 신청해 보세요.</p>
+            ) : null}
+            {notificationsError ? (
+              <div className={`${styles.resultCard} ${styles.error}`}>
+                <span>{notificationsError}</span>
+              </div>
+            ) : null}
+            {notifications && notifications.length > 0 ? (
+              <ul className={styles.notificationList}>
+                {notifications.map((notification) => (
+                  <li className={styles.notificationRow} key={notification.application_id}>
+                    <p className={styles.notificationTitle}>{notification.title}</p>
+                    <p>{notification.body}</p>
+                    <span>
+                      {notification.meeting_title} · {notification.place_label} · 호스트{" "}
+                      {notification.host_nickname}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : profile && notifications ? (
+              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요.</p>
+            ) : null}
           </BottomSheet>
         ) : null}
       </section>
