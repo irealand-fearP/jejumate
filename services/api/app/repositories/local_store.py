@@ -142,6 +142,27 @@ def _pg_raw_connect() -> _PgConnectionWrapper:
     return _PgConnectionWrapper(psycopg2.connect(DATABASE_URL, connect_timeout=10))
 
 
+_PG_CONNECTION: _PgConnectionWrapper | None = None
+
+
+def _pg_connection_is_alive(connection: _PgConnectionWrapper) -> bool:
+    try:
+        return connection._raw.closed == 0
+    except Exception:
+        return False
+
+
+def _get_pg_connection() -> _PgConnectionWrapper:
+    # 배포 DB(Supabase)가 시드니 리전이라 연결 하나 맺을 때마다(TCP+TLS+인증 핸드셰이크)
+    # 왕복 지연이 크다. Vercel 서버리스는 warm 인스턴스가 재사용되는 동안 모듈 전역
+    # 상태가 유지되므로, 커넥션을 프로세스 생존 기간 동안 재사용해 요청마다 새로
+    # 연결하지 않게 한다(콜드스타트 때만 새로 연결).
+    global _PG_CONNECTION
+    if _PG_CONNECTION is None or not _pg_connection_is_alive(_PG_CONNECTION):
+        _PG_CONNECTION = _pg_raw_connect()
+    return _PG_CONNECTION
+
+
 def _time_order_expr(column: str) -> str:
     """오프셋이 섞인(+09:00/+00:00) ISO8601 문자열을 실제 시각으로 정규화해서
     정렬하기 위한 표현식. SQLite는 datetime(), Postgres는 timestamptz 캐스팅을 쓴다."""
@@ -166,10 +187,20 @@ def _connect() -> Iterator[sqlite3.Connection]:
         ensure_database()
         _DATABASE_ENSURED = True
     if USE_POSTGRES:
-        connection = _pg_raw_connect()
-    else:
-        connection = sqlite3.connect(DB_PATH)
-        connection.row_factory = sqlite3.Row
+        connection = _get_pg_connection()
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            try:
+                connection._raw.rollback()
+            except Exception:
+                pass
+            raise
+        # 연결을 닫지 않는다 — 다음 요청(같은 warm 인스턴스)에서 재사용한다.
+        return
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
     try:
         yield connection
         connection.commit()
