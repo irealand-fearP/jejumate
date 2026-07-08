@@ -33,9 +33,12 @@ class Settings(BaseSettings):
     # 요청을 막지 않으므로 넉넉하게 잡아도 된다(밀렸을 때 한 번에 많이 처리).
     kakao_ingest_max_items_per_run: int = 50
     # 피기백(GET /api/home·/api/meetings·/api/board에 얹혀 실행) 전용 상한.
-    # 여기는 실제 유저 응답 지연으로 직결되므로(임베딩 호출 1건당 0.5~1초) 아주
-    # 작게 유지한다 — 대량 적체는 크론이 마저 처리한다.
-    kakao_ingest_piggyback_max_items: int = 3
+    # BackgroundTasks로 응답 이후에 실행되게 해봤지만(커밋 2f8f0a6), Vercel Python
+    # 런타임이 백그라운드 작업이 끝날 때까지 응답을 마무리하지 않아(실측: 배포판에서
+    # 2.1~12초, 사실상 동기와 동일) 되돌렸다 — 그래서 동기 호출을 유지한 채 처리
+    # 건수 자체를 최대한 줄여서 지연을 낮춘다(임베딩 호출 1건당 0.5~1초 직결).
+    # 대량 적체는 크론(GET /api/ingest/kakao, 5분 주기)이 마저 처리한다.
+    kakao_ingest_piggyback_max_items: int = 1
     ingest_secret: str | None = None
     cron_secret: str | None = None
 

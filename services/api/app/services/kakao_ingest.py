@@ -171,10 +171,14 @@ def maybe_ingest_kakao_now() -> None:
     나도 절대 이 함수 밖(본 요청의 모임/게시판/홈 응답)으로 전파시키지 않는다 —
     조용히 넘어가고 다음 요청에서 다시 시도한다.
 
-    한 번에 kakao_ingest_piggyback_max_items(기본 3)건만 처리한다 — 실사용 요청에
-    얹혀 도는 경로라 임베딩 호출이 쌓이면(1건당 0.5~1초) 그대로 응답 지연이 되기
-    때문이다. 대량으로 밀려 있으면 나머지는 크론(GET /api/ingest/kakao, 5분 주기)이
-    kakao_ingest_max_items_per_run(기본 50)로 마저 처리한다."""
+    이 함수는 동기(블로킹)로 실행되고 응답 완성 전에 끝나야 한다 — BackgroundTasks로
+    응답 이후에 돌려봤지만(커밋 2f8f0a6), Vercel Python 런타임이 백그라운드 작업
+    완료까지 응답을 안 끝내는 걸 실측으로 확인해(배포판에서 2.1~12초, 사실상 동기와
+    동일) 되돌렸다. 그래서 한 번에 kakao_ingest_piggyback_max_items(기본 1)건만
+    처리한다 — 실사용 요청에 그대로 얹히는 경로라 임베딩 호출이 쌓이면(1건당
+    0.5~1초) 그대로 응답 지연이 되기 때문이다. 대량으로 밀려 있으면 나머지는
+    크론(GET /api/ingest/kakao, 5분 주기)이 kakao_ingest_max_items_per_run(기본
+    50)로 마저 처리한다."""
     try:
         if not try_claim_kakao_ingest_attempt(INGEST_SOURCE, settings.kakao_poll_interval_seconds):
             return

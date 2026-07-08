@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from app.repositories.local_store import BoardOwnerMismatchError, BoardPostNotFoundError
 from app.schemas.common import ApiResponse
@@ -25,9 +25,13 @@ router = APIRouter(tags=["board"])
 
 
 @router.get("/board", response_model=ApiResponse[BoardResponse])
-def board(background_tasks: BackgroundTasks) -> ApiResponse[BoardResponse]:
-    # 카톡 실시간 수집 피기백. 응답 지연에 영향 없도록 BackgroundTasks로 등록.
-    background_tasks.add_task(maybe_ingest_kakao_now)
+def board() -> ApiResponse[BoardResponse]:
+    # 카톡 실시간 수집 피기백(서버리스는 백그라운드 루프가 없어 조회 요청에 얹는다).
+    # BackgroundTasks로 응답 이후 실행되게 해봤지만(2f8f0a6), 실측 결과 Vercel Python
+    # 런타임이 백그라운드 작업 완료까지 응답을 안 끝내(사실상 동기와 동일하면서
+    # 코드만 복잡해짐) 되돌렸다 — 그래서 그냥 동기 호출 + 처리 건수를 아주 작게
+    # 캡(kakao_ingest_piggyback_max_items)하는 쪽으로 지연을 줄인다.
+    maybe_ingest_kakao_now()
     return ApiResponse(request_id="local_service_request", data=get_board_data())
 
 
