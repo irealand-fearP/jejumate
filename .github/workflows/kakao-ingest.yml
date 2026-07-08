@@ -1,0 +1,19 @@
+# 카톡 오픈채팅 수집 트리거 — jejumate-api의 ingest 엔드포인트를 5분마다 호출
+# (Vercel Hobby 크론이 하루 1회 제한이라 GitHub Actions로 보완)
+name: kakao-ingest
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger ingest
+        run: |
+          code=$(curl -s -o /tmp/resp -w "%{http_code}" --max-time 60 "$INGEST_URL")
+          echo "HTTP $code"
+          cat /tmp/resp
+          test "$code" = "200"
+        env:
+          INGEST_URL: ${{ secrets.KAKAO_INGEST_URL }}
