@@ -1013,6 +1013,18 @@
   background: #f4f8f9;
 }
 
+/* 상대방 메시지: 폭을 제한해 왼쪽에 붙어 보이게 한다(justify-self 기본값은 start). */
+.chatBubble {
+  max-width: 84%;
+}
+
+/* 내 메시지: 오른쪽 정렬 + 다른 배경색으로 구분한다. */
+.chatBubbleMine {
+  justify-self: end;
+  text-align: right;
+  background: #e2f5f2;
+}
+
 .chatBubble b {
   color: #008c91;
   font-size: 12px;

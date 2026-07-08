@@ -1445,6 +1445,7 @@ def _chat_message_from_row(row: sqlite3.Row) -> ChatMessage:
         id=row["id"],
         meeting_id=row["meeting_id"],
         sender_nickname=row["sender_nickname"],
+        sender_anonymous_id=row["sender_anonymous_id"],
         content=row["content"],
         created_at=row["created_at"],
     )
@@ -1459,10 +1460,11 @@ def list_chat_messages(
             raise ChatAccessDeniedError("승인된 참가자와 호스트만 볼 수 있어요")
         rows = connection.execute(
             """
-            SELECT *
-            FROM meeting_chat_messages
-            WHERE meeting_id = ? AND deleted_at IS NULL
-            ORDER BY created_at ASC
+            SELECT m.*, u.anonymous_id AS sender_anonymous_id
+            FROM meeting_chat_messages m
+            JOIN users u ON u.id = m.sender_user_id
+            WHERE m.meeting_id = ? AND m.deleted_at IS NULL
+            ORDER BY m.created_at ASC
             LIMIT 80
             """,
             (meeting["id"],),
@@ -1506,10 +1508,11 @@ def create_chat_message(
         )
         rows = connection.execute(
             """
-            SELECT *
-            FROM meeting_chat_messages
-            WHERE meeting_id = ? AND deleted_at IS NULL
-            ORDER BY created_at ASC
+            SELECT m.*, u.anonymous_id AS sender_anonymous_id
+            FROM meeting_chat_messages m
+            JOIN users u ON u.id = m.sender_user_id
+            WHERE m.meeting_id = ? AND m.deleted_at IS NULL
+            ORDER BY m.created_at ASC
             LIMIT 80
             """,
             (meeting["id"],),

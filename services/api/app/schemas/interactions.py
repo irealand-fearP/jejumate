@@ -140,6 +140,7 @@ class ChatMessage(BaseModel):
     id: str
     meeting_id: str
     sender_nickname: str
+    sender_anonymous_id: str
     content: str
     created_at: str
 

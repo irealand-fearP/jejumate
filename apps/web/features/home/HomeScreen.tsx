@@ -42,6 +42,8 @@ type ResultState = {
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
+// 채팅 시트가 열려있는 동안 새 메시지를 반영하는 폴링 주기(HostPendingBanner 등 기존 배너는 10초 주기).
+const CHAT_POLL_INTERVAL_MS = 4000;
 
 function buildLocalProfile(profile: NicknameProfile): LocalProfile {
   return {
@@ -129,6 +131,37 @@ export function HomeScreen({ data }: { data: HomeData }) {
   function hasChatAccess(meetingId: string): boolean {
     return getOwnerSecret(meetingId) !== null || approvedMeetingIds.has(meetingId);
   }
+
+  // 채팅 시트가 열려있는 동안 새 메시지를 주기적으로 반영한다(HostPendingBanner와 동일한
+  // setInterval + cleanup 패턴). 시트를 닫으면(sheetKey 변경) 이펙트가 다시 실행되며
+  // 이전 interval이 cleanup되어 폴링이 확실히 멈춘다.
+  useEffect(() => {
+    if (sheetKey !== "chat" || !selectedMeeting) return;
+    const meetingId = selectedMeeting.id;
+
+    let cancelled = false;
+
+    async function pollChatMessages() {
+      try {
+        const chat = await getMeetingChatMessages(meetingId, {
+          anonymousId: profile?.anonymousId,
+          ownerSecret: getOwnerSecret(meetingId) ?? undefined,
+        });
+        if (!cancelled) {
+          setChatMessages(chat.messages);
+          setChatNotice(chat.notice);
+        }
+      } catch {
+        // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
+      }
+    }
+
+    const timer = setInterval(pollChatMessages, CHAT_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [sheetKey, selectedMeeting, profile?.anonymousId]);
 
   function openApply(meeting: HomeMeeting) {
     setResult(null);
@@ -473,12 +506,18 @@ export function HomeScreen({ data }: { data: HomeData }) {
             </div>
             <div className={styles.chatList}>
               {chatMessages.length ? (
-                chatMessages.map((chat) => (
-                  <div className={styles.chatBubble} key={chat.id}>
-                    <b>{chat.sender_nickname}</b>
-                    <span>{chat.content}</span>
-                  </div>
-                ))
+                chatMessages.map((chat) => {
+                  const isMine = profile?.anonymousId === chat.sender_anonymous_id;
+                  return (
+                    <div
+                      className={isMine ? `${styles.chatBubble} ${styles.chatBubbleMine}` : styles.chatBubble}
+                      key={chat.id}
+                    >
+                      <b>{chat.sender_nickname}</b>
+                      <span>{chat.content}</span>
+                    </div>
+                  );
+                })
               ) : (
                 <div className={styles.emptyChat}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</div>
               )}

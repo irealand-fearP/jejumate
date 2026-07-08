@@ -207,6 +207,7 @@ export type ChatMessage = {
   id: string;
   meeting_id: string;
   sender_nickname: string;
+  sender_anonymous_id: string;
   content: string;
   created_at: string;
 };
