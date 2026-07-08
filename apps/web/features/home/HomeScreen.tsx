@@ -8,11 +8,8 @@ import { ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, Users
 import {
   askRag,
   createNickname,
-  getMeetingChatMessages,
   getMyApplicationNotifications,
-  sendMeetingChatMessage,
   submitMeetingApplication,
-  type ChatMessage,
   type HomeData,
   type HomeMeeting,
   type NicknameProfile,
@@ -20,6 +17,7 @@ import {
 } from "@/lib/api";
 import { getOwnerSecret } from "@/lib/ownerSecret";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
+import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
@@ -42,8 +40,6 @@ type ResultState = {
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
-// 채팅 시트가 열려있는 동안 새 메시지를 반영하는 폴링 주기(HostPendingBanner 등 기존 배너는 10초 주기).
-const CHAT_POLL_INTERVAL_MS = 4000;
 
 function buildLocalProfile(profile: NicknameProfile): LocalProfile {
   return {
@@ -95,9 +91,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [nickname, setNickname] = useState("");
   const [message, setMessage] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatNotice, setChatNotice] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [privacyChecked, setPrivacyChecked] = useState(false);
   const [question, setQuestion] = useState(data.rag_strip.suggestions[0] ?? "");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
@@ -132,37 +125,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
     return getOwnerSecret(meetingId) !== null || approvedMeetingIds.has(meetingId);
   }
 
-  // 채팅 시트가 열려있는 동안 새 메시지를 주기적으로 반영한다(HostPendingBanner와 동일한
-  // setInterval + cleanup 패턴). 시트를 닫으면(sheetKey 변경) 이펙트가 다시 실행되며
-  // 이전 interval이 cleanup되어 폴링이 확실히 멈춘다.
-  useEffect(() => {
-    if (sheetKey !== "chat" || !selectedMeeting) return;
-    const meetingId = selectedMeeting.id;
-
-    let cancelled = false;
-
-    async function pollChatMessages() {
-      try {
-        const chat = await getMeetingChatMessages(meetingId, {
-          anonymousId: profile?.anonymousId,
-          ownerSecret: getOwnerSecret(meetingId) ?? undefined,
-        });
-        if (!cancelled) {
-          setChatMessages(chat.messages);
-          setChatNotice(chat.notice);
-        }
-      } catch {
-        // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
-      }
-    }
-
-    const timer = setInterval(pollChatMessages, CHAT_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [sheetKey, selectedMeeting, profile?.anonymousId]);
-
   function openApply(meeting: HomeMeeting) {
     setResult(null);
     setAnswer(null);
@@ -190,7 +152,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
     setSelectedMeeting(null);
     setResult(null);
     setAnswer(null);
-    setChatInput("");
   }
 
   function saveProfileLocally(nextProfile: LocalProfile) {
@@ -248,30 +209,13 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
   }
 
-  async function openChat(meeting: HomeMeeting | null = selectedMeeting) {
+  // 메시지 로딩/폴링/전송은 ChatSheet 컴포넌트가 담당한다 — 여기서는 어떤 모임의
+  // 채팅을 열지만 결정한다.
+  function openChat(meeting: HomeMeeting | null = selectedMeeting) {
     if (!meeting) return;
     setSelectedMeeting(meeting);
     setSheetKey("chat");
     setResult(null);
-    setChatInput("");
-    setBusy(true);
-
-    try {
-      const chat = await getMeetingChatMessages(meeting.id, {
-        anonymousId: profile?.anonymousId,
-        ownerSecret: getOwnerSecret(meeting.id) ?? undefined,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-    } catch (error) {
-      setResult({
-        tone: "error",
-        title: "채팅 불러오기 실패",
-        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
-      });
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function submitQuestion() {
@@ -284,38 +228,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
       setAnswer(await askRag(question.trim(), profile?.anonymousId));
     } catch {
       setResult({ tone: "error", title: "답변 실패", body: "잠시 후 다시 시도해 주세요." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitChatMessage() {
-    if (!selectedMeeting || nickname.trim().length < 2 || chatInput.trim().length < 1) return;
-    setBusy(true);
-    setResult(null);
-
-    try {
-      let currentProfile = profile;
-      if (!currentProfile) {
-        currentProfile = buildLocalProfile(await createNickname(nickname.trim()));
-        saveProfileLocally(currentProfile);
-      }
-
-      const chat = await sendMeetingChatMessage(selectedMeeting.id, {
-        nickname: currentProfile.nickname,
-        content: chatInput.trim(),
-        anonymous_id: currentProfile.anonymousId,
-        owner_secret: getOwnerSecret(selectedMeeting.id) ?? undefined,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-      setChatInput("");
-    } catch (error) {
-      setResult({
-        tone: "error",
-        title: "메시지 전송 실패",
-        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
-      });
     } finally {
       setBusy(false);
     }
@@ -496,58 +408,15 @@ export function HomeScreen({ data }: { data: HomeData }) {
         ) : null}
 
         {sheetKey === "chat" && selectedMeeting ? (
-          <BottomSheet title="모임 채팅" onClose={closeSheet}>
-            <div className={styles.meetingSummary}>
-              <b>{selectedMeeting.title}</b>
-              <span>{selectedMeeting.place_label}</span>
-            </div>
-            <div className={styles.chatNotice}>
-              {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
-            </div>
-            <div className={styles.chatList}>
-              {chatMessages.length ? (
-                chatMessages.map((chat) => {
-                  const isMine = profile?.anonymousId === chat.sender_anonymous_id;
-                  return (
-                    <div
-                      className={isMine ? `${styles.chatBubble} ${styles.chatBubbleMine}` : styles.chatBubble}
-                      key={chat.id}
-                    >
-                      <b>{chat.sender_nickname}</b>
-                      <span>{chat.content}</span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className={styles.emptyChat}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</div>
-              )}
-            </div>
-            <div className={styles.sheetForm}>
-              <label htmlFor="home-chat-nickname">닉네임</label>
-              <input
-                id="home-chat-nickname"
-                maxLength={20}
-                onChange={(event) => setNickname(event.target.value)}
-                value={nickname}
-              />
-              <label htmlFor="home-chat-message">메시지</label>
-              <textarea
-                id="home-chat-message"
-                maxLength={500}
-                onChange={(event) => setChatInput(event.target.value)}
-                placeholder="약속 장소나 준비물을 편하게 이야기해보세요."
-                value={chatInput}
-              />
-              <button
-                disabled={busy || nickname.trim().length < 2 || chatInput.trim().length < 1}
-                onClick={submitChatMessage}
-                type="button"
-              >
-                {busy ? "보내는 중" : "메시지 보내기"}
-              </button>
-            </div>
-            {renderResult()}
-          </BottomSheet>
+          <ChatSheet
+            meetingId={selectedMeeting.id}
+            meetingTitle={selectedMeeting.title}
+            meetingPlaceLabel={selectedMeeting.place_label}
+            hasAccess={hasChatAccess(selectedMeeting.id)}
+            profile={profile}
+            onProfileCreated={saveProfileLocally}
+            onClose={closeSheet}
+          />
         ) : null}
 
         {sheetKey === "ask" ? (
