@@ -135,6 +135,31 @@
   word-break: break-all;
 }
 
+/* 오픈채팅에서 자동 변환된 콘텐츠 배지. 서비스 작성 글과 시각적으로 구분한다. */
+.externalBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #fee500;
+  color: #3c1e1e;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.externalOriginal {
+  margin: 8px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7f8ea;
+  border: 1px solid #ece9c8;
+  color: #364247;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .host {
   margin: 7px 0 0;
   color: #007f81;

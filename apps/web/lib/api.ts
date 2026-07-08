@@ -9,6 +9,7 @@ export type HomeMeeting = {
   id: string;
   category: string;
   title: string;
+  description: string | null;
   starts_at: string;
   ends_at: string;
   place_label: string;
@@ -28,6 +29,8 @@ export type HomeMeeting = {
   // 인기/NEW 배지는 백엔드가 단일 계산해서 내려준다(프론트는 그대로 렌더만).
   is_popular: boolean;
   is_new: boolean;
+  // 'service' | 'kakao_chat'(오픈채팅 수집 → 콜드스타트 자동 변환. 호스트 없는 외부 글).
+  source: string;
 };
 
 export type HomeData = {
@@ -71,6 +74,8 @@ export type BoardPost = {
   comment_count: number;
   can_delete: boolean;
   comments: BoardComment[];
+  // 'service' | 'kakao_chat'(오픈채팅 수집 → 콜드스타트 자동 변환).
+  source: string;
 };
 
 export type BoardComment = {

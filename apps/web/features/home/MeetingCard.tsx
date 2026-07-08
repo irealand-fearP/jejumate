@@ -42,6 +42,7 @@ export function MeetingCard({
   const capacity = formatCapacityStatus(meeting.approved_count, meeting.capacity, meeting.status === "closed");
   const Icon = categoryIconMap[meeting.category as keyof typeof categoryIconMap] ?? UsersRound;
   const categoryClass = categoryClassMap[meeting.category] ?? "categoryDefault";
+  const isExternal = meeting.source === "kakao_chat";
 
   return (
     <article className={styles.timelineItem}>
@@ -58,8 +59,9 @@ export function MeetingCard({
         <Icon size={18} strokeWidth={2.2} />
       </div>
       <button className={styles.meetingBody} onClick={() => onApply(meeting)} type="button">
-        {meeting.is_popular || meeting.is_new ? (
+        {isExternal || meeting.is_popular || meeting.is_new ? (
           <span className={styles.meetingBadgeRow}>
+            {isExternal ? <em className={styles.externalBadge}>오픈채팅에서 온 글</em> : null}
             {meeting.is_popular ? <em>인기</em> : null}
             {meeting.is_new ? <em>NEW</em> : null}
           </span>
@@ -70,18 +72,28 @@ export function MeetingCard({
         <small>
           <MapPin size={15} /> {meeting.place_label}
         </small>
-        <small>
-          👑 호스트 <b>{meeting.host.nickname}</b>
-        </small>
+        {isExternal ? null : (
+          <small>
+            👑 호스트 <b>{meeting.host.nickname}</b>
+          </small>
+        )}
       </button>
       <div className={styles.joinColumn}>
-        <b>
-          {meeting.approved_count}/{meeting.capacity}
-        </b>
-        <span className={capacity.emphasize ? styles.capacityHot : undefined}>지금 합류 가능 ⚡</span>
-        <button onClick={() => onApply(meeting)} type="button">
-          신청
-        </button>
+        {isExternal ? (
+          <button onClick={() => onApply(meeting)} type="button">
+            자세히
+          </button>
+        ) : (
+          <>
+            <b>
+              {meeting.approved_count}/{meeting.capacity}
+            </b>
+            <span className={capacity.emphasize ? styles.capacityHot : undefined}>지금 합류 가능 ⚡</span>
+            <button onClick={() => onApply(meeting)} type="button">
+              신청
+            </button>
+          </>
+        )}
       </div>
     </article>
   );

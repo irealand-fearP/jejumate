@@ -26,7 +26,7 @@ import { BottomNav } from "./BottomNav";
 import { MeetingTimeline } from "./MeetingTimeline";
 import styles from "./HomeScreen.module.css";
 
-type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat";
+type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat" | "external";
 
 type LocalProfile = {
   profileId: string;
@@ -133,6 +133,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
     setResult(null);
     setAnswer(null);
     setSelectedMeeting(meeting);
+    if (meeting.source === "kakao_chat") {
+      // 오픈채팅에서 자동 변환된 글은 호스트가 없어 신청/승인 흐름을 붙이지 않는다.
+      setSheetKey("external");
+      return;
+    }
     setMessage("");
     setPrivacyChecked(false);
     setNickname(profile?.nickname ?? nickname);
@@ -431,6 +436,27 @@ export function HomeScreen({ data }: { data: HomeData }) {
               ) : null}
             </div>
             {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "external" && selectedMeeting ? (
+          <BottomSheet title={selectedMeeting.title} onClose={closeSheet}>
+            <div className={styles.meetingSummary}>
+              <b>
+                <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+              </b>
+              <span>{selectedMeeting.place_label}</span>
+            </div>
+            <p className={styles.externalNotice}>
+              오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접 참여해
+              주세요.
+            </p>
+            {selectedMeeting.description ? (
+              <div className={styles.sheetForm}>
+                <label>원문</label>
+                <p className={styles.externalOriginal}>{selectedMeeting.description}</p>
+              </div>
+            ) : null}
           </BottomSheet>
         ) : null}
 

@@ -224,6 +224,9 @@ export function BoardScreen({ data }: { data: BoardData }) {
           posts.map((post) => (
             <button className={styles.boardCard} key={post.id} onClick={() => openPost(post)} type="button">
               <span className={styles.boardCategoryTag}>{post.category}</span>
+              {post.source === "kakao_chat" ? (
+                <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+              ) : null}
               <h2>{post.title}</h2>
               <p>{post.body}</p>
               <span className={styles.boardMeta}>
@@ -249,6 +252,9 @@ export function BoardScreen({ data }: { data: BoardData }) {
             </button>
             <div className={styles.sheetHero}>
               <span>{selectedPost.category}</span>
+              {selectedPost.source === "kakao_chat" ? (
+                <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+              ) : null}
               <h2>{selectedPost.title}</h2>
               <p>
                 {selectedPost.author_nickname} · {formatRelativeTime(selectedPost.created_at)}

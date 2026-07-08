@@ -392,6 +392,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         {visibleMeetings.map((meeting) => {
           const Icon = getMeetingIcon(meeting.category);
           const isOwned = ownedMeetingIds.has(meeting.id);
+          const isExternal = meeting.source === "kakao_chat";
           return (
             <article className={styles.card} key={meeting.id}>
               <div className={styles.time}>
@@ -406,25 +407,34 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                 <Icon size={25} strokeWidth={2.2} />
               </div>
               <div className={styles.body}>
+                {isExternal ? <span className={styles.externalBadge}>오픈채팅에서 온 글</span> : null}
                 <h2>{meeting.title}</h2>
                 <p className={styles.meta}>
                   <MapPin size={14} /> {meeting.place_label}
                 </p>
-                <p className={styles.host}>호스트 {meeting.host.nickname}</p>
+                {isExternal ? null : <p className={styles.host}>호스트 {meeting.host.nickname}</p>}
               </div>
               <div className={styles.joinPanel}>
-                <b>
-                  {meeting.approved_count}/{meeting.capacity}
-                </b>
-                <span>지금 합류 가능</span>
-                {isOwned ? (
-                  <button className={styles.secondaryButton} onClick={() => openManage(meeting)} type="button">
-                    관리
+                {isExternal ? (
+                  <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
+                    자세히
                   </button>
-                ) : null}
-                <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
-                  신청
-                </button>
+                ) : (
+                  <>
+                    <b>
+                      {meeting.approved_count}/{meeting.capacity}
+                    </b>
+                    <span>지금 합류 가능</span>
+                    {isOwned ? (
+                      <button className={styles.secondaryButton} onClick={() => openManage(meeting)} type="button">
+                        관리
+                      </button>
+                    ) : null}
+                    <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
+                      신청
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           );
@@ -438,63 +448,87 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
               <X size={20} />
             </button>
             <div className={styles.sheetGrip} />
-            <div className={styles.sheetHero}>
-              <span>
-                <LockKeyhole size={14} /> 닉네임만 공개
-              </span>
-              <h2>{selected.title}</h2>
-              <p>
-                {selected.place_label} · {selected.approved_count}/{selected.capacity}명 참여 중
-              </p>
-            </div>
-            <div className={styles.form}>
-              <label className={styles.label} htmlFor="meeting-nickname">
-                공개 닉네임
-              </label>
-              <input
-                className={styles.input}
-                id="meeting-nickname"
-                maxLength={20}
-                onChange={(event) => setNickname(event.target.value)}
-                placeholder="예: 바당이"
-                value={nickname}
-              />
-              <label className={styles.label} htmlFor="meeting-message">
-                호스트에게 남길 말
-              </label>
-              <textarea
-                className={styles.textarea}
-                id="meeting-message"
-                maxLength={160}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="선택 입력. 실명이나 연락처는 쓰지 마세요."
-                value={message}
-              />
-              <button
-                className={styles.checkRow}
-                onClick={() => setPrivacyChecked((checked) => !checked)}
-                type="button"
-              >
-                <span className={privacyChecked ? styles.checkActive : ""}>
-                  {privacyChecked ? <CheckCircle2 size={16} /> : null}
-                </span>
-                신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
-              </button>
-              {result ? <div className={styles.result}>{result}</div> : null}
-            </div>
-            <div className={styles.sheetActions}>
-              <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
-                닫기
-              </button>
-              <button
-                className={styles.primaryButton}
-                disabled={busy || nickname.trim().length < 2 || !privacyChecked}
-                onClick={apply}
-                type="button"
-              >
-                {busy ? "처리 중" : "신청 제출"}
-              </button>
-            </div>
+            {selected.source === "kakao_chat" ? (
+              <>
+                <div className={styles.sheetHero}>
+                  <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+                  <h2>{selected.title}</h2>
+                  <p>{selected.place_label}</p>
+                </div>
+                <div className={styles.form}>
+                  <p className={styles.meta}>
+                    오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접
+                    참여해 주세요.
+                  </p>
+                  {selected.description ? <p className={styles.externalOriginal}>{selected.description}</p> : null}
+                </div>
+                <div className={styles.sheetActions}>
+                  <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
+                    닫기
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.sheetHero}>
+                  <span>
+                    <LockKeyhole size={14} /> 닉네임만 공개
+                  </span>
+                  <h2>{selected.title}</h2>
+                  <p>
+                    {selected.place_label} · {selected.approved_count}/{selected.capacity}명 참여 중
+                  </p>
+                </div>
+                <div className={styles.form}>
+                  <label className={styles.label} htmlFor="meeting-nickname">
+                    공개 닉네임
+                  </label>
+                  <input
+                    className={styles.input}
+                    id="meeting-nickname"
+                    maxLength={20}
+                    onChange={(event) => setNickname(event.target.value)}
+                    placeholder="예: 바당이"
+                    value={nickname}
+                  />
+                  <label className={styles.label} htmlFor="meeting-message">
+                    호스트에게 남길 말
+                  </label>
+                  <textarea
+                    className={styles.textarea}
+                    id="meeting-message"
+                    maxLength={160}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="선택 입력. 실명이나 연락처는 쓰지 마세요."
+                    value={message}
+                  />
+                  <button
+                    className={styles.checkRow}
+                    onClick={() => setPrivacyChecked((checked) => !checked)}
+                    type="button"
+                  >
+                    <span className={privacyChecked ? styles.checkActive : ""}>
+                      {privacyChecked ? <CheckCircle2 size={16} /> : null}
+                    </span>
+                    신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
+                  </button>
+                  {result ? <div className={styles.result}>{result}</div> : null}
+                </div>
+                <div className={styles.sheetActions}>
+                  <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
+                    닫기
+                  </button>
+                  <button
+                    className={styles.primaryButton}
+                    disabled={busy || nickname.trim().length < 2 || !privacyChecked}
+                    onClick={apply}
+                    type="button"
+                  >
+                    {busy ? "처리 중" : "신청 제출"}
+                  </button>
+                </div>
+              </>
+            )}
           </section>
         </div>
       ) : null}
