@@ -22,10 +22,14 @@ class Settings(BaseSettings):
     # 그대로 이식 — 관련 없는 문서가 근거로 끼어드는 것을 막는다.
     rag_similarity_threshold: float = 0.5
 
-    # 카톡 실시간 수집 파이프라인. 로컬은 백그라운드 폴링(초 단위), 배포는 서버리스라
-    # 상시 폴링이 안 되므로 GET /api/ingest/kakao?secret=... 수동/크론 트리거를 쓴다.
-    kakao_poll_interval_seconds: int = 45
-    kakao_ingest_max_items_per_run: int = 20
+    # 카톡 실시간 수집 파이프라인. 로컬은 FastAPI startup에서 띄우는 백그라운드
+    # asyncio 루프가 이 간격으로 반복 폴링한다. 배포(서버리스)는 상시 루프를 못 돌리는
+    # 대신, 자주 호출되는 GET /api/home·/api/meetings·/api/board가 호출될 때마다
+    # "마지막 시도로부터 이 간격이 지났으면 그 요청 처리에 얹어서 한 번 수집"하는
+    # 방식으로 사실상 상시 수집을 흉내낸다(maybe_ingest_kakao_now). 그 외
+    # GET /api/ingest/kakao?secret=...로 수동/크론 트리거도 여전히 가능하다.
+    kakao_poll_interval_seconds: int = 20
+    kakao_ingest_max_items_per_run: int = 50
     ingest_secret: str | None = None
     cron_secret: str | None = None
 

@@ -29,6 +29,7 @@ from app.services.interaction_service import (
     list_meeting_applications,
     list_my_application_notifications,
 )
+from app.services.kakao_ingest import maybe_ingest_kakao_now
 from app.services.resource_service import get_meetings_data
 
 router = APIRouter(tags=["meetings"])
@@ -36,6 +37,8 @@ router = APIRouter(tags=["meetings"])
 
 @router.get("/meetings", response_model=ApiResponse[MeetingsResponse])
 def meetings() -> ApiResponse[MeetingsResponse]:
+    # 카톡 실시간 수집 피기백(서버리스는 백그라운드 루프가 없어 조회 요청에 얹는다).
+    maybe_ingest_kakao_now()
     return ApiResponse(request_id="local_service_request", data=get_meetings_data())
 
 

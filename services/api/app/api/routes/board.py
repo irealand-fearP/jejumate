@@ -11,6 +11,7 @@ from app.schemas.resources import (
     BoardReportResponse,
     BoardResponse,
 )
+from app.services.kakao_ingest import maybe_ingest_kakao_now
 from app.services.resource_service import (
     create_board_comment_data,
     create_board_post_data,
@@ -25,6 +26,8 @@ router = APIRouter(tags=["board"])
 
 @router.get("/board", response_model=ApiResponse[BoardResponse])
 def board() -> ApiResponse[BoardResponse]:
+    # 카톡 실시간 수집 피기백(서버리스는 백그라운드 루프가 없어 조회 요청에 얹는다).
+    maybe_ingest_kakao_now()
     return ApiResponse(request_id="local_service_request", data=get_board_data())
 
 

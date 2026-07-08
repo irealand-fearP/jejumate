@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import logging
 import re
 
 import httpx
@@ -22,9 +23,12 @@ from app.repositories.local_store import (
     get_ingest_cursor,
     has_coldstart_content,
     set_ingest_cursor,
+    try_claim_kakao_ingest_attempt,
 )
 from app.services.content_classifier import classify_message
 from app.services.embedding_service import embed_text
+
+logger = logging.getLogger(__name__)
 
 KAKAO_CHATS_URL = "https://dm.kggstudio.com/chats"
 INGEST_SOURCE = "kakao_live"
@@ -149,3 +153,23 @@ def ingest_new_messages() -> tuple[int, int]:
         set_ingest_cursor(INGEST_SOURCE, max_id)
 
     return ingested, max_id
+
+
+def maybe_ingest_kakao_now() -> None:
+    """자주 호출되는 조회 엔드포인트(모임/게시판/홈)에 얹혀 카톡 수집을 사실상
+    상시로 만든다. Vercel 서버리스는 요청이 끝나면 프로세스가 죽어 백그라운드
+    루프를 못 돌리므로, 조회 요청을 처리하는 김에 짬을 내 실행한다 — 마지막
+    시도로부터 kakao_poll_interval_seconds(기본 10~30초대)가 지났을 때만.
+
+    동시 요청 대비: try_claim_kakao_ingest_attempt()가 원자적 UPDATE로 한 번에
+    하나만 통과시킨다. 카톡 API가 응답 없거나 에러여도, 혹은 그 외 어떤 예외가
+    나도 절대 이 함수 밖(본 요청의 모임/게시판/홈 응답)으로 전파시키지 않는다 —
+    조용히 넘어가고 다음 요청에서 다시 시도한다."""
+    try:
+        if not try_claim_kakao_ingest_attempt(INGEST_SOURCE, settings.kakao_poll_interval_seconds):
+            return
+        count, cursor = ingest_new_messages()
+        if count:
+            logger.info("피기백 카톡 수집: %s건 적재, 커서 %s", count, cursor)
+    except Exception:  # noqa: BLE001 - 본 요청(조회 API)은 절대 실패시키면 안 된다.
+        logger.exception("피기백 카톡 수집 실패 — 본 요청에는 영향 없음")

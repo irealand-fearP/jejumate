@@ -361,7 +361,8 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 CREATE TABLE IF NOT EXISTS ingest_cursors (
   source TEXT PRIMARY KEY,
   last_id INTEGER NOT NULL DEFAULT 0,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  last_attempt_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS coldstart_daily_counts (
@@ -385,6 +386,7 @@ def _ensure_database_postgres() -> None:
             "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS author_anonymous_id TEXT",
             "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS deleted_at TEXT",
             "ALTER TABLE board_posts ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'service'",
+            "ALTER TABLE ingest_cursors ADD COLUMN IF NOT EXISTS last_attempt_at TEXT",
         ):
             connection.execute(statement)
         connection.commit()
@@ -441,6 +443,7 @@ def ensure_database() -> None:
             "ALTER TABLE board_posts ADD COLUMN author_anonymous_id TEXT",
             "ALTER TABLE board_posts ADD COLUMN deleted_at TEXT",
             "ALTER TABLE board_posts ADD COLUMN source TEXT NOT NULL DEFAULT 'service'",
+            "ALTER TABLE ingest_cursors ADD COLUMN last_attempt_at TEXT",
         ):
             try:
                 connection.execute(statement)
@@ -1666,16 +1669,57 @@ def get_ingest_cursor(source: str) -> int:
 
 
 def set_ingest_cursor(source: str, last_id: int) -> None:
+    """커서를 전진시킨다. 항상 MAX로 갱신해 단조 증가만 허용한다 — 피기백 호출이
+    겹쳐서(동시 요청) ingest_new_messages()가 두 번 돌아도, 늦게 끝난 호출이 더 작은
+    max_id로 커서를 되돌리는 회귀를 막는다."""
     now = _now()
     with _connect() as connection:
         connection.execute(
             """
-            INSERT INTO ingest_cursors (source, last_id, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(source) DO UPDATE SET last_id = excluded.last_id, updated_at = excluded.updated_at
+            INSERT INTO ingest_cursors (source, last_id, updated_at, last_attempt_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(source) DO UPDATE SET
+              last_id = CASE
+                WHEN excluded.last_id > ingest_cursors.last_id THEN excluded.last_id
+                ELSE ingest_cursors.last_id
+              END,
+              updated_at = excluded.updated_at
             """,
-            (source, last_id, now),
+            (source, last_id, now, now),
         )
+
+
+def try_claim_kakao_ingest_attempt(source: str, min_interval_seconds: int) -> bool:
+    """마지막 시도로부터 min_interval_seconds가 지났으면 '이번 시도는 내가 맡는다'고
+    원자적으로 표시하고 True를 반환한다. 아직 간격이 안 지났거나 동시 요청 중 다른
+    쪽이 먼저 선점했으면 False.
+
+    별도 락 없이 안전한 이유: UPDATE ... WHERE ...는 행 단위로 원자적이다. 두 요청이
+    동시에 들어와도 DB가 한쪽을 먼저 커밋시키고, 뒤따르는 요청은 WHERE 조건(마지막
+    시도 시각)을 다시 평가하는 시점엔 이미 방금 갱신된 값을 보게 되어 조건을 만족하지
+    못한다 — 즉 최대 하나의 호출만 True를 받는다."""
+    now = datetime.now(timezone.utc)
+    now_str = now.isoformat()
+    threshold_str = (now - timedelta(seconds=min_interval_seconds)).isoformat()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO ingest_cursors (source, last_id, updated_at, last_attempt_at)
+            VALUES (?, 0, ?, NULL)
+            ON CONFLICT(source) DO NOTHING
+            """,
+            (source, now_str),
+        )
+        cursor = connection.execute(
+            """
+            UPDATE ingest_cursors
+            SET last_attempt_at = ?
+            WHERE source = ? AND (last_attempt_at IS NULL OR last_attempt_at <= ?)
+            """,
+            (now_str, source, threshold_str),
+        )
+        claimed = cursor.rowcount > 0
+    return claimed
 
 
 def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]) -> None:
