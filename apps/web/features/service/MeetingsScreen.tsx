@@ -38,9 +38,11 @@ import {
   type MeetingsData,
   type MeetingStatus,
 } from "@/lib/api";
+import { markNotificationsSeenNow } from "@/lib/applicantNotifications";
 import { formatCapacityStatus } from "@/lib/format";
 import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
+import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
@@ -210,6 +212,15 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     };
   }, [manageMeeting]);
 
+  // 참가자 알림 배너(ApplicantNotificationBanner)를 눌러 /meetings?notifications=1로
+  // 들어온 경우, 신청 알림 시트를 자동으로 열어준다.
+  useEffect(() => {
+    if (searchParams.get("notifications") === "1") {
+      openNotifications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const visibleMeetings = useMemo(() => {
     if (activeFilter === "전체") return meetings;
     if (activeFilter === "오픈채팅") return meetings.filter((meeting) => meeting.source === "kakao_chat");
@@ -358,6 +369,11 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     setManageApplications(res.applications);
     setManageAuthorized(res.authorized);
     setManageCodeChecked(true);
+    // 다른 기기에서 관리 코드를 직접 입력해 인증에 성공한 경우도 이 기기에 저장해둔다
+    // — 안 그러면 HostPendingBanner가 이 기기에서는 이 모임을 영영 모른다(놓치는 케이스).
+    if (res.authorized && code) {
+      saveOwnerSecret(manageMeeting.id, code);
+    }
   }
 
   async function handleDecision(applicationId: string, action: "approve" | "reject") {
@@ -388,6 +404,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     try {
       const res = await getMyApplicationNotifications(profile.anonymousId);
       setNotifications(res.notifications);
+      // 알림을 실제로 열어봤으니 '새 알림' 배너 기준 시각을 지금으로 갱신한다.
+      markNotificationsSeenNow();
     } catch {
       setNotificationsError("알림을 불러오지 못했어요");
     }
@@ -409,6 +427,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   return (
     <MobileShell active="meetings" title="모임" subtitle="닉네임만 공개하고 가볍게 합류해요">
       <HostPendingBanner variant="inline" />
+      <ApplicantNotificationBanner variant="inline" />
       <div className={styles.toolbar}>
         {data.filters.map((filter) => (
           <button
@@ -674,6 +693,10 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                   type="number"
                   value={createCapacity}
                 />
+                <p className={styles.meta}>
+                  본인(방장) 제외 모집 인원이에요. 예: 정원 {createCapacity}명이면 방장 포함 총{" "}
+                  {createCapacity + 1}명이 모여요.
+                </p>
 
                 <label className={styles.label} htmlFor="create-starts-at">
                   시작 날짜/시간 설정

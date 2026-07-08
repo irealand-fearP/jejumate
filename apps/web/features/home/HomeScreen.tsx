@@ -19,6 +19,7 @@ import {
   type RagAnswer,
 } from "@/lib/api";
 import { getOwnerSecret } from "@/lib/ownerSecret";
+import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
@@ -315,6 +316,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
         </header>
 
         <HostPendingBanner variant="inline" />
+        <ApplicantNotificationBanner variant="inline" />
 
         <button className={styles.privacyBanner} onClick={() => setSheetKey("privacy")} type="button">
           <span>
