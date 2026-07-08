@@ -4,22 +4,22 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { Bell, ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
-  getMeetingChatMessages,
   getMyApplicationNotifications,
-  sendMeetingChatMessage,
   submitMeetingApplication,
-  type ChatMessage,
+  type ApplicantNotification,
   type HomeData,
   type HomeMeeting,
   type NicknameProfile,
   type RagAnswer,
 } from "@/lib/api";
 import { getOwnerSecret } from "@/lib/ownerSecret";
+import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applicantNotifications";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
+import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
@@ -27,7 +27,7 @@ import { BottomNav } from "./BottomNav";
 import { MeetingTimeline } from "./MeetingTimeline";
 import styles from "./HomeScreen.module.css";
 
-type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat" | "external";
+type SheetKey = "nickname" | "privacy" | "apply" | "ask" | "chat" | "external" | "notifications";
 
 type LocalProfile = {
   profileId: string;
@@ -42,8 +42,6 @@ type ResultState = {
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
-// 채팅 시트가 열려있는 동안 새 메시지를 반영하는 폴링 주기(HostPendingBanner 등 기존 배너는 10초 주기).
-const CHAT_POLL_INTERVAL_MS = 4000;
 
 function buildLocalProfile(profile: NicknameProfile): LocalProfile {
   return {
@@ -64,6 +62,17 @@ function readProfile(): LocalProfile | null {
     window.localStorage.removeItem(PROFILE_STORAGE_KEY);
     return null;
   }
+}
+
+// 승인/거절인데 마지막으로 알림을 확인한 시각 이후 갱신된 건수 — 배지에 그대로 쓴다.
+function countUnseenNotifications(notifications: ApplicantNotification[]): number {
+  const seenAt = getNotificationsSeenAt();
+  const seenAtMs = seenAt ? new Date(seenAt).getTime() : 0;
+  return notifications.filter(
+    (notification) =>
+      (notification.status === "approved" || notification.status === "rejected") &&
+      new Date(notification.updated_at).getTime() > seenAtMs
+  ).length;
 }
 
 function BottomSheet({
@@ -95,15 +104,15 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [nickname, setNickname] = useState("");
   const [message, setMessage] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatNotice, setChatNotice] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [privacyChecked, setPrivacyChecked] = useState(false);
   const [question, setQuestion] = useState(data.rag_strip.suggestions[0] ?? "");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [result, setResult] = useState<ResultState | null>(null);
   const [busy, setBusy] = useState(false);
   const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
+  const [unseenNotificationCount, setUnseenNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   useEffect(() => {
     const savedProfile = readProfile();
@@ -113,55 +122,29 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
   }, []);
 
-  // 채팅 접근 권한(승인된 신청자) 판단용. 호스트 여부는 getOwnerSecret으로 그때그때 확인한다.
+  // 채팅 접근 권한(승인된 신청자) 판단, 알림 뱃지 표시용. 호스트 여부는 getOwnerSecret으로
+  // 그때그때 확인한다.
   useEffect(() => {
-    if (!profile?.anonymousId) return;
+    if (!profile?.anonymousId) {
+      setUnseenNotificationCount(0);
+      return;
+    }
     getMyApplicationNotifications(profile.anonymousId)
       .then((res) => {
         const approved = new Set(
           res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
         );
         setApprovedMeetingIds(approved);
+        setUnseenNotificationCount(countUnseenNotifications(res.notifications));
       })
       .catch(() => {
-        // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
+        // 조회 실패는 조용히 넘어간다 — 채팅 버튼/뱃지가 안 보이는 것 이상의 영향은 없다.
       });
   }, [profile?.anonymousId]);
 
   function hasChatAccess(meetingId: string): boolean {
     return getOwnerSecret(meetingId) !== null || approvedMeetingIds.has(meetingId);
   }
-
-  // 채팅 시트가 열려있는 동안 새 메시지를 주기적으로 반영한다(HostPendingBanner와 동일한
-  // setInterval + cleanup 패턴). 시트를 닫으면(sheetKey 변경) 이펙트가 다시 실행되며
-  // 이전 interval이 cleanup되어 폴링이 확실히 멈춘다.
-  useEffect(() => {
-    if (sheetKey !== "chat" || !selectedMeeting) return;
-    const meetingId = selectedMeeting.id;
-
-    let cancelled = false;
-
-    async function pollChatMessages() {
-      try {
-        const chat = await getMeetingChatMessages(meetingId, {
-          anonymousId: profile?.anonymousId,
-          ownerSecret: getOwnerSecret(meetingId) ?? undefined,
-        });
-        if (!cancelled) {
-          setChatMessages(chat.messages);
-          setChatNotice(chat.notice);
-        }
-      } catch {
-        // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
-      }
-    }
-
-    const timer = setInterval(pollChatMessages, CHAT_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [sheetKey, selectedMeeting, profile?.anonymousId]);
 
   function openApply(meeting: HomeMeeting) {
     setResult(null);
@@ -185,12 +168,32 @@ export function HomeScreen({ data }: { data: HomeData }) {
     setSheetKey("ask");
   }
 
+  // '내 신청 알림 확인' 진입점 — 항상 노출되는 버튼에서 호출되며, 신청 결과 목록을
+  // 다시 불러와 시트로 보여준다. 연 시점에 확인 시각을 갱신해 뱃지를 지운다.
+  async function openNotifications() {
+    setSheetKey("notifications");
+    setNotificationsError(null);
+
+    if (!profile?.anonymousId) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const res = await getMyApplicationNotifications(profile.anonymousId);
+      setNotifications(res.notifications);
+      markNotificationsSeenNow();
+      setUnseenNotificationCount(0);
+    } catch {
+      setNotificationsError("알림을 불러오지 못했어요");
+    }
+  }
+
   function closeSheet() {
     setSheetKey(null);
     setSelectedMeeting(null);
     setResult(null);
     setAnswer(null);
-    setChatInput("");
   }
 
   function saveProfileLocally(nextProfile: LocalProfile) {
@@ -248,30 +251,13 @@ export function HomeScreen({ data }: { data: HomeData }) {
     }
   }
 
-  async function openChat(meeting: HomeMeeting | null = selectedMeeting) {
+  // 메시지 로딩/폴링/전송은 ChatSheet 컴포넌트가 담당한다 — 여기서는 어떤 모임의
+  // 채팅을 열지만 결정한다.
+  function openChat(meeting: HomeMeeting | null = selectedMeeting) {
     if (!meeting) return;
     setSelectedMeeting(meeting);
     setSheetKey("chat");
     setResult(null);
-    setChatInput("");
-    setBusy(true);
-
-    try {
-      const chat = await getMeetingChatMessages(meeting.id, {
-        anonymousId: profile?.anonymousId,
-        ownerSecret: getOwnerSecret(meeting.id) ?? undefined,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-    } catch (error) {
-      setResult({
-        tone: "error",
-        title: "채팅 불러오기 실패",
-        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
-      });
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function submitQuestion() {
@@ -284,38 +270,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
       setAnswer(await askRag(question.trim(), profile?.anonymousId));
     } catch {
       setResult({ tone: "error", title: "답변 실패", body: "잠시 후 다시 시도해 주세요." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitChatMessage() {
-    if (!selectedMeeting || nickname.trim().length < 2 || chatInput.trim().length < 1) return;
-    setBusy(true);
-    setResult(null);
-
-    try {
-      let currentProfile = profile;
-      if (!currentProfile) {
-        currentProfile = buildLocalProfile(await createNickname(nickname.trim()));
-        saveProfileLocally(currentProfile);
-      }
-
-      const chat = await sendMeetingChatMessage(selectedMeeting.id, {
-        nickname: currentProfile.nickname,
-        content: chatInput.trim(),
-        anonymous_id: currentProfile.anonymousId,
-        owner_secret: getOwnerSecret(selectedMeeting.id) ?? undefined,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-      setChatInput("");
-    } catch (error) {
-      setResult({
-        tone: "error",
-        title: "메시지 전송 실패",
-        body: error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.",
-      });
     } finally {
       setBusy(false);
     }
@@ -347,6 +301,16 @@ export function HomeScreen({ data }: { data: HomeData }) {
             </button>
           </div>
         </header>
+
+        <button className={styles.notificationEntryButton} onClick={openNotifications} type="button">
+          <Bell size={16} />
+          내 신청 알림 확인
+          {unseenNotificationCount > 0 ? (
+            <span className={styles.notificationBadge}>
+              {unseenNotificationCount > 9 ? "9+" : unseenNotificationCount}
+            </span>
+          ) : null}
+        </button>
 
         <HostPendingBanner variant="inline" />
         <ApplicantNotificationBanner variant="inline" />
@@ -496,58 +460,15 @@ export function HomeScreen({ data }: { data: HomeData }) {
         ) : null}
 
         {sheetKey === "chat" && selectedMeeting ? (
-          <BottomSheet title="모임 채팅" onClose={closeSheet}>
-            <div className={styles.meetingSummary}>
-              <b>{selectedMeeting.title}</b>
-              <span>{selectedMeeting.place_label}</span>
-            </div>
-            <div className={styles.chatNotice}>
-              {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
-            </div>
-            <div className={styles.chatList}>
-              {chatMessages.length ? (
-                chatMessages.map((chat) => {
-                  const isMine = profile?.anonymousId === chat.sender_anonymous_id;
-                  return (
-                    <div
-                      className={isMine ? `${styles.chatBubble} ${styles.chatBubbleMine}` : styles.chatBubble}
-                      key={chat.id}
-                    >
-                      <b>{chat.sender_nickname}</b>
-                      <span>{chat.content}</span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className={styles.emptyChat}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</div>
-              )}
-            </div>
-            <div className={styles.sheetForm}>
-              <label htmlFor="home-chat-nickname">닉네임</label>
-              <input
-                id="home-chat-nickname"
-                maxLength={20}
-                onChange={(event) => setNickname(event.target.value)}
-                value={nickname}
-              />
-              <label htmlFor="home-chat-message">메시지</label>
-              <textarea
-                id="home-chat-message"
-                maxLength={500}
-                onChange={(event) => setChatInput(event.target.value)}
-                placeholder="약속 장소나 준비물을 편하게 이야기해보세요."
-                value={chatInput}
-              />
-              <button
-                disabled={busy || nickname.trim().length < 2 || chatInput.trim().length < 1}
-                onClick={submitChatMessage}
-                type="button"
-              >
-                {busy ? "보내는 중" : "메시지 보내기"}
-              </button>
-            </div>
-            {renderResult()}
-          </BottomSheet>
+          <ChatSheet
+            meetingId={selectedMeeting.id}
+            meetingTitle={selectedMeeting.title}
+            meetingPlaceLabel={selectedMeeting.place_label}
+            hasAccess={hasChatAccess(selectedMeeting.id)}
+            profile={profile}
+            onProfileCreated={saveProfileLocally}
+            onClose={closeSheet}
+          />
         ) : null}
 
         {sheetKey === "ask" ? (
@@ -584,6 +505,35 @@ export function HomeScreen({ data }: { data: HomeData }) {
               </div>
             ) : null}
             {renderResult()}
+          </BottomSheet>
+        ) : null}
+
+        {sheetKey === "notifications" ? (
+          <BottomSheet title="내 신청 알림" onClose={closeSheet}>
+            {!profile ? (
+              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요. 먼저 모임에 신청해 보세요.</p>
+            ) : null}
+            {notificationsError ? (
+              <div className={`${styles.resultCard} ${styles.error}`}>
+                <span>{notificationsError}</span>
+              </div>
+            ) : null}
+            {notifications && notifications.length > 0 ? (
+              <ul className={styles.notificationList}>
+                {notifications.map((notification) => (
+                  <li className={styles.notificationRow} key={notification.application_id}>
+                    <p className={styles.notificationTitle}>{notification.title}</p>
+                    <p>{notification.body}</p>
+                    <span>
+                      {notification.meeting_title} · {notification.place_label} · 호스트{" "}
+                      {notification.host_nickname}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : profile && notifications ? (
+              <p className={styles.notificationEmpty}>아직 신청한 모임이 없어요.</p>
+            ) : null}
           </BottomSheet>
         ) : null}
       </section>

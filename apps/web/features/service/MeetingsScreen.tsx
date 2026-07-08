@@ -43,6 +43,7 @@ import { formatCapacityStatus } from "@/lib/format";
 import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
+import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
@@ -165,6 +166,11 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
 
+  // 모임 채팅(ChatSheet 공용 컴포넌트). 접근 조건은 HomeScreen의 hasChatAccess와 동일하다
+  // — 호스트(ownedMeetingIds) 또는 승인된 신청자(approvedMeetingIds).
+  const [approvedMeetingIds, setApprovedMeetingIds] = useState<Set<string>>(new Set());
+  const [chatMeeting, setChatMeeting] = useState<HomeMeeting | null>(null);
+
   useEffect(() => {
     const owned = new Set<string>();
     for (const meeting of meetings) {
@@ -172,6 +178,31 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     }
     setOwnedMeetingIds(owned);
   }, [meetings]);
+
+  // 채팅 접근 권한(승인된 신청자) 판단용. 호스트 여부는 ownedMeetingIds로 별도 판단한다
+  // (HomeScreen.tsx의 동일 로직과 맞춰뒀다).
+  useEffect(() => {
+    if (!profile?.anonymousId) return;
+    getMyApplicationNotifications(profile.anonymousId)
+      .then((res) => {
+        const approved = new Set(
+          res.notifications.filter((n) => n.status === "approved").map((n) => n.meeting_id)
+        );
+        setApprovedMeetingIds(approved);
+      })
+      .catch(() => {
+        // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
+      });
+  }, [profile?.anonymousId]);
+
+  function hasChatAccess(meetingId: string): boolean {
+    return ownedMeetingIds.has(meetingId) || approvedMeetingIds.has(meetingId);
+  }
+
+  function handleChatProfileCreated(nextProfile: LocalProfile) {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+    setProfile(nextProfile);
+  }
 
   // 등록 직후 refetch(refreshMeetings)와 별개로, 다른 사람이 만든 모임도 놓치지 않게
   // 주기적으로 목록을 갱신한다(신청 화면이 열려 있을 땐 목록이 밑에서 바뀌어도
@@ -492,6 +523,15 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                     {isOwned ? (
                       <button className={styles.secondaryButton} onClick={() => openManage(meeting)} type="button">
                         관리
+                      </button>
+                    ) : null}
+                    {hasChatAccess(meeting.id) ? (
+                      <button
+                        className={styles.secondaryButton}
+                        onClick={() => setChatMeeting(meeting)}
+                        type="button"
+                      >
+                        모임 채팅 보기
                       </button>
                     ) : null}
                     <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
@@ -923,6 +963,18 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
             </div>
           </section>
         </div>
+      ) : null}
+
+      {chatMeeting ? (
+        <ChatSheet
+          meetingId={chatMeeting.id}
+          meetingTitle={chatMeeting.title}
+          meetingPlaceLabel={chatMeeting.place_label}
+          hasAccess={hasChatAccess(chatMeeting.id)}
+          profile={profile}
+          onProfileCreated={handleChatProfileCreated}
+          onClose={() => setChatMeeting(null)}
+        />
       ) : null}
     </MobileShell>
   );
