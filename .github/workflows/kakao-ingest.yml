@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: trigger ingest
         run: |
-          code=$(curl -s -o /tmp/resp -w "%{http_code}" --max-time 60 "$INGEST_URL")
+          code=$(curl -s -o /tmp/resp -w "%{http_code}" --max-time 240 "$INGEST_URL")
           echo "HTTP $code"
           cat /tmp/resp
           test "$code" = "200"
