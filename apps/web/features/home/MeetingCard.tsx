@@ -36,12 +36,16 @@ export function MeetingCard({
   index,
   onApply,
   applicationStatus,
+  isOwned,
 }: {
   meeting: HomeMeeting;
   index: number;
   onApply: (meeting: HomeMeeting) => void;
   /** 이 모임에 대한 내 신청 상태(pending/approved/rejected). 신청 안 했으면 undefined. */
   applicationStatus?: string;
+  /** 이 기기에서 내가 만든 파티인지(owner_secret 보유). true면 신청 버튼을 안 보여준다
+   * (2026-07-10 셀프 신청 버그 수정 — disabled가 아니라 아예 미표시). */
+  isOwned?: boolean;
 }) {
   const capacity = formatCapacityStatus(meeting.approved_count, meeting.capacity, meeting.status === "closed");
   const Icon = categoryIconMap[meeting.category as keyof typeof categoryIconMap] ?? UsersRound;
@@ -93,15 +97,21 @@ export function MeetingCard({
             <b>
               {meeting.approved_count}/{meeting.capacity}
             </b>
-            <span className={capacity.emphasize ? styles.capacityHot : undefined}>지금 합류 가능 ⚡</span>
-            <button
-              className={applyState.disabled ? styles.applyStatusBadge : undefined}
-              disabled={applyState.disabled}
-              onClick={() => onApply(meeting)}
-              type="button"
-            >
-              {applyState.label}
-            </button>
+            {isOwned ? (
+              <span className={styles.applyStatusBadge}>내가 만든 파티</span>
+            ) : (
+              <>
+                <span className={capacity.emphasize ? styles.capacityHot : undefined}>지금 합류 가능 ⚡</span>
+                <button
+                  className={applyState.disabled ? styles.applyStatusBadge : undefined}
+                  disabled={applyState.disabled}
+                  onClick={() => onApply(meeting)}
+                  type="button"
+                >
+                  {applyState.label}
+                </button>
+              </>
+            )}
           </>
         )}
       </div>

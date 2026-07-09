@@ -615,14 +615,19 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                         파티 채팅 보기
                       </button>
                     ) : null}
-                    <button
-                      className={applyState.disabled ? styles.applyStatusBadge : styles.button}
-                      disabled={applyState.disabled}
-                      onClick={() => openMeeting(meeting)}
-                      type="button"
-                    >
-                      {applyState.label}
-                    </button>
+                    {/* 내가 만든 파티에는 신청 버튼을 아예 안 보여준다(disabled가 아니라
+                        미표시 — 2026-07-10 셀프 신청 버그 수정, 사용자 명시 지시).
+                        위의 "관리" 버튼이 호스트 표식을 이미 대신한다. */}
+                    {isOwned ? null : (
+                      <button
+                        className={applyState.disabled ? styles.applyStatusBadge : styles.button}
+                        disabled={applyState.disabled}
+                        onClick={() => openMeeting(meeting)}
+                        type="button"
+                      >
+                        {applyState.label}
+                      </button>
+                    )}
                   </>
                 )}
               </div>

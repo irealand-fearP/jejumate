@@ -123,6 +123,10 @@ export function HomeScreen({ data }: { data: HomeData }) {
   const [unseenNotificationCount, setUnseenNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  // 이 기기에 관리 코드(owner_secret)가 저장된 모임 id 집합 — 내가 만든 파티 판별용.
+  // MeetingsScreen의 ownedMeetingIds와 동일 로직(2026-07-10: 홈 화면엔 이 판별이
+  // 아예 없어서 호스트가 자기 파티에 신청 버튼을 그대로 보던 버그가 있었다).
+  const [ownedMeetingIds, setOwnedMeetingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const savedProfile = readProfile();
@@ -131,6 +135,14 @@ export function HomeScreen({ data }: { data: HomeData }) {
       setNickname(savedProfile.nickname);
     }
   }, []);
+
+  useEffect(() => {
+    const owned = new Set<string>();
+    for (const meeting of data.meetings) {
+      if (getOwnerSecret(meeting.id)) owned.add(meeting.id);
+    }
+    setOwnedMeetingIds(owned);
+  }, [data.meetings]);
 
   // 채팅 접근 권한(승인된 신청자) 판단, 알림 뱃지 표시용. 호스트 여부는 getOwnerSecret으로
   // 그때그때 확인한다.
@@ -359,6 +371,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
           openCount={data.meeting_summary.open_count}
           onApply={openApply}
           applicationStatusByMeetingId={applicationStatusByMeetingId}
+          ownedMeetingIds={ownedMeetingIds}
         />
 
         <Link className={styles.activityCard} href="/meetings">
@@ -425,36 +438,45 @@ export function HomeScreen({ data }: { data: HomeData }) {
             {/* 만남의 장소를 지도로 확인할 수 있게 한다(참가자에게 자연스러운 사용처). */}
             <PlaceMapSection places={[{ title: selectedMeeting.place_label }]} />
             <div className={styles.sheetForm}>
-              <label htmlFor="home-application-nickname">공개 닉네임</label>
-              <input
-                id="home-application-nickname"
-                maxLength={20}
-                onChange={(event) => setNickname(event.target.value)}
-                value={nickname}
-              />
-              <label htmlFor="home-application-message">호스트에게 남길 말</label>
-              <textarea
-                id="home-application-message"
-                maxLength={160}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="선택 입력"
-                value={message}
-              />
-              <button
-                className={styles.checkRow}
-                onClick={() => setPrivacyChecked((checked) => !checked)}
-                type="button"
-              >
-                <span className={privacyChecked ? styles.checkedBox : ""} />
-                신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
-              </button>
-              <button
-                disabled={busy || nickname.trim().length < 2 || !privacyChecked}
-                onClick={submitApplication}
-                type="button"
-              >
-                {busy ? "접수 중" : "신청 제출"}
-              </button>
+              {ownedMeetingIds.has(selectedMeeting.id) ? (
+                // 내가 만든 파티에는 신청 폼 자체를 안 보여준다(셀프 신청 버그 수정,
+                // 2026-07-10). 카드의 신청 버튼은 이미 안 뜨지만, 카드 제목을 눌러
+                // 이 시트로 들어오는 경로는 남아있어서 여기도 같이 막는다.
+                <p className={styles.notificationEmpty}>본인이 만든 파티예요. 채팅으로 참가자와 대화해 보세요.</p>
+              ) : (
+                <>
+                  <label htmlFor="home-application-nickname">공개 닉네임</label>
+                  <input
+                    id="home-application-nickname"
+                    maxLength={20}
+                    onChange={(event) => setNickname(event.target.value)}
+                    value={nickname}
+                  />
+                  <label htmlFor="home-application-message">호스트에게 남길 말</label>
+                  <textarea
+                    id="home-application-message"
+                    maxLength={160}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="선택 입력"
+                    value={message}
+                  />
+                  <button
+                    className={styles.checkRow}
+                    onClick={() => setPrivacyChecked((checked) => !checked)}
+                    type="button"
+                  >
+                    <span className={privacyChecked ? styles.checkedBox : ""} />
+                    신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
+                  </button>
+                  <button
+                    disabled={busy || nickname.trim().length < 2 || !privacyChecked}
+                    onClick={submitApplication}
+                    type="button"
+                  >
+                    {busy ? "접수 중" : "신청 제출"}
+                  </button>
+                </>
+              )}
               {selectedMeeting && hasChatAccess(selectedMeeting.id) ? (
                 <button
                   className={styles.secondaryAction}

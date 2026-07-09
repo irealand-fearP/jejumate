@@ -461,9 +461,10 @@
   box-shadow: 0 8px 18px rgba(0, 159, 155, 0.22);
 }
 
-/* 이미 신청한 모임의 상태 배지(대기중/확정/거절됨) — 활성 CTA(teal)와 확실히 구분되게
-   중립 회색으로 톤을 낮춘다. 숨기지 않고 그대로 보여주되 재신청은 막는다(disabled). */
-.joinColumn button.applyStatusBadge {
+/* 이미 신청한 모임의 상태 배지(대기중/확정/거절됨)와 "내가 만든 파티" 라벨 공용 —
+   활성 CTA(teal)/합류가능(초록) 배지와 확실히 구분되게 중립 회색으로 톤을 낮춘다.
+   button에도(재신청 막기 disabled), span에도(호스트 라벨) 둘 다 붙는다. */
+.joinColumn .applyStatusBadge {
   background: #e7e9ec;
   color: #5b6470;
   box-shadow: none;

@@ -22,6 +22,7 @@ export function MeetingTimeline({
   openCount,
   onApply,
   applicationStatusByMeetingId,
+  ownedMeetingIds,
 }: {
   meetings: HomeMeeting[];
   filters: string[];
@@ -29,6 +30,8 @@ export function MeetingTimeline({
   onApply: (meeting: HomeMeeting) => void;
   /** meeting_id -> 내 신청 상태. 프로필이 없거나 조회 전이면 빈 맵. */
   applicationStatusByMeetingId?: Map<string, string>;
+  /** 이 기기에서 내가 만든(owner_secret을 가진) 모임 id 집합. */
+  ownedMeetingIds?: Set<string>;
 }) {
   return (
     <section className={styles.meetingsSection}>
@@ -60,6 +63,7 @@ export function MeetingTimeline({
         {meetings.map((meeting, index) => (
           <MeetingCard
             applicationStatus={applicationStatusByMeetingId?.get(meeting.id)}
+            isOwned={ownedMeetingIds?.has(meeting.id) ?? false}
             key={meeting.id}
             meeting={meeting}
             index={index}
