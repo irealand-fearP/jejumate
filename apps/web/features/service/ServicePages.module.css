@@ -262,6 +262,20 @@
   font-weight: 950;
 }
 
+/* 이미 신청한 모임의 상태 배지(대기중/확정/거절됨) — 활성 CTA(teal)와 구분되는
+   중립 회색. 숨기지 않고 그대로 보여주되 재신청은 막는다(disabled). */
+.applyStatusBadge {
+  min-width: 78px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #e7e9ec;
+  color: #5b6470;
+  font-size: 13px;
+  font-weight: 950;
+  cursor: not-allowed;
+}
+
 .actionRow {
   display: grid;
   grid-template-columns: 1fr auto;

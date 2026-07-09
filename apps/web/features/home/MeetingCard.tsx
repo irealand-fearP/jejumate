@@ -2,6 +2,7 @@
 
 import { CarFront, Coffee, Dumbbell, Laptop, MapPin, Soup, UsersRound } from "lucide-react";
 import type { HomeMeeting } from "@/lib/api";
+import { describeApplicationStatus } from "@/lib/applicationStatus";
 import { formatCapacityStatus } from "@/lib/format";
 import styles from "./HomeScreen.module.css";
 
@@ -34,15 +35,19 @@ export function MeetingCard({
   meeting,
   index,
   onApply,
+  applicationStatus,
 }: {
   meeting: HomeMeeting;
   index: number;
   onApply: (meeting: HomeMeeting) => void;
+  /** 이 모임에 대한 내 신청 상태(pending/approved/rejected). 신청 안 했으면 undefined. */
+  applicationStatus?: string;
 }) {
   const capacity = formatCapacityStatus(meeting.approved_count, meeting.capacity, meeting.status === "closed");
   const Icon = categoryIconMap[meeting.category as keyof typeof categoryIconMap] ?? UsersRound;
   const categoryClass = categoryClassMap[meeting.category] ?? "categoryDefault";
   const isExternal = meeting.source === "kakao_chat";
+  const applyState = describeApplicationStatus(applicationStatus);
 
   return (
     <article className={styles.timelineItem}>
@@ -89,8 +94,13 @@ export function MeetingCard({
               {meeting.approved_count}/{meeting.capacity}
             </b>
             <span className={capacity.emphasize ? styles.capacityHot : undefined}>지금 합류 가능 ⚡</span>
-            <button onClick={() => onApply(meeting)} type="button">
-              신청
+            <button
+              className={applyState.disabled ? styles.applyStatusBadge : undefined}
+              disabled={applyState.disabled}
+              onClick={() => onApply(meeting)}
+              type="button"
+            >
+              {applyState.label}
             </button>
           </>
         )}

@@ -21,11 +21,14 @@ export function MeetingTimeline({
   filters,
   openCount,
   onApply,
+  applicationStatusByMeetingId,
 }: {
   meetings: HomeMeeting[];
   filters: string[];
   openCount: number;
   onApply: (meeting: HomeMeeting) => void;
+  /** meeting_id -> 내 신청 상태. 프로필이 없거나 조회 전이면 빈 맵. */
+  applicationStatusByMeetingId?: Map<string, string>;
 }) {
   return (
     <section className={styles.meetingsSection}>
@@ -55,7 +58,13 @@ export function MeetingTimeline({
             콜드스타트 콘텐츠 2자리 예약 포함) — 여기서 다시 4개로 자르면 뒤쪽에
             정렬되는 콜드스타트 항목이 화면에서 통째로 잘려나간다. */}
         {meetings.map((meeting, index) => (
-          <MeetingCard key={meeting.id} meeting={meeting} index={index} onApply={onApply} />
+          <MeetingCard
+            applicationStatus={applicationStatusByMeetingId?.get(meeting.id)}
+            key={meeting.id}
+            meeting={meeting}
+            index={index}
+            onApply={onApply}
+          />
         ))}
       </div>
     </section>

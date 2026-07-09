@@ -40,6 +40,7 @@ import {
   type MeetingStatus,
 } from "@/lib/api";
 import { markNotificationsSeenNow } from "@/lib/applicantNotifications";
+import { buildApplicationStatusMap, describeApplicationStatus } from "@/lib/applicationStatus";
 import { formatCapacityStatus } from "@/lib/format";
 import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
@@ -179,6 +180,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   // 승인된 신청의 meeting_id -> application_id 매핑. 채팅 접근 권한 판단은 물론
   // 탈퇴 버튼에 필요한 application_id 조회에도 이 맵을 그대로 쓴다.
   const [approvedApplications, setApprovedApplications] = useState<Map<string, string>>(new Map());
+  // 모임 카드 신청 버튼 배지용 전체 신청 상태(pending/approved/rejected) 맵.
+  const [applicationStatusByMeetingId, setApplicationStatusByMeetingId] = useState<Map<string, string>>(new Map());
   const [chatMeeting, setChatMeeting] = useState<HomeMeeting | null>(null);
 
   useEffect(() => {
@@ -201,6 +204,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
             .map((n) => [n.meeting_id, n.application_id] as const)
         );
         setApprovedApplications(approved);
+        setApplicationStatusByMeetingId(buildApplicationStatusMap(res.notifications));
       })
       .catch(() => {
         // 조회 실패는 조용히 넘어간다 — 채팅 버튼이 안 보이는 것 이상의 영향은 없다.
@@ -215,6 +219,11 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   // 탈퇴 버튼이 다시 렌더링될 때 즉시 사라지게 하고, 모임 목록도 새로 불러와 참가 인원 표시를 갱신한다.
   function handleMeetingLeft(meetingId: string) {
     setApprovedApplications((prev) => {
+      const next = new Map(prev);
+      next.delete(meetingId);
+      return next;
+    });
+    setApplicationStatusByMeetingId((prev) => {
       const next = new Map(prev);
       next.delete(meetingId);
       return next;
@@ -338,6 +347,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         message: message.trim() || undefined,
         anonymous_id: currentProfile.anonymousId,
       });
+      // 알림 재조회 없이도 카드에 바로 "대기중" 배지가 뜨도록 낙관적으로 반영한다.
+      setApplicationStatusByMeetingId((prev) => new Map(prev).set(selected.id, "pending"));
       // 성공하면 신청 시트를 닫고 중앙 모달로 결과를 알린다(인라인 문구는 놓치기 쉽다).
       // 문구는 홈 화면과 동일하게 맞춘다 — 같은 동작에 다른 말이 나오면 어색하다.
       setSelected(null);
@@ -557,6 +568,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
           const Icon = getMeetingIcon(meeting.category);
           const isOwned = ownedMeetingIds.has(meeting.id);
           const isExternal = meeting.source === "kakao_chat";
+          const applyState = describeApplicationStatus(applicationStatusByMeetingId.get(meeting.id));
           return (
             <article className={styles.card} key={meeting.id}>
               <div className={styles.time}>
@@ -603,8 +615,13 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                         파티 채팅 보기
                       </button>
                     ) : null}
-                    <button className={styles.button} onClick={() => openMeeting(meeting)} type="button">
-                      신청
+                    <button
+                      className={applyState.disabled ? styles.applyStatusBadge : styles.button}
+                      disabled={applyState.disabled}
+                      onClick={() => openMeeting(meeting)}
+                      type="button"
+                    >
+                      {applyState.label}
                     </button>
                   </>
                 )}

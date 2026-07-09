@@ -17,6 +17,7 @@ import {
   type RagAnswer,
 } from "@/lib/api";
 import { getOwnerSecret } from "@/lib/ownerSecret";
+import { buildApplicationStatusMap } from "@/lib/applicationStatus";
 import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applicantNotifications";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { ChatSheet } from "@/features/common/ChatSheet";
@@ -116,6 +117,9 @@ export function HomeScreen({ data }: { data: HomeData }) {
   // 승인된 신청의 meeting_id -> application_id 매핑. 채팅 접근 권한 판단은 물론
   // 탈퇴 버튼에 필요한 application_id 조회에도 이 맵을 그대로 쓴다.
   const [approvedApplications, setApprovedApplications] = useState<Map<string, string>>(new Map());
+  // 모임 카드 신청 버튼에 표시할 내 신청 상태(pending/approved/rejected) 전체 맵.
+  // approvedApplications(채팅 접근용, approved만)와 별개로 배지 표시용으로 전체 상태를 쓴다.
+  const [applicationStatusByMeetingId, setApplicationStatusByMeetingId] = useState<Map<string, string>>(new Map());
   const [unseenNotificationCount, setUnseenNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState<ApplicantNotification[] | null>(null);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -143,6 +147,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
             .map((n) => [n.meeting_id, n.application_id] as const)
         );
         setApprovedApplications(approved);
+        setApplicationStatusByMeetingId(buildApplicationStatusMap(res.notifications));
         setUnseenNotificationCount(countUnseenNotifications(res.notifications));
       })
       .catch(() => {
@@ -158,6 +163,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
   // 탈퇴 버튼이 다시 렌더링될 때 즉시 사라지게 한다.
   function handleMeetingLeft(meetingId: string) {
     setApprovedApplications((prev) => {
+      const next = new Map(prev);
+      next.delete(meetingId);
+      return next;
+    });
+    setApplicationStatusByMeetingId((prev) => {
       const next = new Map(prev);
       next.delete(meetingId);
       return next;
@@ -258,6 +268,8 @@ export function HomeScreen({ data }: { data: HomeData }) {
         message: message.trim() || undefined,
         anonymous_id: currentProfile.anonymousId,
       });
+      // 알림 재조회 없이도 카드에 바로 "대기중" 배지가 뜨도록 낙관적으로 반영한다.
+      setApplicationStatusByMeetingId((prev) => new Map(prev).set(selectedMeeting.id, "pending"));
       // 성공하면 신청 시트를 닫고 중앙 모달로 결과를 알린다(인라인 문구는 놓치기 쉽다).
       closeSheet();
       setApplicationDone(`${application.public_alias} 님의 신청이 저장되었습니다. ${application.next_step}`);
@@ -346,6 +358,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
           filters={data.meeting_filters}
           openCount={data.meeting_summary.open_count}
           onApply={openApply}
+          applicationStatusByMeetingId={applicationStatusByMeetingId}
         />
 
         <Link className={styles.activityCard} href="/meetings">
