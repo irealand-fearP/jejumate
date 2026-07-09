@@ -1474,8 +1474,11 @@ def delete_my_application(*, meeting_id: str, application_id: str, anonymous_id:
 
         now = _now()
         if application["status"] == "approved":
+            # 0 밑으로 안 내려가게 클램프. Postgres에서 MAX는 집계함수라 두 인자를
+            # 못 받는다(GREATEST를 써야 함) — SQLite는 MAX(a,b) 스칼라라 분기한다.
+            clamp = "GREATEST" if USE_POSTGRES else "MAX"
             connection.execute(
-                "UPDATE meetings SET approved_count = MAX(approved_count - 1, 0), updated_at = ? WHERE id = ?",
+                f"UPDATE meetings SET approved_count = {clamp}(approved_count - 1, 0), updated_at = ? WHERE id = ?",
                 (now, meeting["id"]),
             )
         connection.execute("DELETE FROM meeting_applications WHERE id = ?", (application_id,))
