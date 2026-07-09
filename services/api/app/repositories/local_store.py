@@ -1061,7 +1061,7 @@ def get_home_data() -> HomeResponse:
         profile_chip=ProfileChip(label="닉네임", is_set=False),
         privacy_chip=PrivacyChip(label="실명 비공개", is_verified=False),
         meeting_summary=MeetingSummary(open_count=len(meeting_rows)),
-        meeting_filters=["전체", "이동", "밥친구", "러닝", "기타", "오픈채팅"],
+        meeting_filters=["전체", "이동", "밥친구", "러닝", "기타", "퀵매치", "오픈채팅"],
         meetings=[_meeting_from_row(row, now=now) for row in meeting_rows],
         activity_summary=ActivitySummary(
             active_people_count=active_people_count,

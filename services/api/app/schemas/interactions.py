@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -61,6 +61,8 @@ class MeetingCreateRequest(BaseModel):
             raise ValueError("시작/마감 시각 형식이 올바르지 않습니다") from exc
         if ends <= starts:
             raise ValueError("마감 시각은 시작 시각보다 늦어야 합니다")
+        if self.category == "quick" and ends > starts + timedelta(hours=1):
+            raise ValueError("퀵매치는 시작 후 최대 1시간까지만 설정할 수 있습니다")
         return self
 
 

@@ -9,6 +9,7 @@ export const FILTER_TO_CATEGORIES: Record<string, string[]> = {
   밥친구: ["meal"],
   러닝: ["run"],
   기타: ["work", "coffee", "other"],
+  퀵매치: ["quick"],
 };
 
 // category(백엔드 값) → 필터 라벨. 여러 category가 같은 필터로 묶이므로 역방향은

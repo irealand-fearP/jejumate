@@ -44,6 +44,13 @@ def test_meeting_create_request_rejects_equal_times():
         MeetingCreateRequest(**_base_payload(starts_at="2026-07-10T14:00", ends_at="2026-07-10T14:00"))
 
 
+def test_quick_match_rejects_a_duration_longer_than_one_hour():
+    with pytest.raises(ValidationError):
+        MeetingCreateRequest(
+            **_base_payload(category="quick", starts_at="2026-07-10T14:00", ends_at="2026-07-10T15:01")
+        )
+
+
 def test_meeting_create_request_rejects_malformed_time():
     with pytest.raises(ValidationError):
         MeetingCreateRequest(**_base_payload(starts_at="not-a-date"))

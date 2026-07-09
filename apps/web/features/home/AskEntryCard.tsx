@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, ChevronRight } from "lucide-react";
+import { Bot } from "lucide-react";
 import styles from "./HomeScreen.module.css";
 
 const SUGGESTIONS = ["동행", "맛집", "생활질문"];
@@ -20,7 +20,6 @@ export function AskEntryCard({ onOpen }: { onOpen: () => void }) {
           <span key={suggestion}>{suggestion}</span>
         ))}
       </div>
-      <ChevronRight size={23} />
     </button>
   );
 }

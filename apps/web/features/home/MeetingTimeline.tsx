@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Radio } from "lucide-react";
 import type { HomeMeeting } from "@/lib/api";
 import { FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { MeetingCard } from "./MeetingCard";
@@ -27,6 +28,27 @@ export function MeetingTimeline({
   openCount: number;
   onApply: (meeting: HomeMeeting) => void;
 }) {
+  const quickMatches = useMemo(
+    () => meetings.filter((meeting) => meeting.category === "quick" && meeting.source === "service"),
+    [meetings],
+  );
+  const regularMeetings = useMemo(() => meetings.filter((meeting) => meeting.category !== "quick"), [meetings]);
+  const [quickMatchIndex, setQuickMatchIndex] = useState(0);
+
+  useEffect(() => {
+    if (quickMatches.length < 2) return;
+    const timer = window.setInterval(() => {
+      setQuickMatchIndex((current) => (current + 1) % quickMatches.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [quickMatches.length]);
+
+  useEffect(() => {
+    setQuickMatchIndex((current) => Math.min(current, Math.max(quickMatches.length - 1, 0)));
+  }, [quickMatches.length]);
+
+  const quickMatch = quickMatches[quickMatchIndex];
+
   return (
     <section className={styles.meetingsSection}>
       <div className={styles.sectionTitleRow}>
@@ -50,11 +72,39 @@ export function MeetingTimeline({
         ))}
       </div>
 
+      {quickMatch ? (
+        <button className={styles.quickMatchTicker} onClick={() => onApply(quickMatch)} type="button">
+          <span className={styles.quickMatchLabel}>
+            <Radio size={14} /> 퀵매치
+          </span>
+          <span className={styles.quickMatchContent}>
+            <strong>{quickMatch.title}</strong>
+            <small>{quickMatch.place_label} · {quickMatch.approved_count}/{quickMatch.capacity}명</small>
+          </span>
+          <ChevronRight className={styles.quickMatchArrow} size={18} />
+          {quickMatches.length > 1 ? (
+            <span className={styles.quickMatchDots} aria-label={`퀵매치 ${quickMatchIndex + 1} / ${quickMatches.length}`}>
+              {quickMatches.map((match, index) => <i className={index === quickMatchIndex ? styles.quickMatchDotActive : undefined} key={match.id} />)}
+            </span>
+          ) : null}
+        </button>
+      ) : (
+        <div className={styles.quickMatchEmpty}>
+          <span className={styles.quickMatchLabel}>
+            <Radio size={14} /> 퀵매치
+          </span>
+          <span>
+            <strong>현재 매칭 중인 퀵매치가 없어요</strong>
+            <small>새로운 퀵매치가 등록되면 이곳에서 바로 확인할 수 있어요.</small>
+          </span>
+        </div>
+      )}
+
       <div className={styles.timelineList}>
         {/* 백엔드가 이미 홈 미리보기 6개를 확정해서 내려준다(_home_meeting_rows,
             콜드스타트 콘텐츠 2자리 예약 포함) — 여기서 다시 4개로 자르면 뒤쪽에
             정렬되는 콜드스타트 항목이 화면에서 통째로 잘려나간다. */}
-        {meetings.map((meeting, index) => (
+        {regularMeetings.map((meeting, index) => (
           <MeetingCard key={meeting.id} meeting={meeting} index={index} onApply={onApply} />
         ))}
       </div>

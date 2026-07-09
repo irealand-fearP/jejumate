@@ -287,6 +287,114 @@
   border-radius: 999px;
 }
 
+.quickMatchTicker {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 72px;
+  margin: 10px 0 14px;
+  padding: 12px 14px 18px;
+  border: 1px solid #bfe8e6;
+  border-radius: 8px;
+  background: #f4fbfb;
+  color: #1f3435;
+  text-align: left;
+}
+
+.quickMatchEmpty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  border: 1px dashed #c7dddd;
+  border-radius: 8px;
+  background: #fbfdfd;
+  color: #5e7375;
+}
+
+.quickMatchEmpty > span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quickMatchEmpty strong {
+  color: #39595b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.quickMatchEmpty small {
+  color: #748789;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.quickMatchLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: start;
+  color: #009f9b;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.quickMatchContent {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quickMatchContent strong,
+.quickMatchContent small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quickMatchContent strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.quickMatchContent small {
+  color: #6a7d7f;
+  font-size: 12px;
+}
+
+.quickMatchArrow {
+  color: #6d8587;
+}
+
+.quickMatchDots {
+  position: absolute;
+  right: 14px;
+  bottom: 7px;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.quickMatchDots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c0d0d0;
+}
+
+.quickMatchDots .quickMatchDotActive {
+  width: 12px;
+  border-radius: 4px;
+  background: #009f9b;
+}
+
 .categoryMeal {
   background: #dff6ee;
   color: #009f9b;
@@ -571,12 +679,12 @@
 }
 
 .askCard {
-  min-height: 104px;
+  min-height: 88px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 24px;
+  grid-template-columns: 38px minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-items: center;
-  gap: 11px;
+  gap: 8px 10px;
   margin-top: 13px;
   padding: 12px;
   text-align: left;
@@ -584,8 +692,8 @@
 
 .botIcon {
   grid-row: 1 / span 2;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -600,7 +708,7 @@
 .askCard strong {
   display: block;
   color: #007f81;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 700;
   word-break: keep-all;
@@ -608,14 +716,14 @@
 
 .askCard small {
   display: block;
-  margin-top: 5px;
+  margin-top: 3px;
   color: #596168;
   font-size: 12px;
   font-weight: 500;
 }
 
 .askChips {
-  grid-column: 2 / 4;
+  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
@@ -623,7 +731,7 @@
 }
 
 .askChips span {
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid #009f9b;
   border-radius: 12px;
   background: #ffffff;
@@ -632,10 +740,6 @@
   line-height: 1;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.askCard > svg {
-  justify-self: end;
 }
 
 .askChips span:nth-child(2) {
