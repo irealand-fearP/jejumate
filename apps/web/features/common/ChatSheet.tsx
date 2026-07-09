@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   createNickname,
   deleteMyApplication,
@@ -16,6 +16,18 @@ import styles from "@/features/home/HomeScreen.module.css";
 
 // 채팅 시트가 열려있는 동안 새 메시지를 반영하는 폴링 주기(HomeScreen 원본과 동일).
 const CHAT_POLL_INTERVAL_MS = 4000;
+
+// 목록 바닥에서 이 거리 안에 있으면 "최신을 보고 있다"고 보고 새 메시지를 자동으로 따라간다.
+// 이보다 위로 올라가 있으면 예전 대화를 읽는 중이므로 자동 스크롤로 방해하지 않는다.
+const NEAR_BOTTOM_THRESHOLD_PX = 80;
+
+function isNearBottom(element: HTMLElement): boolean {
+  return element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_THRESHOLD_PX;
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
 
 export type ChatSheetProfile = {
   profileId: string;
@@ -70,6 +82,51 @@ export function ChatSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ChatSheetErrorState | null>(null);
   const [leaving, setLeaving] = useState(false);
+
+  const chatListRef = useRef<HTMLDivElement>(null);
+  // 자동 따라가기 여부. state로 두면 폴링 리렌더마다 판정이 흔들리므로 ref로 유지한다.
+  const stickToBottomRef = useRef(true);
+  // 채팅창을 처음 열었을 때는 애니메이션 없이 곧장 최신 메시지로 내려간다.
+  const didInitialScrollRef = useRef(false);
+  // 내가 보낸 메시지는 위를 읽고 있었더라도 항상 맨 아래로 따라간다.
+  const forceScrollRef = useRef(false);
+  // 폴링은 4초마다 새 배열을 넣으므로, 마지막 메시지가 바뀐 경우에만 스크롤한다.
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  function handleChatListScroll() {
+    const element = chatListRef.current;
+    if (element) stickToBottomRef.current = isNearBottom(element);
+  }
+
+  // 메시지가 바뀔 때(최초 로드·폴링 수신·내 전송) 필요하면 맨 아래로 스크롤한다.
+  useLayoutEffect(() => {
+    const element = chatListRef.current;
+    if (!element || chatMessages.length === 0) return;
+
+    const latestMessageId = chatMessages[chatMessages.length - 1].id;
+    const hasNewMessage = latestMessageId !== lastMessageIdRef.current;
+    lastMessageIdRef.current = latestMessageId;
+
+    if (!didInitialScrollRef.current) {
+      element.scrollTop = element.scrollHeight;
+      didInitialScrollRef.current = true;
+      stickToBottomRef.current = true;
+      return;
+    }
+
+    // 폴링이 같은 내용을 다시 넣은 것뿐이면 스크롤을 건드리지 않는다.
+    if (!hasNewMessage && !forceScrollRef.current) return;
+
+    // 예전 대화를 읽는 중이면 방해하지 않는다(다시 바닥 근처로 오면 자동으로 재개된다).
+    if (!forceScrollRef.current && !stickToBottomRef.current) return;
+
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+    forceScrollRef.current = false;
+    stickToBottomRef.current = true;
+  }, [chatMessages]);
   // 호스트는 자기 모임을 "탈퇴"하지 않는다(모임 관리/삭제는 별도 흐름) — 탈퇴 버튼은
   // 호스트가 아니면서 승인된 신청 ID를 가진 경우에만 노출한다.
   const isHost = getOwnerSecret(meetingId) !== null;
@@ -159,6 +216,8 @@ export function ChatSheet({
         anonymous_id: currentProfile.anonymousId,
         owner_secret: getOwnerSecret(meetingId) ?? undefined,
       });
+      // 내가 보낸 메시지는 위를 읽고 있었더라도 항상 보이게 한다.
+      forceScrollRef.current = true;
       setChatMessages(chat.messages);
       setChatNotice(chat.notice);
       setChatInput("");
@@ -196,7 +255,7 @@ export function ChatSheet({
         <div className={styles.chatNotice}>
           {chatNotice || "연락처 공유는 신중하게 해주세요. 불편한 요청은 신고할 수 있어요."}
         </div>
-        <div className={styles.chatList}>
+        <div className={styles.chatList} onScroll={handleChatListScroll} ref={chatListRef}>
           {chatMessages.length ? (
             chatMessages.map((chat) => {
               const isMine = profile?.anonymousId === chat.sender_anonymous_id;
