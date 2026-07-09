@@ -250,7 +250,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   });
 
   return (
-    <MobileShell active="profile" title="내정보" subtitle="공개 정보와 비공개 정보를 분리해 관리해요">
+    <MobileShell active="profile" title="내정보">
       <section className={styles.profileCard}>
         <div className={styles.profileHero}>
           <div className={styles.avatar}>

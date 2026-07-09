@@ -104,6 +104,7 @@ const CREATE_CATEGORIES = [
   { value: "meal", label: "밥친구" },
   { value: "run", label: "러닝" },
   { value: "other", label: "기타" },
+  { value: "quick", label: "퀵매치" },
 ];
 
 function pad(value: number): string {
@@ -418,6 +419,10 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     }
     if (new Date(createEndsAt).getTime() <= new Date(createStartsAt).getTime()) {
       setCreateError("마감 시각은 시작 시각보다 늦어야 해요");
+      return;
+    }
+    if (createCategory === "quick" && new Date(createEndsAt).getTime() - new Date(createStartsAt).getTime() > 60 * 60 * 1000) {
+      setCreateError("퀵매치는 시작 후 최대 1시간까지만 설정할 수 있어요");
       return;
     }
     setCreateSubmitting(true);
@@ -770,6 +775,11 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                     </button>
                   ))}
                 </div>
+                {createCategory === "quick" ? (
+                  <p className={styles.quickMatchNotice}>
+                    퀵매치는 지금 바로 함께할 사람을 찾는 파티예요. 시작부터 마감까지 최대 1시간만 설정할 수 있어요.
+                  </p>
+                ) : null}
 
                 <label className={styles.label} htmlFor="create-title">
                   제목

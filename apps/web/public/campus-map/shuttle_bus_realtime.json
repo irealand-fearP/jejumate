@@ -1,0 +1,11 @@
+{
+  "source_url": "https://bus.jejunu.ac.kr/",
+  "stream_url": "https://bus.jejunu.ac.kr/api/location/stream?keepgoing=1",
+  "generated_at": "2026-07-09T23:09:02+09:00",
+  "source_timestamp": null,
+  "bus_count": 0,
+  "buses": [],
+  "operating": false,
+  "next_operating_at": "2026-07-10T08:00:00+09:00",
+  "content_hash": "7557def285ceeca41c89de1a0d8f641db6936499c788d1cc07b0d049f17ef749"
+}
