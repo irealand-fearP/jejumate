@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   MapPin,
   Plus,
+  Search,
   Trash2,
   Utensils,
   UsersRound,
@@ -124,6 +125,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     if (filterFromCategory && data.filters.includes(filterFromCategory)) return filterFromCategory;
     return data.filters[0] ?? "전체";
   });
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [selected, setSelected] = useState<HomeMeeting | null>(null);
   const [profile, setProfile] = useState<LocalProfile | null>(() => readProfile());
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
@@ -271,11 +273,25 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
   }, []);
 
   const visibleMeetings = useMemo(() => {
-    if (activeFilter === "전체") return meetings;
-    if (activeFilter === "오픈채팅") return meetings.filter((meeting) => meeting.source === "kakao_chat");
-    const categories = FILTER_TO_CATEGORIES[activeFilter] ?? [];
-    return meetings.filter((meeting) => categories.includes(meeting.category));
-  }, [activeFilter, meetings]);
+    // 카테고리 필터를 먼저 적용하고, 검색어를 AND로 겹쳐 좁힌다.
+    let filtered = meetings;
+    if (activeFilter === "오픈채팅") {
+      filtered = meetings.filter((meeting) => meeting.source === "kakao_chat");
+    } else if (activeFilter !== "전체") {
+      const categories = FILTER_TO_CATEGORIES[activeFilter] ?? [];
+      filtered = meetings.filter((meeting) => categories.includes(meeting.category));
+    }
+
+    // 목록 전체를 이미 받아왔으므로 검색은 프론트 필터링으로 충분하다(새 API 불필요).
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) return filtered;
+
+    return filtered.filter((meeting) =>
+      [meeting.title, meeting.place_label, meeting.host.nickname].some((field) =>
+        field?.toLowerCase().includes(keyword),
+      ),
+    );
+  }, [activeFilter, meetings, searchKeyword]);
 
   async function refreshMeetings() {
     const refreshed = await getMeetingsData();
@@ -490,7 +506,16 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         ))}
       </div>
 
-      <div className={styles.notice}>{data.privacy_note}</div>
+      <div className={styles.meetingSearch}>
+        <Search size={16} aria-hidden="true" />
+        <input
+          aria-label="파티 검색"
+          onChange={(event) => setSearchKeyword(event.target.value)}
+          placeholder="파티 이름·장소·호스트 검색"
+          type="search"
+          value={searchKeyword}
+        />
+      </div>
 
       <div className={styles.actionRow}>
         <button className={styles.createMeetingButton} onClick={openCreateSheet} type="button">
@@ -502,6 +527,11 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
       </div>
 
       <section className={styles.meetingList}>
+        {visibleMeetings.length === 0 ? (
+          <div className={styles.result}>
+            {searchKeyword.trim() ? `'${searchKeyword.trim()}'와 맞는 파티가 없어요.` : "열려 있는 파티가 없어요."}
+          </div>
+        ) : null}
         {visibleMeetings.map((meeting) => {
           const Icon = getMeetingIcon(meeting.category);
           const isOwned = ownedMeetingIds.has(meeting.id);
