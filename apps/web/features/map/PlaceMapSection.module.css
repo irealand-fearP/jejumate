@@ -18,6 +18,18 @@
   font-weight: 950;
 }
 
+.mapLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 240px;
+  border-radius: 12px;
+  background: #f8fbfb;
+  color: #607076;
+  font-size: 12px;
+  font-weight: 750;
+}
+
 .placeList {
   display: grid;
   gap: 6px;

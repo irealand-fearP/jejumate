@@ -23,7 +23,8 @@ const DEFAULT_MAP_ZOOM_LEVEL = 6;
 
 // 카카오맵 SDK 스크립트를 문서에 한 번만 추가하고, 로드가 끝나면 resolve한다.
 // 다른 컴포넌트가 이미 스크립트 태그를 추가해뒀다면(중복 추가 방지) 그 로드를 그대로 기다린다.
-function loadKakaoMapsSdk(appKey: string): Promise<void> {
+// 장소명→좌표 검색 훅(useKakaoPlaceSearch)도 같은 로더를 재사용하므로 export한다.
+export function loadKakaoMapsSdk(appKey: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (window.kakao?.maps) {
       resolve();
@@ -40,7 +41,8 @@ function loadKakaoMapsSdk(appKey: string): Promise<void> {
     const script = document.createElement("script");
     script.id = KAKAO_MAP_SCRIPT_ID;
     // autoload=false로 받아서, 로드 완료 후 kakao.maps.load 콜백으로 실제 초기화 시점을 제어한다.
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+    // libraries=services는 장소명으로 좌표를 찾는 keywordSearch(장소 검색)를 쓰기 위해 필요하다.
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
     script.async = true;
     script.addEventListener("load", () => window.kakao?.maps.load(resolve));
     script.addEventListener("error", () => reject(new Error("카카오맵 SDK 로드 실패")));
