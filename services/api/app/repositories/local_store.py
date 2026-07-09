@@ -939,11 +939,14 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
     그대로 비교하면 실제 시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을
     정규화해서 비교해준다).
 
-    오픈채팅 수집(source='kakao_chat') 모임 후보만 시각이 지나면 자동으로 숨긴다 —
-    호스트가 직접 관리하는 서비스 내 모임은 기존 동작(상태값으로만 판단) 그대로 둔다."""
+    오픈채팅 수집(source='kakao_chat') 모임은 마감 시각이 지나면 즉시 숨긴다.
+    호스트가 직접 관리하는 서비스 내 모임(source != 'kakao_chat')은 마감 직후
+    바로 사라지면 매정하므로 grace period(설정값)만큼 여유를 두고 숨긴다."""
     limit_clause = "LIMIT ?" if limit else ""
-    now_iso = datetime.now(timezone.utc).isoformat()
-    params: tuple[object, ...] = (now_iso, limit) if limit else (now_iso,)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    grace_cutoff_iso = (now - timedelta(minutes=settings.service_meeting_hide_grace_minutes)).isoformat()
+    params: tuple[object, ...] = (now_iso, grace_cutoff_iso, limit) if limit else (now_iso, grace_cutoff_iso)
     return connection.execute(
         f"""
         SELECT m.*, p.nickname AS host_nickname
@@ -951,9 +954,9 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
           AND (
-            m.source != 'kakao_chat'
-            OR m.ends_at IS NULL
-            OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')}
+            m.ends_at IS NULL
+            OR (m.source = 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
+            OR (m.source != 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
           )
         ORDER BY {_time_order_expr('m.starts_at')} ASC
         {limit_clause}
@@ -967,7 +970,9 @@ def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slot
     starts_at이 대체로 다음날이라 서비스 모임에 밀려 홈에 한 건도 안 보이는 문제가
     있었다 — 콜드스타트 콘텐츠로 홈을 채우는 게 이 기능의 목적이라 자리를 예약한다."""
     kakao_slots = min(kakao_slots, limit)
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    grace_cutoff_iso = (now - timedelta(minutes=settings.service_meeting_hide_grace_minutes)).isoformat()
 
     kakao_rows = connection.execute(
         f"""
@@ -983,16 +988,18 @@ def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slot
     ).fetchall()
 
     service_limit = limit - len(kakao_rows)
+    # 서비스 파티도 마감+grace 지난 것은 홈 미리보기에서 숨긴다(_open_meeting_rows와 동일 규칙).
     service_rows = connection.execute(
         f"""
         SELECT m.*, p.nickname AS host_nickname
         FROM meetings m
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon') AND m.source != 'kakao_chat'
+          AND (m.ends_at IS NULL OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
         ORDER BY {_time_order_expr('m.starts_at')} ASC
         LIMIT ?
         """,
-        (service_limit,),
+        (grace_cutoff_iso, service_limit),
     ).fetchall()
 
     combined = list(service_rows) + list(kakao_rows)

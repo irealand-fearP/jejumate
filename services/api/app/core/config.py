@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     ingest_secret: str | None = None
     cron_secret: str | None = None
 
+    # 사용자가 만든 서비스 파티는 마감(ends_at) 직후 바로 공개 목록에서 사라지면
+    # 매정하다 — 카톡 수집 파티(즉시 숨김, grace 없음)와 달리 여유 시간을 준다.
+    service_meeting_hide_grace_minutes: int = 60
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
