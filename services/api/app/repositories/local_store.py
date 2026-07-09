@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import random
@@ -47,6 +48,8 @@ from app.services.rag_answer_service import (
     generate_general_answer,
     generate_verified_answer,
 )
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
@@ -875,6 +878,16 @@ def create_board_post(
             ),
         )
         connection.commit()
+    # 글 저장 트랜잭션이 끝난 뒤 별도 연결로 색인한다(best-effort — 실패해도 글 작성은
+    # 이미 성공한 뒤라 영향 없음). RAG 답변이 게시판 글도 근거로 쓰게 하는 목적.
+    index_content_as_rag_document(
+        source_type="board",
+        source_id=post_id,
+        title=title.strip(),
+        body=body.strip(),
+        category=category.strip(),
+        source_label="생활게시판 글",
+    )
     return get_board_post(post_id, anonymous_id=anonymous_id)
 
 
@@ -892,6 +905,11 @@ def delete_board_post(*, post_id: str, anonymous_id: str) -> BoardDeleteResponse
         now = _now()
         connection.execute("UPDATE board_posts SET deleted_at = ? WHERE id = ?", (now, post_id))
         connection.execute("UPDATE board_comments SET deleted_at = ? WHERE post_id = ?", (now, post_id))
+        # 삭제된 글이 RAG 근거로 계속 쓰이지 않게 색인도 같이 비활성화한다.
+        connection.execute(
+            "UPDATE rag_documents SET is_active = 0 WHERE source_type = 'board' AND source_id = ?",
+            (post_id,),
+        )
 
     return BoardDeleteResponse(post_id=post_id, status="deleted")
 
@@ -1255,6 +1273,18 @@ def create_meeting(
             ),
         )
 
+    # 모임 저장 트랜잭션이 끝난 뒤 별도 연결로 색인한다(best-effort). 설명이 없으면
+    # 제목만으로, 장소는 항상 같이 넣어서 "OO에서 하는 모임 있나요" 류 질문에도 걸리게 한다.
+    meeting_body = "\n".join(part for part in (description, f"장소: {place_label}") if part) or title
+    index_content_as_rag_document(
+        source_type="meeting",
+        source_id=meeting_id,
+        title=title,
+        body=meeting_body,
+        category=category,
+        source_label="모임 등록",
+    )
+
     return MeetingCreateResponse(
         meeting_id=meeting_id,
         owner_secret=owner_secret,
@@ -1367,6 +1397,11 @@ def delete_meeting(*, meeting_id: str, owner_secret: str) -> MeetingDeleteRespon
         connection.execute("DELETE FROM meeting_chat_messages WHERE meeting_id = ?", (resolved_id,))
         connection.execute("DELETE FROM meeting_applications WHERE meeting_id = ?", (resolved_id,))
         connection.execute("DELETE FROM meetings WHERE id = ?", (resolved_id,))
+        # 해산된 모임이 RAG 근거로 계속 쓰이지 않게 색인도 같이 비활성화한다.
+        connection.execute(
+            "UPDATE rag_documents SET is_active = 0 WHERE source_type = 'meeting' AND source_id = ?",
+            (resolved_id,),
+        )
 
     return MeetingDeleteResponse(meeting_id=resolved_id, status="deleted")
 
@@ -1825,6 +1860,64 @@ def try_claim_kakao_ingest_attempt(source: str, min_interval_seconds: int) -> bo
         )
         claimed = cursor.rowcount > 0
     return claimed
+
+
+def index_content_as_rag_document(
+    *,
+    source_type: str,
+    source_id: str,
+    title: str,
+    body: str,
+    category: str | None,
+    source_label: str,
+) -> bool:
+    """게시판 글/모임 등 서비스 내 콘텐츠를 RAG 근거 문서로 색인한다.
+    add_kakao_rag_document와 같은 컨벤션(카톡과는 source_type만 다름)을 따르되,
+    여기서는 임베딩 API 실패를 이 함수 안에서 삼킨다 — 글/모임 작성 자체가 색인
+    실패 때문에 같이 실패하면 안 되기 때문이다(best-effort). 성공 여부만 bool로
+    돌려주고, 실패는 warning으로 남겨 조용히 묻히지 않게 한다."""
+    try:
+        embedding = embed_text(f"{title}\n{body}".strip())
+    except Exception:
+        logger.warning(
+            "RAG 색인용 임베딩 실패(best-effort, 원본 작성은 계속 성공 처리) — "
+            "source_type=%s source_id=%s",
+            source_type,
+            source_id,
+            exc_info=True,
+        )
+        return False
+
+    document_id = _stable_id("rag-document", f"{source_type}-{source_id}")
+    now = _now()
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO rag_documents (
+              id, source_type, source_id, title, body, region, category, visibility,
+              is_active, embedding, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, '제주', ?, 'public', 1, ?, ?, ?)
+            """,
+            (document_id, source_type, source_id, title, body, category, json.dumps(embedding), now, now),
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO rag_sources (
+              id, rag_document_id, source_type, title, url, official, created_at
+            )
+            VALUES (?, ?, ?, ?, NULL, 0, ?)
+            """,
+            (_stable_id("rag-source", f"{source_type}-{source_id}"), document_id, source_type, source_label, now),
+        )
+        if USE_POSTGRES:
+            # pgvector 컬럼도 같이 채운다 — answer_rag_question의 벡터 검색이 이걸 쓴다.
+            vec_literal = "[" + ",".join(str(x) for x in embedding) + "]"
+            connection.execute(
+                "UPDATE rag_documents SET embedding_vec = ?::vector WHERE id = ?",
+                (vec_literal, document_id),
+            )
+    return True
 
 
 def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]) -> None:
