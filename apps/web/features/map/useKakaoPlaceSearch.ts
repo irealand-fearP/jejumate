@@ -24,26 +24,92 @@ const IDLE_STATE: PlaceSearchState = { status: "idle", resolved: [], failedTitle
 // 같은 장소명이 전국에 여럿 있을 수 있어 '제주'를 붙여 지역을 한정한다.
 const REGION_KEYWORD = "제주";
 
-type OneSearchResult = { title: string; coords?: { lat: number; lng: number } };
+type Coords = { lat: number; lng: number };
 
-// 장소명 하나를 keywordSearch로 검색해 첫 결과의 좌표를 돌려준다(실패 시 coords 없음).
-function searchOnePlace(title: string): Promise<OneSearchResult> {
+// 제주도(본섬 + 추자도·마라도 등 부속 섬)를 넉넉히 감싸는 경계 박스.
+// 검색 옵션의 radius는 최대 20km라 동서로 70km가 넘는 섬 전체를 못 덮는다. 그래서 rect를 쓴다.
+const JEJU_BOUNDS = { minLng: 125.95, minLat: 33.05, maxLng: 127.0, maxLat: 34.0 };
+const JEJU_RECT = `${JEJU_BOUNDS.minLng},${JEJU_BOUNDS.minLat},${JEJU_BOUNDS.maxLng},${JEJU_BOUNDS.maxLat}`;
+
+// '학생회관1호관' → '학생회관'처럼 건물 동/호 접미를 떼어낸 검색어를 만든다.
+const BUILDING_SUFFIX_PATTERN = /\s*\d+\s*(호관|호점|호실|호|동|관|층|번지)$/;
+const TRAILING_NUMBER_PATTERN = /\s*\d+$/;
+
+// 카카오에 등록 안 된 세부 건물명이면 접미를 뗀 상위 명칭으로라도 찾아본다.
+function simplifyPlaceName(title: string): string | null {
+  const simplified = title.replace(BUILDING_SUFFIX_PATTERN, "").replace(TRAILING_NUMBER_PATTERN, "").trim();
+  return simplified.length >= 2 && simplified !== title ? simplified : null;
+}
+
+// 제주 밖 좌표는 동명이인(다른 지역 같은 이름) 오검색이므로 받아들이지 않는다.
+function isWithinJeju({ lat, lng }: Coords): boolean {
+  return (
+    lat >= JEJU_BOUNDS.minLat &&
+    lat <= JEJU_BOUNDS.maxLat &&
+    lng >= JEJU_BOUNDS.minLng &&
+    lng <= JEJU_BOUNDS.maxLng
+  );
+}
+
+type SearchVariant = { keyword: string; options?: KakaoPlaceSearchOptions };
+
+/**
+ * 한 장소명에 대해 순차로 시도할 검색 변형들. 위에서부터 시도하다 처음 성공하면 멈춘다.
+ * 제주로 좁힌 검색을 먼저 두고, 전국 검색은 뒤로 미뤄 오검색 확률을 낮춘다.
+ */
+function buildSearchVariants(title: string): SearchVariant[] {
+  const variants: SearchVariant[] = [
+    { keyword: `${title} ${REGION_KEYWORD}` }, // ① 지역명을 붙인 검색
+    { keyword: title, options: { rect: JEJU_RECT } }, // ② 제주 경계로 한정
+    { keyword: title }, // ③ 장소명 그대로(전국) — 결과는 제주 경계 검증으로 거른다
+  ];
+
+  const simplified = simplifyPlaceName(title);
+  if (simplified) {
+    // ④ '학생회관1호관' 같은 세부 건물명은 상위 명칭 + 제주 한정으로 재시도
+    variants.push({ keyword: simplified, options: { rect: JEJU_RECT } });
+  }
+
+  return variants;
+}
+
+// 변형 하나를 검색해 '제주 안에 있는 첫 결과'의 좌표를 돌려준다(없으면 undefined).
+function runSearchVariant(variant: SearchVariant): Promise<Coords | undefined> {
   return new Promise((resolve) => {
     const kakao = window.kakao;
     if (!kakao) {
-      resolve({ title });
+      resolve(undefined);
       return;
     }
+
     const searcher = new kakao.maps.services.Places();
-    searcher.keywordSearch(`${title} ${REGION_KEYWORD}`, (result, status) => {
-      if (status === kakao.maps.services.Status.OK && result.length > 0) {
-        const first = result[0];
-        resolve({ title, coords: { lat: Number(first.y), lng: Number(first.x) } });
-      } else {
-        resolve({ title });
-      }
-    });
+    searcher.keywordSearch(
+      variant.keyword,
+      (result, status) => {
+        if (status !== kakao.maps.services.Status.OK) {
+          resolve(undefined);
+          return;
+        }
+        // 결과는 정확도순이므로, 제주 안에 드는 가장 앞선 결과를 쓴다.
+        const match = result
+          .map((item) => ({ lat: Number(item.y), lng: Number(item.x) }))
+          .find((coords) => isWithinJeju(coords));
+        resolve(match);
+      },
+      variant.options,
+    );
   });
+}
+
+type OneSearchResult = { title: string; coords?: Coords };
+
+// 장소명 하나를 변형들로 순차 검색한다. 첫 성공에서 중단하고, 전부 실패하면 coords 없이 반환.
+async function searchOnePlace(title: string): Promise<OneSearchResult> {
+  for (const variant of buildSearchVariants(title)) {
+    const coords = await runSearchVariant(variant);
+    if (coords) return { title, coords };
+  }
+  return { title };
 }
 
 /**
