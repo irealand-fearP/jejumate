@@ -11,6 +11,25 @@ from app.repositories.local_store import cleanup_expired_parties
 from app.services.kakao_ingest import ingest_new_messages
 
 logger = logging.getLogger(__name__)
+# 루트 로거가 기본 WARNING이라 logger.info()가 조용히 버려진다 — 이 로거만 INFO로 올리고
+# 전용 핸들러를 달아 journald(stderr)로 실제로 찍히게 한다. 다른 라이브러리 로그엔 영향 없음.
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
+    logger.addHandler(_handler)
+    logger.propagate = False
+
+# create_task가 반환한 Task를 아무 데도 저장하지 않으면 가비지 컬렉션 대상이 되어
+# 루프가 조용히 죽을 수 있다(asyncio 공식 문서 경고) — 모듈 레벨 set에 참조를 유지한다.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_background_task(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
 
 
 async def _kakao_polling_loop() -> None:
@@ -67,12 +86,15 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def _start_kakao_polling() -> None:
+        logger.info("startup: 백그라운드 루프 기동 시작")
         # Vercel 서버리스는 요청이 끝나면 프로세스가 죽어서 상시 폴링이 불가능하다.
         # 배포는 GET /api/ingest/kakao?secret=...로 크론/수동 트리거한다.
         if os.environ.get("VERCEL"):
+            logger.info("startup: VERCEL 환경이라 폴링 루프 생략")
             return
-        asyncio.create_task(_kakao_polling_loop())
-        asyncio.create_task(_party_cleanup_loop())
+        _spawn_background_task(_kakao_polling_loop())
+        _spawn_background_task(_party_cleanup_loop())
+        logger.info("startup: 카톡 폴링/파티 정리 태스크 생성 완료")
 
     return app
 
