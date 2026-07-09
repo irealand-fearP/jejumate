@@ -36,7 +36,10 @@ MIN_CONTENT_LENGTH = 10
 # 하루 자동 변환 상한. 초기값 30은 이틀 연속 정오 전에 소진돼 오후 메시지가 서비스에
 # 등록되지 않는 병목이 됐다(2026-07-09 사용자 리포트). 스팸 폭주 방어선 역할만 하도록
 # 실제 채팅량(하루 수백 건, 필터 통과분은 그 일부)을 넉넉히 웃도는 값으로 상향.
-COLDSTART_DAILY_LIMIT = 300
+# → 300도 2026-07-09 하루 만에 정확히 소진됨(coldstart_daily_counts=300). 원본 채팅이
+# 3일간 4484건, 하루 1500건 안팎이라 300은 여전히 낮았다 — 하루 물량을 넉넉히 웃돌도록
+# 3000으로 재상향(2026-07-10). 상한에 걸리면 조용히 넘어가지 않도록 아래 경고 로그도 추가.
+COLDSTART_DAILY_LIMIT = 3000
 
 _EMOJI_PATTERN = re.compile(
     "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF\U00002190-\U000021FF\U00002B00-\U00002BFF]+"
@@ -111,6 +114,11 @@ def convert_to_coldstart_content(*, item_id: int, content: str, created_at: str)
     if has_coldstart_content(item_id):
         return None
     if get_coldstart_count_today() >= COLDSTART_DAILY_LIMIT:
+        logger.warning(
+            "콜드스타트 일일 상한(%s) 도달 — item_id=%s 변환 건너뜀. RAG 적재는 계속됨.",
+            COLDSTART_DAILY_LIMIT,
+            item_id,
+        )
         return None
 
     result = classify_message(content)
