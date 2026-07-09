@@ -15,6 +15,13 @@ type JejuMapPreviewProps = {
   places: JejuMapPlace[];
   /** 지도 높이(px). 지정하지 않으면 기본값(240px)을 쓴다. */
   height?: number;
+  /**
+   * 지도 중심. 지정하지 않으면 첫 번째 장소를 중심에 둔다.
+   * 마커 없이 특정 지역만 보여주고 싶을 때(places=[]) 이 값만 넘기면 된다.
+   */
+  center?: { lat: number; lng: number };
+  /** 카카오맵 확대 레벨(작을수록 확대). 지정하지 않으면 기본값을 쓴다. */
+  level?: number;
 };
 
 const KAKAO_MAP_SCRIPT_ID = "kakao-maps-sdk-script";
@@ -51,15 +58,23 @@ export function loadKakaoMapsSdk(appKey: string): Promise<void> {
 }
 
 /** 좌표가 있는 장소들을 카카오맵 위에 마커로 표시하는 클라이언트 컴포넌트. */
-export function JejuMapPreview({ places, height = DEFAULT_MAP_HEIGHT_PX }: JejuMapPreviewProps) {
+export function JejuMapPreview({
+  places,
+  height = DEFAULT_MAP_HEIGHT_PX,
+  center,
+  level = DEFAULT_MAP_ZOOM_LEVEL,
+}: JejuMapPreviewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState(false);
 
   // 실제 카카오 앱키는 서버 .env에서 주입한다. 코드에 절대 하드코딩하지 않는다.
   const appKey = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY;
 
+  // 중심이 따로 없으면 첫 장소를 중심에 둔다. 둘 다 없으면 그릴 게 없다.
+  const centerPoint = center ?? places[0];
+
   useEffect(() => {
-    if (!appKey || !mapContainerRef.current || places.length === 0) return;
+    if (!appKey || !mapContainerRef.current || !centerPoint) return;
 
     let cancelled = false;
 
@@ -68,10 +83,10 @@ export function JejuMapPreview({ places, height = DEFAULT_MAP_HEIGHT_PX }: JejuM
         if (cancelled || !mapContainerRef.current || !window.kakao) return;
 
         const kakao = window.kakao;
-        const center = new kakao.maps.LatLng(places[0].lat, places[0].lng);
+        const mapCenter = new kakao.maps.LatLng(centerPoint.lat, centerPoint.lng);
         const map = new kakao.maps.Map(mapContainerRef.current, {
-          center,
-          level: DEFAULT_MAP_ZOOM_LEVEL,
+          center: mapCenter,
+          level,
         });
 
         places.forEach((place) => {
@@ -96,10 +111,10 @@ export function JejuMapPreview({ places, height = DEFAULT_MAP_HEIGHT_PX }: JejuM
     return () => {
       cancelled = true;
     };
-  }, [appKey, places]);
+  }, [appKey, places, centerPoint, level]);
 
-  // 앱키가 없으면(아직 발급 전이거나 환경변수 누락) 조용히 아무것도 렌더링하지 않는다.
-  if (!appKey || places.length === 0) return null;
+  // 앱키가 없거나(아직 발급 전이거나 환경변수 누락) 그릴 지점이 없으면 조용히 렌더링하지 않는다.
+  if (!appKey || !centerPoint) return null;
 
   if (loadError) {
     return <div className={styles.mapError}>지도를 불러오지 못했습니다.</div>;
