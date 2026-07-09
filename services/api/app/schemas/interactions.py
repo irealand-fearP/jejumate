@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -177,3 +178,7 @@ class RagAskResponse(BaseModel):
     confidence_grade: str = "none"
     verified_source_count: int = 0
     total_source_count: int = 0
+    # answer_source: 근거 문서가 있어서 generate_verified_answer를 탄 경우 "community",
+    # threshold 미달로 근거가 없어 generate_general_answer(일반 지식)로 답한 경우
+    # "general_knowledge".
+    answer_source: Literal["community", "general_knowledge"] = "community"

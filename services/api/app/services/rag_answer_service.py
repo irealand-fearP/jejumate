@@ -42,6 +42,14 @@ JSON으로만 답해라:
 {"answer": "...", "citations": [{"index": 0, "supports": true}, ...]}"""
 
 
+_GENERAL_SYSTEM_PROMPT = """너는 제주 대학생 커뮤니티 도우미다. 다만 지금 이 질문에는
+카톡 커뮤니티에서 모은 근거가 전혀 없다(threshold 미달). 그렇다고 회피하지 말고 너의
+일반 지식으로 최대한 도움이 되는 답을 해라. 다만 마치 커뮤니티 학생들의 실제 최신
+경험담인 것처럼 단정적으로 말하지 마라 — "일반적으로", "보통은" 같은 표현으로 이게
+커뮤니티 실사용 정보가 아니라 일반 지식 기반 답변임을 자연스럽게 드러내라. 간결하게
+답해라."""
+
+
 class RagAnswerResult:
     def __init__(self, answer: str, supports: list[bool]):
         self.answer = answer
@@ -100,6 +108,39 @@ def generate_verified_answer(*, question: str, documents: list[dict]) -> RagAnsw
 
     supports = [support_by_index.get(doc["index"], False) for doc in documents]
     return RagAnswerResult(answer=answer, supports=supports)
+
+
+def generate_general_answer(*, question: str) -> str:
+    """근거 문서가 하나도 없을 때(threshold 미달) LLM의 일반 지식만으로 답한다.
+
+    citations을 만들 근거 자체가 없으므로 JSON 강제 없이 plain text로 받는다.
+    비용 관리 설정(reasoning_effort, max_completion_tokens)은 generate_verified_answer와
+    동일하게 유지한다.
+    """
+    api_key = settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY가 설정되지 않았습니다. services/api/.env에 키를 추가해야 "
+            "RAG 답변을 생성할 수 있습니다."
+        )
+
+    import openai  # 키 없는 경로에서는 import조차 필요 없게 지연 임포트
+
+    client = openai.OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model=ANSWER_MODEL,
+        messages=[
+            {"role": "system", "content": _GENERAL_SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+        reasoning_effort="minimal",
+        max_completion_tokens=MAX_COMPLETION_TOKENS,
+    )
+
+    answer = (response.choices[0].message.content or "").strip()
+    if not answer:
+        answer = "지금은 답변을 만들지 못했어요. 다른 질문으로 다시 시도해주세요."
+    return answer
 
 
 def confidence_grade(supports: list[bool]) -> str:

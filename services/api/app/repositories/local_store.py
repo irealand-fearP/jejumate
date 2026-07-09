@@ -41,7 +41,11 @@ from app.schemas.interactions import (
 )
 from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
 from app.services.embedding_service import cosine_similarity, embed_text
-from app.services.rag_answer_service import confidence_grade, generate_verified_answer
+from app.services.rag_answer_service import (
+    confidence_grade,
+    generate_general_answer,
+    generate_verified_answer,
+)
 
 DB_PATH = Path(os.environ.get("JEJUMATE_SQLITE_PATH", Path(__file__).resolve().parents[2] / ".data" / "jejumate.sqlite3"))
 
@@ -935,11 +939,14 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
     그대로 비교하면 실제 시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을
     정규화해서 비교해준다).
 
-    오픈채팅 수집(source='kakao_chat') 모임 후보만 시각이 지나면 자동으로 숨긴다 —
-    호스트가 직접 관리하는 서비스 내 모임은 기존 동작(상태값으로만 판단) 그대로 둔다."""
+    오픈채팅 수집(source='kakao_chat') 모임은 마감 시각이 지나면 즉시 숨긴다.
+    호스트가 직접 관리하는 서비스 내 모임(source != 'kakao_chat')은 마감 직후
+    바로 사라지면 매정하므로 grace period(설정값)만큼 여유를 두고 숨긴다."""
     limit_clause = "LIMIT ?" if limit else ""
-    now_iso = datetime.now(timezone.utc).isoformat()
-    params: tuple[object, ...] = (now_iso, limit) if limit else (now_iso,)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    grace_cutoff_iso = (now - timedelta(minutes=settings.service_meeting_hide_grace_minutes)).isoformat()
+    params: tuple[object, ...] = (now_iso, grace_cutoff_iso, limit) if limit else (now_iso, grace_cutoff_iso)
     return connection.execute(
         f"""
         SELECT m.*, p.nickname AS host_nickname
@@ -947,9 +954,9 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon')
           AND (
-            m.source != 'kakao_chat'
-            OR m.ends_at IS NULL
-            OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')}
+            m.ends_at IS NULL
+            OR (m.source = 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
+            OR (m.source != 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
           )
         ORDER BY {_time_order_expr('m.starts_at')} ASC
         {limit_clause}
@@ -963,7 +970,9 @@ def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slot
     starts_at이 대체로 다음날이라 서비스 모임에 밀려 홈에 한 건도 안 보이는 문제가
     있었다 — 콜드스타트 콘텐츠로 홈을 채우는 게 이 기능의 목적이라 자리를 예약한다."""
     kakao_slots = min(kakao_slots, limit)
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    grace_cutoff_iso = (now - timedelta(minutes=settings.service_meeting_hide_grace_minutes)).isoformat()
 
     kakao_rows = connection.execute(
         f"""
@@ -979,16 +988,18 @@ def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slot
     ).fetchall()
 
     service_limit = limit - len(kakao_rows)
+    # 서비스 파티도 마감+grace 지난 것은 홈 미리보기에서 숨긴다(_open_meeting_rows와 동일 규칙).
     service_rows = connection.execute(
         f"""
         SELECT m.*, p.nickname AS host_nickname
         FROM meetings m
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon') AND m.source != 'kakao_chat'
+          AND (m.ends_at IS NULL OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
         ORDER BY {_time_order_expr('m.starts_at')} ASC
         LIMIT ?
         """,
-        (service_limit,),
+        (grace_cutoff_iso, service_limit),
     ).fetchall()
 
     combined = list(service_rows) + list(kakao_rows)
@@ -1620,12 +1631,14 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         )
 
     if not rows:
-        # threshold 미달: 근거가 없으므로 LLM을 호출하지 않는다(비용 절약).
-        answer = "지금 조건에 맞는 유효한 정보를 찾지 못했어요. 다른 질문으로 다시 시도해주세요."
+        # threshold 미달: 근거는 없지만, 정적 회피 문구 대신 LLM의 일반 지식으로 답한다.
+        # confidence_grade는 여전히 "none"(근거 0개인 사실은 그대로).
+        answer = generate_general_answer(question=normalized)
         sources: list[RagSource] = []
         confidence = "none"
         verified_count = 0
         total_count = 0
+        answer_source = "general_knowledge"
     else:
         documents = [{"index": i, "title": row["title"], "body": row["body"]} for i, row in enumerate(rows)]
         result = generate_verified_answer(question=normalized, documents=documents)
@@ -1633,6 +1646,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         confidence = confidence_grade(result.supports)
         verified_count = sum(1 for supported in result.supports if supported)
         total_count = len(result.supports)
+        answer_source = "community"
         sources = [
             RagSource(
                 title=row["title"],
@@ -1659,7 +1673,34 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         confidence_grade=confidence,
         verified_source_count=verified_count,
         total_source_count=total_count,
+        answer_source=answer_source,
     )
+
+
+def cleanup_expired_parties() -> int:
+    """마감(ends_at) 후 party_delete_after_days(기본 2일)가 지난 사용자 파티를 DB에서
+    실제로 삭제한다(목록 숨김과 달리 복구 불가). 연관 신청·채팅도 함께 지워 고아
+    레코드를 막는다. 대상은 source != 'kakao_chat'뿐이고, users/profiles(닉네임·익명ID)는
+    건드리지 않는다 — 그건 영구 보존 방침. 삭제한 파티 수를 반환한다."""
+    cutoff_iso = (
+        datetime.now(timezone.utc) - timedelta(days=settings.party_delete_after_days)
+    ).isoformat()
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id FROM meetings
+            WHERE source != 'kakao_chat'
+              AND ends_at IS NOT NULL
+              AND {_time_order_expr('ends_at')} < {_time_order_expr('?')}
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+        meeting_ids = [row["id"] for row in rows]
+        for meeting_id in meeting_ids:
+            connection.execute("DELETE FROM meeting_chat_messages WHERE meeting_id = ?", (meeting_id,))
+            connection.execute("DELETE FROM meeting_applications WHERE meeting_id = ?", (meeting_id,))
+            connection.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
+    return len(meeting_ids)
 
 
 def get_ingest_cursor(source: str) -> int:

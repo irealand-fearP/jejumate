@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronRight, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { Bell, ChevronRight, Info, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
@@ -21,6 +21,7 @@ import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applican
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
+import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
 import { BottomNav } from "./BottomNav";
@@ -176,10 +177,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
   }
 
   function openQuestionSheet() {
-    setResult(null);
-    setAnswer(null);
-    setQuestion(data.rag_strip.suggestions[0] ?? "");
-    setSheetKey("ask");
+    // 홈 내장 미니 질문 시트(sheetKey==='ask') 대신 진짜 질문 화면(/question,
+    // QuestionScreen)으로 보낸다 — 두 구현이 따로 놀면 채팅 때처럼 한쪽만
+    // 고쳐지고 나머지가 방치되는 문제가 재발한다. ask 시트 렌더링 코드는
+    // 정리 전까지 남아 있지만 이 진입점이 유일했으므로 더는 열리지 않는다.
+    router.push("/question");
   }
 
   // '내 신청 알림 확인' 진입점 — 항상 노출되는 버튼에서 호출되며, 신청 결과 목록을
@@ -511,6 +513,12 @@ export function HomeScreen({ data }: { data: HomeData }) {
             {answer ? (
               <div className={styles.answerCard}>
                 <b>{answer.answer}</b>
+                {answer.answer_source === "general_knowledge" ? (
+                  <div className={styles.generalKnowledgeBadge}>
+                    <Info size={14} />
+                    <span>커뮤니티 근거 없음 · 일반 지식 참고 답변</span>
+                  </div>
+                ) : null}
                 <div>
                   {answer.sources.map((source) => (
                     <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
@@ -518,6 +526,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
                     </a>
                   ))}
                 </div>
+                {answer.answer_source === "community" ? (
+                  <PlaceMapSection
+                    places={answer.sources.map((source) => ({ title: source.title, url: source.url }))}
+                  />
+                ) : null}
               </div>
             ) : null}
             {renderResult()}

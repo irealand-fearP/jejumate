@@ -1,0 +1,18 @@
+.mapContainer {
+  width: 100%;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(20, 54, 58, 0.05);
+}
+
+.mapError {
+  padding: 14px 15px;
+  border: 1px solid #e0e9eb;
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: #687178;
+  font-size: 12px;
+  font-weight: 750;
+  text-align: center;
+}

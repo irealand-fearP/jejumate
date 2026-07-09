@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   CheckCircle2,
+  Info,
   MessageCircleQuestion,
   Search,
   SendHorizonal,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
+import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import styles from "./ServicePages.module.css";
 
 const suggestions = [
@@ -154,6 +156,12 @@ export function QuestionScreen() {
               </span>
             </div>
           ) : null}
+          {answer.answer_source === "general_knowledge" ? (
+            <div className={styles.generalKnowledgeBadge}>
+              <Info size={14} />
+              <span>커뮤니티 근거 없음 · 일반 지식 참고 답변</span>
+            </div>
+          ) : null}
           <p className={styles.meta}>{answer.safety_note}</p>
           {answer.sources.length ? (
             <div className={styles.sources}>
@@ -164,6 +172,9 @@ export function QuestionScreen() {
                 </a>
               ))}
             </div>
+          ) : null}
+          {answer.answer_source === "community" ? (
+            <PlaceMapSection places={answer.sources.map((source) => ({ title: source.title, url: source.url }))} />
           ) : null}
           {answer.suggestions.length ? (
             <div className={styles.followUpRow}>
