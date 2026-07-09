@@ -305,7 +305,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
       <section className={styles.phone}>
         <header className={styles.header}>
           <div className={styles.logoBlock}>
-            <img src="/assets/jejumate-logo.png" alt="제주메이트" />
+            <img src="/assets/synapse-pot-logo-header.png" alt="시냅스팟" />
             <p>제주 런케이션 커뮤니티</p>
           </div>
           <div className={styles.headerActions}>
@@ -492,7 +492,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
         ) : null}
 
         {sheetKey === "ask" ? (
-          <BottomSheet title="제주메이트 질문" onClose={closeSheet}>
+          <BottomSheet title="시냅스팟 질문" onClose={closeSheet}>
             <div className={styles.sheetForm}>
               <label htmlFor="home-rag-question">질문</label>
               <input

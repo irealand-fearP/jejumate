@@ -4,7 +4,7 @@ import "@fontsource-variable/noto-sans-kr";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "제주메이트",
+  title: "시냅스팟",
   description: "제주 런케이션 청년을 위한 RAG 기반 로컬 소셜 웹앱"
 };
 
