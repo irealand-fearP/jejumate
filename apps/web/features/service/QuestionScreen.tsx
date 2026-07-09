@@ -14,12 +14,6 @@ import {
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
-import { JejuMapPreview } from "@/features/map/JejuMapPreview";
-import {
-  JEJU_NATIONAL_UNIVERSITY_CENTER,
-  JEJU_NATIONAL_UNIVERSITY_LANDMARKS,
-  JEJU_NATIONAL_UNIVERSITY_ZOOM_LEVEL,
-} from "@/features/map/jejuNationalUniversity";
 import styles from "./ServicePages.module.css";
 
 const suggestions = [
@@ -197,13 +191,14 @@ export function QuestionScreen() {
       </div>
 
       {/* 질문 전에는 아래 빈 공간을 채우고, 답변이 생기면 답변 아래로 밀려난다.
-          키가 없거나 SDK 로드에 실패하면 JejuMapPreview가 조용히 아무것도 그리지 않는다. */}
+          팀원이 만든 캠퍼스 지도(카카오/V-World 전환)를 정적 HTML 그대로 띄운다.
+          배포 도메인이 바뀌어도 따라가도록 절대 IP가 아닌 상대경로를 쓴다. */}
       <section className={styles.campusMap}>
-        <JejuMapPreview
-          center={JEJU_NATIONAL_UNIVERSITY_CENTER}
+        <iframe
+          className={styles.campusMapFrame}
           height={CAMPUS_MAP_HEIGHT_PX}
-          level={JEJU_NATIONAL_UNIVERSITY_ZOOM_LEVEL}
-          places={JEJU_NATIONAL_UNIVERSITY_LANDMARKS}
+          src="/campus-map/map_switcher.html"
+          title="제주대학교 캠퍼스 지도"
         />
       </section>
     </MobileShell>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jeju National University Campus Map - Kakao / V-World Switcher</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  #frame-wrap { position: absolute; inset: 0; }
+  iframe { width: 100%; height: 100%; border: none; display: block; }
+</style>
+</head>
+<body>
+  <div id="frame-wrap">
+    <iframe id="mapFrame" src="kakao_map_preview.html"></iframe>
+  </div>
+  <script>
+    var SRC = {
+      kakao: 'kakao_map_preview.html',
+      vworld: 'vworld_3d_preview.html'
+    };
+    var frame = document.getElementById('mapFrame');
+    var currentLang = 'ko';
+
+    function selectMap(key) {
+      if (!SRC[key]) return;
+      document.querySelectorAll('.map-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.map === key);
+      });
+      frame.src = SRC[key] + (currentLang === 'en' ? '?lang=en' : '');
+    }
+
+    window.addEventListener('message', function (e) {
+      if (!e.data) return;
+      if (e.data.type === 'lang-changed') currentLang = e.data.lang;
+      if (e.data.type === 'map-mode-change') {
+        selectMap(e.data.map || (e.data.mode === '3d' ? 'vworld' : 'kakao'));
+      }
+    });
+
+    document.querySelectorAll('.map-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        selectMap(btn.dataset.map);
+      });
+    });
+  </script>
+</body>
+</html>

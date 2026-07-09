@@ -703,6 +703,18 @@
   margin-top: 14px;
 }
 
+/* 지도는 정적 HTML(public/campus-map/)을 iframe으로 띄운다.
+   iframe 기본 테두리는 없애고, 기존 지도 카드와 같은 라운드·그림자를 유지한다. */
+.campusMapFrame {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fbfb;
+  box-shadow: 0 8px 22px rgba(20, 54, 58, 0.05);
+}
+
 /* 애니메이션을 원치 않는 사용자에게는 즉시 펼친다. */
 @media (prefers-reduced-motion: reduce) {
   .answerReveal {
