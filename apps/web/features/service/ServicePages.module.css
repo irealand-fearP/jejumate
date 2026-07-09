@@ -293,6 +293,33 @@
   font-weight: 950;
 }
 
+/* '참여중인 파티' 한 줄의 오른쪽 버튼들(채팅 + 탈퇴/해산). 좁은 폭에 두 개가 들어가야
+   하므로 시트용 큰 버튼(.secondaryButton 46px)보다 작게 눌러 쓴다. */
+.partyActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.partyActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.partyActions .dangerButton {
+  border: 1px solid #f1c9c9;
+  background: #fff5f5;
+  color: #c84444;
+}
+
 .ownerSecretLabel {
   display: flex;
   align-items: center;

@@ -109,6 +109,14 @@ class ApplicationDeleteResponse(BaseModel):
     status: str
 
 
+class MeetingDeleteResponse(BaseModel):
+    """호스트가 자기 파티를 해산(삭제). 호스트 액션이므로 owner_secret으로 본인 확인한다.
+    신청·채팅까지 함께 지우는 복구 불가한 삭제다."""
+
+    meeting_id: str
+    status: str
+
+
 class ApplicantNotification(BaseModel):
     """내 신청 상태 알림(코덱스 원본의 신규 기능을 이식). 승인/거절/대기 상태에 맞는
     안내 문구를 서버가 만들어 내려준다."""

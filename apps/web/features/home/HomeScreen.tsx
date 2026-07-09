@@ -21,6 +21,7 @@ import { getNotificationsSeenAt, markNotificationsSeenNow } from "@/lib/applican
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
+import { CenterModal } from "@/features/common/CenterModal";
 import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
@@ -101,6 +102,8 @@ function BottomSheet({
 export function HomeScreen({ data }: { data: HomeData }) {
   const router = useRouter();
   const [sheetKey, setSheetKey] = useState<SheetKey | null>(null);
+  // 신청 성공 안내(중앙 모달) 본문. null이면 모달을 띄우지 않는다.
+  const [applicationDone, setApplicationDone] = useState<string | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<HomeMeeting | null>(null);
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [nickname, setNickname] = useState("");
@@ -255,11 +258,9 @@ export function HomeScreen({ data }: { data: HomeData }) {
         message: message.trim() || undefined,
         anonymous_id: currentProfile.anonymousId,
       });
-      setResult({
-        tone: "success",
-        title: "신청 접수 완료",
-        body: `${application.public_alias} 님의 신청이 저장되었습니다. ${application.next_step}`,
-      });
+      // 성공하면 신청 시트를 닫고 중앙 모달로 결과를 알린다(인라인 문구는 놓치기 쉽다).
+      closeSheet();
+      setApplicationDone(`${application.public_alias} 님의 신청이 저장되었습니다. ${application.next_step}`);
     } catch {
       setResult({ tone: "error", title: "신청 실패", body: "잠시 후 다시 시도해 주세요." });
     } finally {
@@ -561,6 +562,14 @@ export function HomeScreen({ data }: { data: HomeData }) {
               <p className={styles.notificationEmpty}>아직 신청한 파티가 없어요.</p>
             ) : null}
           </BottomSheet>
+        ) : null}
+
+        {applicationDone ? (
+          <CenterModal
+            description={applicationDone}
+            onClose={() => setApplicationDone(null)}
+            title="신청 접수 완료"
+          />
         ) : null}
       </section>
     </main>

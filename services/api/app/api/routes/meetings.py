@@ -17,12 +17,14 @@ from app.schemas.interactions import (
     MeetingApplicationListResponse,
     MeetingCreateRequest,
     MeetingCreateResponse,
+    MeetingDeleteResponse,
     MeetingStatusResponse,
 )
 from app.schemas.resources import MeetingsResponse
 from app.services.interaction_service import (
     create_meeting,
     decide_meeting_application,
+    delete_meeting,
     delete_my_application,
     get_meeting_detail,
     get_meeting_status,
@@ -134,6 +136,19 @@ def reject_meeting_application(
         raise HTTPException(status_code=403, detail="관리 코드가 일치하지 않아요")
     except AlreadyProcessedError:
         raise HTTPException(status_code=400, detail="이미 처리된 신청이에요")
+    return ApiResponse(request_id="local_service_request", data=data)
+
+
+@router.delete("/meetings/{meeting_id}", response_model=ApiResponse[MeetingDeleteResponse])
+def delete_meeting_route(meeting_id: str, owner_secret: str) -> ApiResponse[MeetingDeleteResponse]:
+    """파티 해산(호스트 전용). 승인/거절과 같은 권한 모델이라 owner_secret 쿼리로 확인한다.
+    신청·채팅까지 함께 지우는 복구 불가한 삭제다."""
+    try:
+        data = delete_meeting(meeting_id, owner_secret)
+    except MeetingNotFoundError:
+        raise HTTPException(status_code=404, detail="파티를 찾을 수 없어요")
+    except OwnerMismatchError:
+        raise HTTPException(status_code=403, detail="관리 코드가 일치하지 않아요")
     return ApiResponse(request_id="local_service_request", data=data)
 
 

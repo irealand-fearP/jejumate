@@ -34,6 +34,7 @@ from app.schemas.interactions import (
     MeetingApplicationListResponse,
     MeetingApplicationResponse,
     MeetingCreateResponse,
+    MeetingDeleteResponse,
     MeetingStatusResponse,
     NicknameResponse,
     RagAskResponse,
@@ -1336,6 +1337,25 @@ def list_meeting_applications(*, meeting_id: str, owner_secret: str | None) -> M
         items = [MeetingApplicationListItem(nickname=row["applicant_nickname"]) for row in rows]
 
     return MeetingApplicationListResponse(authorized=authorized, applications=items)
+
+
+def delete_meeting(*, meeting_id: str, owner_secret: str) -> MeetingDeleteResponse:
+    """호스트가 파티를 해산한다. 관리 코드 불일치는 OwnerMismatchError(라우트에서 403).
+
+    cleanup_expired_parties와 동일한 cascade 순서로 채팅·신청까지 지워 고아 레코드를
+    막는다. users/profiles는 건드리지 않는다 — 영구 보존 방침."""
+    with _connect() as connection:
+        meeting = _resolve_meeting(connection, meeting_id)
+        if meeting["owner_secret"] is None or meeting["owner_secret"] != owner_secret:
+            raise OwnerMismatchError("관리 코드가 일치하지 않아요")
+
+        # source_key로 조회됐을 수도 있으므로 실제 행의 id로 지운다.
+        resolved_id = meeting["id"]
+        connection.execute("DELETE FROM meeting_chat_messages WHERE meeting_id = ?", (resolved_id,))
+        connection.execute("DELETE FROM meeting_applications WHERE meeting_id = ?", (resolved_id,))
+        connection.execute("DELETE FROM meetings WHERE id = ?", (resolved_id,))
+
+    return MeetingDeleteResponse(meeting_id=resolved_id, status="deleted")
 
 
 def decide_meeting_application(
