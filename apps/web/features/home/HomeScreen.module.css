@@ -57,7 +57,7 @@
   color: #697178;
   font-size: 13px;
   line-height: 1.25;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .headerActions {
@@ -77,7 +77,7 @@
   background: #ffffff;
   color: #111315;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -121,7 +121,7 @@
   color: #111315;
   font-size: 16px;
   line-height: 1.35;
-  font-weight: 950;
+  font-weight: 700;
   /* 어절 중간에서 줄바꿈되는 걸 막는다("가볍/게", "신/청할"처럼 어색하게 잘리지 않게). */
   word-break: keep-all;
 }
@@ -155,7 +155,7 @@
   color: #050607;
   font-size: 25px;
   line-height: 1.1;
-  font-weight: 950;
+  font-weight: 800;
 }
 
 .sectionTitleRow h2 span {
@@ -176,7 +176,7 @@
   gap: 2px;
   color: #697178;
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 600;
   white-space: nowrap;
   text-decoration: none;
 }
@@ -203,7 +203,7 @@
   padding: 0 10px;
   border-radius: 999px;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -245,14 +245,14 @@
   color: #050607;
   font-size: 18px;
   line-height: 1;
-  font-weight: 950;
+  font-weight: 500;
 }
 
 .timeColumn span {
   color: #697178;
   font-size: 11px;
   line-height: 1;
-  font-weight: 750;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -336,7 +336,7 @@
   color: #111315;
   font-size: 15px;
   line-height: 1.2;
-  font-weight: 950;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -359,7 +359,7 @@
   font-size: 10px;
   line-height: 1;
   font-style: normal;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 /* 오픈채팅에서 자동 변환된 콘텐츠 배지. 카카오 브랜드 옐로우로 서비스 작성 글과
@@ -373,7 +373,7 @@
   font-size: 10px;
   line-height: 1.4;
   font-style: normal;
-  font-weight: 950;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -381,7 +381,7 @@
 .externalPlace {
   color: #687178;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .externalOriginal {
@@ -406,14 +406,14 @@
   color: #687178;
   font-size: 12px;
   line-height: 1.2;
-  font-weight: 750;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .meetingBody small b {
   color: #008d8d;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .joinColumn {
@@ -427,7 +427,7 @@
   color: #008d8d;
   font-size: 15px;
   line-height: 1;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .joinColumn span {
@@ -442,7 +442,7 @@
   color: #319100;
   font-size: 10px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 500;
   text-overflow: clip;
 }
 
@@ -457,7 +457,7 @@
   background: #009f9b;
   color: #ffffff;
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 700;
   box-shadow: 0 8px 18px rgba(0, 159, 155, 0.22);
 }
 
@@ -563,7 +563,7 @@
   color: #596168;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .activityCard b {
@@ -602,7 +602,7 @@
   color: #007f81;
   font-size: 16px;
   line-height: 1.2;
-  font-weight: 950;
+  font-weight: 700;
   word-break: keep-all;
 }
 
@@ -611,7 +611,7 @@
   margin-top: 5px;
   color: #596168;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .askChips {
@@ -630,7 +630,7 @@
   color: #007f81;
   font-size: 12px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -697,7 +697,7 @@
   color: #172024;
   font-size: 15px;
   line-height: 1.2;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .boardItem small {
@@ -706,7 +706,7 @@
   color: #687178;
   font-size: 12px;
   line-height: 1.3;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .bottomNav {
@@ -742,7 +742,7 @@
   gap: 4px;
   color: #666d74;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -752,7 +752,7 @@
 
 .bottomNav .navActive {
   color: #009f9b;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .bottomNav .navActive svg {
@@ -905,7 +905,7 @@
   color: #596168;
   font-size: 13px;
   line-height: 1.45;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .meetingSummary,
@@ -944,7 +944,7 @@
   color: #465156;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 850;
+  font-weight: 500;
   text-align: left;
 }
 
@@ -975,7 +975,7 @@
   background: #e9f8f6;
   color: #007f81;
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .answerCard {
@@ -985,7 +985,7 @@
 .answerCard b {
   font-size: 14px;
   line-height: 1.55;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .answerCard div {
@@ -1002,7 +1002,7 @@
   padding: 6px 10px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   width: fit-content;
   background: #eef1f4;
   color: #5b6772;
@@ -1097,7 +1097,7 @@
   background: #ffffff;
   color: #20282d;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .notificationBadge {
@@ -1111,7 +1111,7 @@
   background: #e14b3f;
   color: #ffffff;
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -1136,18 +1136,18 @@
   color: #465156;
   font-size: 13px;
   line-height: 1.45;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .notificationRow .notificationTitle {
   color: #172024;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .notificationRow span {
   color: #687178;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 400;
 }
 
 .notificationEmpty {
@@ -1155,7 +1155,7 @@
   color: #596168;
   font-size: 13px;
   line-height: 1.5;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .success {
