@@ -181,12 +181,17 @@
   text-decoration: none;
 }
 
+/* 칩이 화면 폭보다 길면 줄바꿈 대신 가로 스크롤한다(스크롤바는 숨기고 터치 관성 유지). */
 .filterRow {
   display: flex;
+  flex-wrap: nowrap;
   gap: 9px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 2px;
   scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .filterRow::-webkit-scrollbar {
@@ -206,6 +211,7 @@
   font-size: 14px;
   font-weight: 900;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .filterChip {
@@ -377,17 +383,23 @@
   white-space: nowrap;
 }
 
-.externalNotice {
+/* 오픈채팅 안내 모달에서 만남의 장소를 보여주는 줄. */
+.externalPlace {
   color: #687178;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .externalOriginal {
+  width: 100%;
+  margin: 0;
   padding: 12px;
   border-radius: 10px;
   background: #f7f8ea;
   border: 1px solid #ece9c8;
+  color: #364247;
+  font-size: 13px;
+  line-height: 1.5;
   white-space: pre-wrap;
 }
 

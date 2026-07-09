@@ -457,25 +457,20 @@ export function HomeScreen({ data }: { data: HomeData }) {
           </BottomSheet>
         ) : null}
 
+        {/* 입력 폼이 없는 단순 안내라 바텀시트가 아니라 화면 정중앙 모달로 띄운다. */}
         {sheetKey === "external" && selectedMeeting ? (
-          <BottomSheet title={selectedMeeting.title} onClose={closeSheet}>
-            <div className={styles.meetingSummary}>
-              <b>
-                <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
-              </b>
-              <span>{selectedMeeting.place_label}</span>
-            </div>
-            <p className={styles.externalNotice}>
-              오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접 참여해
-              주세요.
-            </p>
+          <CenterModal
+            confirmLabel="닫기"
+            description="오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접 참여해 주세요."
+            onClose={closeSheet}
+            title={selectedMeeting.title}
+          >
+            <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+            <span className={styles.externalPlace}>{selectedMeeting.place_label}</span>
             {selectedMeeting.description ? (
-              <div className={styles.sheetForm}>
-                <label>원문</label>
-                <p className={styles.externalOriginal}>{selectedMeeting.description}</p>
-              </div>
+              <p className={styles.externalOriginal}>{selectedMeeting.description}</p>
             ) : null}
-          </BottomSheet>
+          </CenterModal>
         ) : null}
 
         {sheetKey === "chat" && selectedMeeting ? (

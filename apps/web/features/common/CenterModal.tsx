@@ -1,10 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import styles from "./CenterModal.module.css";
 
 type CenterModalProps = {
   title: string;
   description: string;
+  /** 안내 문구 아래에 덧붙일 내용(배지·원문 등). 왼쪽 정렬로 보여준다. */
+  children?: ReactNode;
   /** 확인 버튼 문구. 기본 '확인'. */
   confirmLabel?: string;
   /** 넘기면 '취소' 버튼이 함께 나온다(확인 다이얼로그). 없으면 확인 버튼 하나만. */
@@ -25,6 +28,7 @@ type CenterModalProps = {
 export function CenterModal({
   title,
   description,
+  children,
   confirmLabel = "확인",
   cancelLabel,
   destructive = false,
@@ -43,6 +47,7 @@ export function CenterModal({
       >
         <b className={styles.title}>{title}</b>
         <p className={styles.description}>{description}</p>
+        {children ? <div className={styles.extra}>{children}</div> : null}
         <div className={styles.actions}>
           {cancelLabel ? (
             <button className={styles.cancelButton} disabled={busy} onClick={onClose} type="button">

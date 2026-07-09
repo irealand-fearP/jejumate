@@ -616,96 +616,86 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
       <Pagination onChange={goToPage} page={page} totalPages={totalPages} />
 
-      {selected ? (
+      {/* 오픈채팅 글은 입력 폼이 없는 단순 안내라 바텀시트가 아니라 화면 정중앙 모달로 띄운다. */}
+      {selected && selected.source === "kakao_chat" ? (
+        <CenterModal
+          confirmLabel="닫기"
+          description="오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접 참여해 주세요."
+          onClose={() => setSelected(null)}
+          title={selected.title}
+        >
+          <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
+          <span className={styles.externalPlace}>{selected.place_label}</span>
+          {selected.description ? <p className={styles.externalOriginal}>{selected.description}</p> : null}
+        </CenterModal>
+      ) : null}
+
+      {selected && selected.source !== "kakao_chat" ? (
         <div className={styles.sheetBackdrop} onClick={() => setSelected(null)}>
           <section className={styles.sheet} onClick={(event) => event.stopPropagation()}>
             <button className={styles.sheetClose} onClick={() => setSelected(null)} type="button" aria-label="닫기">
               <X size={20} />
             </button>
             <div className={styles.sheetGrip} />
-            {selected.source === "kakao_chat" ? (
-              <>
-                <div className={styles.sheetHero}>
-                  <span className={styles.externalBadge}>오픈채팅에서 온 글</span>
-                  <h2>{selected.title}</h2>
-                  <p>{selected.place_label}</p>
-                </div>
-                <div className={styles.form}>
-                  <p className={styles.meta}>
-                    오픈채팅방에서 자동으로 가져온 글이에요. 서비스 내 신청·승인 없이, 오픈채팅방에서 직접
-                    참여해 주세요.
-                  </p>
-                  {selected.description ? <p className={styles.externalOriginal}>{selected.description}</p> : null}
-                </div>
-                <div className={styles.sheetActions}>
-                  <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
-                    닫기
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className={styles.sheetHero}>
-                  <span>
-                    <LockKeyhole size={14} /> 닉네임만 공개
-                  </span>
-                  <h2>{selected.title}</h2>
-                  <p>
-                    {selected.place_label} · {selected.approved_count}/{selected.capacity}명 참여 중
-                  </p>
-                </div>
-                {/* 만남의 장소를 지도로 확인할 수 있게 한다(카톡 수집 파티는 이 분기에 오지 않는다). */}
-                <PlaceMapSection places={[{ title: selected.place_label }]} />
-                <div className={styles.form}>
-                  <label className={styles.label} htmlFor="meeting-nickname">
-                    공개 닉네임
-                  </label>
-                  <input
-                    className={styles.input}
-                    id="meeting-nickname"
-                    maxLength={20}
-                    onChange={(event) => setNickname(event.target.value)}
-                    placeholder="예: 바당이"
-                    value={nickname}
-                  />
-                  <label className={styles.label} htmlFor="meeting-message">
-                    호스트에게 남길 말
-                  </label>
-                  <textarea
-                    className={styles.textarea}
-                    id="meeting-message"
-                    maxLength={160}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="선택 입력. 실명이나 연락처는 쓰지 마세요."
-                    value={message}
-                  />
-                  <button
-                    className={styles.checkRow}
-                    onClick={() => setPrivacyChecked((checked) => !checked)}
-                    type="button"
-                  >
-                    <span className={privacyChecked ? styles.checkActive : ""}>
-                      {privacyChecked ? <CheckCircle2 size={16} /> : null}
-                    </span>
-                    신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
-                  </button>
-                  {result ? <div className={styles.result}>{result}</div> : null}
-                </div>
-                <div className={styles.sheetActions}>
-                  <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
-                    닫기
-                  </button>
-                  <button
-                    className={styles.primaryButton}
-                    disabled={busy || nickname.trim().length < 2 || !privacyChecked}
-                    onClick={apply}
-                    type="button"
-                  >
-                    {busy ? "처리 중" : "신청 제출"}
-                  </button>
-                </div>
-              </>
-            )}
+            <div className={styles.sheetHero}>
+              <span>
+                <LockKeyhole size={14} /> 닉네임만 공개
+              </span>
+              <h2>{selected.title}</h2>
+              <p>
+                {selected.place_label} · {selected.approved_count}/{selected.capacity}명 참여 중
+              </p>
+            </div>
+            {/* 만남의 장소를 지도로 확인할 수 있게 한다(카톡 수집 파티는 이 분기에 오지 않는다). */}
+            <PlaceMapSection places={[{ title: selected.place_label }]} />
+            <div className={styles.form}>
+              <label className={styles.label} htmlFor="meeting-nickname">
+                공개 닉네임
+              </label>
+              <input
+                className={styles.input}
+                id="meeting-nickname"
+                maxLength={20}
+                onChange={(event) => setNickname(event.target.value)}
+                placeholder="예: 바당이"
+                value={nickname}
+              />
+              <label className={styles.label} htmlFor="meeting-message">
+                호스트에게 남길 말
+              </label>
+              <textarea
+                className={styles.textarea}
+                id="meeting-message"
+                maxLength={160}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="선택 입력. 실명이나 연락처는 쓰지 마세요."
+                value={message}
+              />
+              <button
+                className={styles.checkRow}
+                onClick={() => setPrivacyChecked((checked) => !checked)}
+                type="button"
+              >
+                <span className={privacyChecked ? styles.checkActive : ""}>
+                  {privacyChecked ? <CheckCircle2 size={16} /> : null}
+                </span>
+                신중하게 신청해 주세요. 승인 후 불참하면 기다리는 분들에게 피해가 갑니다.
+              </button>
+              {result ? <div className={styles.result}>{result}</div> : null}
+            </div>
+            <div className={styles.sheetActions}>
+              <button className={styles.secondaryButton} onClick={() => setSelected(null)} type="button">
+                닫기
+              </button>
+              <button
+                className={styles.primaryButton}
+                disabled={busy || nickname.trim().length < 2 || !privacyChecked}
+                onClick={apply}
+                type="button"
+              >
+                {busy ? "처리 중" : "신청 제출"}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}
