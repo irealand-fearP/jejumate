@@ -661,6 +661,35 @@
   background: #f8fbfb;
 }
 
+/* 답변 영역을 높이 0 -> 자동 높이로 부드럽게 펼친다. max-height 트릭과 달리
+   grid-template-rows: 0fr -> 1fr 는 실제 콘텐츠 높이까지만 늘어나 튀지 않는다.
+   답변이 펼쳐지는 만큼 아래 지도가 자연스럽게 밀려 내려간다. */
+.answerReveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms ease;
+}
+
+.answerRevealOpen {
+  grid-template-rows: 1fr;
+}
+
+.answerRevealInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.campusMap {
+  margin-top: 14px;
+}
+
+/* 애니메이션을 원치 않는 사용자에게는 즉시 펼친다. */
+@media (prefers-reduced-motion: reduce) {
+  .answerReveal {
+    transition: none;
+  }
+}
+
 /* 파티 목록 검색창. .ragSearch와 같은 생김새지만 제출 버튼이 없어 2열이다. */
 .meetingSearch {
   display: grid;
