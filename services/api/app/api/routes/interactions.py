@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.repositories.local_store import ChatAccessDeniedError, MeetingNotFoundError
+from app.repositories.local_store import ChatAccessDeniedError, MeetingNotFoundError, SelfApplicationError
 from app.schemas.common import ApiResponse
 from app.schemas.interactions import (
     ChatMessageRequest,
@@ -36,15 +36,16 @@ def meeting_application(
     meeting_id: str,
     payload: MeetingApplicationRequest,
 ) -> ApiResponse[MeetingApplicationResponse]:
-    return ApiResponse(
-        request_id="local_service_request",
-        data=submit_meeting_application(
+    try:
+        data = submit_meeting_application(
             meeting_id=meeting_id,
             nickname=payload.nickname,
             message=payload.message,
             anonymous_id=payload.anonymous_id,
-        ),
-    )
+        )
+    except SelfApplicationError:
+        raise HTTPException(status_code=400, detail="본인이 만든 파티에는 신청할 수 없어요")
+    return ApiResponse(request_id="local_service_request", data=data)
 
 
 @router.get("/meetings/{meeting_id}/chat/messages", response_model=ApiResponse[ChatMessagesResponse])

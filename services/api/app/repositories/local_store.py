@@ -96,6 +96,11 @@ class ApplicantMismatchError(Exception):
     anonymous_id로 본인 확인한다(OwnerMismatchError와 별개)."""
 
 
+class SelfApplicationError(Exception):
+    """호스트 본인이 자기 파티에 신청하는 것을 막는다(2026-07-10 사용자 리포트:
+    셀프 신청이 호스트 승인 목록에도 그대로 떠서 발견)."""
+
+
 class ChatAccessDeniedError(Exception):
     """모임 채팅은 호스트(owner_secret)와 승인된 신청자(anonymous_id)만 볼 수 있다.
     대기/거절 상태이거나 아예 신청하지 않은 사람은 여기 걸린다."""
@@ -1155,6 +1160,9 @@ def create_or_update_application(
             raise ValueError(f"Unknown meeting id: {meeting_id}")
 
         user = connection.execute("SELECT * FROM users WHERE anonymous_id = ?", (profile.anonymous_id,)).fetchone()
+        if user["id"] == meeting["host_user_id"]:
+            raise SelfApplicationError("본인이 만든 파티에는 신청할 수 없어요")
+
         application = connection.execute(
             """
             SELECT *
