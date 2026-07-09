@@ -1,0 +1,32 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 0 4px;
+}
+
+.arrow,
+.pageButton {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  border: 1px solid #dce6e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #596168;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pageButtonActive {
+  border-color: #009f9b;
+  background: #009f9b;
+  color: #ffffff;
+}

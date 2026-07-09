@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronRight, Flag, MessageCircle, Plus, Trash2, X } from "lucide-react";
 import { MobileShell } from "@/features/common/MobileShell";
+import { Pagination } from "@/features/common/Pagination";
+import { usePagination } from "@/features/common/usePagination";
 import {
   createBoardComment,
   createBoardPost,
@@ -78,6 +80,9 @@ export function BoardScreen({ data }: { data: BoardData }) {
   const [notice, setNotice] = useState<string | null>(null);
   const posts =
     activeFilter === "전체" ? boardData.posts : boardData.posts.filter((post) => post.category === activeFilter);
+
+  // 카테고리 필터가 바뀌면 1페이지로 되돌린다.
+  const { page, totalPages, pageItems: pagedPosts, goToPage, listTopRef } = usePagination(posts, activeFilter);
 
   function saveProfileLocally(nextProfile: LocalProfile) {
     window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
@@ -219,9 +224,11 @@ export function BoardScreen({ data }: { data: BoardData }) {
           글쓰기
         </button>
       </div>
+      <div ref={listTopRef} />
+
       <section className={styles.boardList}>
         {posts.length ? (
-          posts.map((post) => (
+          pagedPosts.map((post) => (
             <button className={styles.boardCard} key={post.id} onClick={() => openPost(post)} type="button">
               <span className={styles.boardCategoryTag}>{post.category}</span>
               {post.source === "kakao_chat" ? (
@@ -242,6 +249,8 @@ export function BoardScreen({ data }: { data: BoardData }) {
           </div>
         )}
       </section>
+
+      <Pagination onChange={goToPage} page={page} totalPages={totalPages} />
 
       {selectedPost ? (
         <div className={styles.sheetBackdrop} onClick={() => setSelectedPost(null)}>

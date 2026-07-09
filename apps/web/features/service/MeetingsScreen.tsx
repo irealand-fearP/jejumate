@@ -47,6 +47,8 @@ import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotifica
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
+import { Pagination } from "@/features/common/Pagination";
+import { usePagination } from "@/features/common/usePagination";
 import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import styles from "./ServicePages.module.css";
 
@@ -293,6 +295,15 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     );
   }, [activeFilter, meetings, searchKeyword]);
 
+  // 카테고리 필터나 검색어가 바뀌면 1페이지로 되돌린다.
+  const {
+    page,
+    totalPages,
+    pageItems: pagedMeetings,
+    goToPage,
+    listTopRef,
+  } = usePagination(visibleMeetings, `${activeFilter}|${searchKeyword.trim()}`);
+
   async function refreshMeetings() {
     const refreshed = await getMeetingsData();
     setMeetings(refreshed.meetings);
@@ -526,13 +537,15 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         </button>
       </div>
 
+      <div ref={listTopRef} />
+
       <section className={styles.meetingList}>
         {visibleMeetings.length === 0 ? (
           <div className={styles.result}>
             {searchKeyword.trim() ? `'${searchKeyword.trim()}'와 맞는 파티가 없어요.` : "열려 있는 파티가 없어요."}
           </div>
         ) : null}
-        {visibleMeetings.map((meeting) => {
+        {pagedMeetings.map((meeting) => {
           const Icon = getMeetingIcon(meeting.category);
           const isOwned = ownedMeetingIds.has(meeting.id);
           const isExternal = meeting.source === "kakao_chat";
@@ -592,6 +605,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
           );
         })}
       </section>
+
+      <Pagination onChange={goToPage} page={page} totalPages={totalPages} />
 
       {selected ? (
         <div className={styles.sheetBackdrop} onClick={() => setSelected(null)}>
