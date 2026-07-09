@@ -60,6 +60,8 @@ def _users_count() -> int:
 
 
 def test_deletes_party_with_applications_and_chats_after_two_days():
+    # 시드 모임(고정 날짜)이 시간이 지나 삭제 대상이 되면 기대값이 흔들린다 — 먼저 비운다.
+    local_store.cleanup_expired_parties()
     meeting = _create_meeting("호스트바당이", "host-1")
     application = local_store.create_or_update_application(
         meeting_id=meeting.meeting_id,
@@ -95,6 +97,8 @@ def test_deletes_party_with_applications_and_chats_after_two_days():
 
 
 def test_keeps_party_before_two_days():
+    # 시드 모임(고정 날짜)이 시간이 지나 삭제 대상이 되면 기대값이 흔들린다 — 먼저 비운다.
+    local_store.cleanup_expired_parties()
     meeting = _create_meeting("호스트바당이", "host-2")
     recent = datetime.now(timezone.utc) - timedelta(days=1)
     _set_ends_at_and_source(meeting.meeting_id, ends_at=recent, source="service")
@@ -104,6 +108,8 @@ def test_keeps_party_before_two_days():
 
 
 def test_keeps_kakao_party_even_after_two_days():
+    # 시드 모임(고정 날짜)이 시간이 지나 삭제 대상이 되면 기대값이 흔들린다 — 먼저 비운다.
+    local_store.cleanup_expired_parties()
     """카톡 수집 파티는 이 정리 대상이 아니다(별도 수명 주기)."""
     meeting = _create_meeting("호스트바당이", "host-3")
     old = datetime.now(timezone.utc) - timedelta(days=settings.party_delete_after_days + 1)
