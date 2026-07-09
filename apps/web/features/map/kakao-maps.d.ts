@@ -18,9 +18,11 @@ declare global {
         services: {
           Places: new () => {
             // keywordSearch는 결과(x=경도, y=위도 문자열)와 상태 문자열을 콜백으로 준다.
+            // options.rect("minLng,minLat,maxLng,maxLat")로 검색 범위를 사각형으로 한정할 수 있다.
             keywordSearch: (
               keyword: string,
               callback: (result: KakaoPlaceSearchItem[], status: string) => void,
+              options?: KakaoPlaceSearchOptions,
             ) => void;
           };
           Status: { OK: string; ZERO_RESULT: string; ERROR: string };
@@ -34,5 +36,11 @@ declare global {
     place_name: string;
     x: string; // 경도(lng)
     y: string; // 위도(lat)
+  }
+
+  // 실제로 쓰는 검색 옵션만 선언한다(rect로 제주 경계 안으로 한정).
+  interface KakaoPlaceSearchOptions {
+    rect?: string;
+    size?: number;
   }
 }
