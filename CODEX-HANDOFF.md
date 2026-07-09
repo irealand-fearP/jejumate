@@ -1,5 +1,18 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-09 오전 Claude 갱신 — 대규모 기능 배치 배포 완료 (커밋 e650ecb)
+
+전부 자체 서버(115.68.226.19)+Vercel 양쪽 배포·검증 완료:
+
+- **파티 탈퇴**(승인 참가자 셀프 탈퇴, approved_count 자동 감소) / **내정보 '참여중인 파티' 통합**(호스트·참가자 역할 배지) / **홈 신청 알림 상시 진입점**
+- **화면 문구 '모임'→'파티' 전면 통일**(41곳) — 코드 네이밍(meeting 등)·URL(/meetings)·category 값은 그대로다, 헷갈리지 말 것
+- **RAG 일반지식 폴백**: 근거 없으면 이제 gpt-5-mini 일반 지식으로 답하고 `answer_source: 'general_knowledge'` + 화면 배지("커뮤니티 근거 없음")로 구분. 근거 있으면 `'community'`
+- **지도**: features/map/(JejuMapPreview·PlaceMapSection) 신설, QuestionScreen에 연결 — **community 답변에만 표시**(폴백 답변엔 안 붙임, 의도된 제약). 카카오맵 키는 서버 웹 .env.production.local에 등록됨(NEXT_PUBLIC_KAKAO_MAP_APP_KEY). 도메인 등록은 사용자가 처리
+- **파티 수명주기**: 마감+1h 지나면 공개 목록에서 숨김(내정보엔 유지) → 마감+2일 지나면 실삭제(신청·채팅 cascade, users/profiles는 영구 보존). 자체 서버는 1시간 주기 백그라운드 루프, 서버리스용 트리거는 GET /api/cleanup/expired-parties(ingest와 동일 인증)
+- **홈 질문카드**: 홈 내장 미니 질문시트 대신 /question으로 라우팅 통일(질문 UI는 이제 QuestionScreen 하나만 고치면 됨). 홈의 sheetKey==='ask' 렌더 코드는 죽은 코드로 남아있음 — 나중에 정리해도 됨
+- 코덱스의 질문화면 개편분(히어로·주제칩·후속질문)도 이 배치에 병합돼 함께 배포됨
+
+
 ## 2026-07-09 새벽 Claude 갱신 — ⚠️ 배포 대상이 하나 늘었다(자체 서버) + 대규모 변경 다수
 
 **이 섹션이 지금 가장 중요하다. 아래 상황을 모르고 예전처럼 Vercel만 보고 작업하면 서로 어긋난다.**
