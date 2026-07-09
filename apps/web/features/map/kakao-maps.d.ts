@@ -14,7 +14,25 @@ declare global {
         event: {
           addListener: (target: unknown, type: string, handler: () => void) => void;
         };
+        // 장소 검색(services) 라이브러리. libraries=services로 SDK를 로드해야 채워진다.
+        services: {
+          Places: new () => {
+            // keywordSearch는 결과(x=경도, y=위도 문자열)와 상태 문자열을 콜백으로 준다.
+            keywordSearch: (
+              keyword: string,
+              callback: (result: KakaoPlaceSearchItem[], status: string) => void,
+            ) => void;
+          };
+          Status: { OK: string; ZERO_RESULT: string; ERROR: string };
+        };
       };
     };
+  }
+
+  // keywordSearch 결과 한 건에서 좌표를 얻는 데 필요한 최소 필드만 선언한다.
+  interface KakaoPlaceSearchItem {
+    place_name: string;
+    x: string; // 경도(lng)
+    y: string; // 위도(lat)
   }
 }

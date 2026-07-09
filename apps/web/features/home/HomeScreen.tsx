@@ -408,6 +408,8 @@ export function HomeScreen({ data }: { data: HomeData }) {
                 {selectedMeeting.host.nickname}
               </span>
             </div>
+            {/* 만남의 장소를 지도로 확인할 수 있게 한다(참가자에게 자연스러운 사용처). */}
+            <PlaceMapSection places={[{ title: selectedMeeting.place_label }]} />
             <div className={styles.sheetForm}>
               <label htmlFor="home-application-nickname">공개 닉네임</label>
               <input
@@ -526,11 +528,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
                     </a>
                   ))}
                 </div>
-                {answer.answer_source === "community" ? (
-                  <PlaceMapSection
-                    places={answer.sources.map((source) => ({ title: source.title, url: source.url }))}
-                  />
-                ) : null}
               </div>
             ) : null}
             {renderResult()}

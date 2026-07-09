@@ -46,6 +46,7 @@ import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotifica
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
+import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import styles from "./ServicePages.module.css";
 
 type LocalProfile = {
@@ -600,6 +601,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
                     {selected.place_label} · {selected.approved_count}/{selected.capacity}명 참여 중
                   </p>
                 </div>
+                {/* 만남의 장소를 지도로 확인할 수 있게 한다(카톡 수집 파티는 이 분기에 오지 않는다). */}
+                <PlaceMapSection places={[{ title: selected.place_label }]} />
                 <div className={styles.form}>
                   <label className={styles.label} htmlFor="meeting-nickname">
                     공개 닉네임

@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
-import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import styles from "./ServicePages.module.css";
 
 const suggestions = [
@@ -172,9 +171,6 @@ export function QuestionScreen() {
                 </a>
               ))}
             </div>
-          ) : null}
-          {answer.answer_source === "community" ? (
-            <PlaceMapSection places={answer.sources.map((source) => ({ title: source.title, url: source.url }))} />
           ) : null}
           {answer.suggestions.length ? (
             <div className={styles.followUpRow}>
