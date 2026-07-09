@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Info,
+  Maximize2,
   MessageCircleQuestion,
   Search,
   SendHorizonal,
@@ -11,6 +12,7 @@ import {
   ShieldCheck,
   ShieldQuestion,
   Sparkles,
+  X,
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
@@ -27,6 +29,19 @@ const quickTopics = ["동행", "맛집", "코스", "생활질문"];
 /** 질문 전 빈 공간을 채우기에 알맞은 지도 높이. */
 const CAMPUS_MAP_HEIGHT_PX = 320;
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
+
+/** 실제로 스크롤되는 조상을 찾는다.
+ *  body는 globals.css에서 이미 overflow:hidden이라 잠가도 소용없고,
+ *  진짜 스크롤러는 MobileShell의 .phone이다. */
+function findScrollableParent(element: HTMLElement | null): HTMLElement | null {
+  let node = element?.parentElement ?? null;
+  while (node) {
+    const overflowY = window.getComputedStyle(node).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") return node;
+    node = node.parentElement;
+  }
+  return null;
+}
 
 type LocalProfile = {
   profileId: string;
@@ -67,6 +82,32 @@ export function QuestionScreen() {
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const mapSectionRef = useRef<HTMLElement>(null);
+  const mapToggleRef = useRef<HTMLButtonElement>(null);
+
+  // 전체화면 동안: 뒤쪽 스크롤을 잠그고, ESC로 닫을 수 있게 한다.
+  useEffect(() => {
+    if (!mapFullscreen) return;
+
+    const scroller = findScrollableParent(mapSectionRef.current);
+    const previousOverflow = scroller?.style.overflow ?? "";
+    if (scroller) scroller.style.overflow = "hidden";
+
+    // 지도(iframe) 안을 터치하면 포커스가 iframe으로 넘어가 ESC가 부모까지 오지 않는다.
+    // 그래서 진입 직후 닫기 버튼에 포커스를 준다. (닫기 버튼은 항상 보이므로 대체 수단은 있다)
+    mapToggleRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMapFullscreen(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (scroller) scroller.style.overflow = previousOverflow;
+    };
+  }, [mapFullscreen]);
 
   async function submit() {
     if (question.trim().length < 2) return;
@@ -193,13 +234,33 @@ export function QuestionScreen() {
       {/* 질문 전에는 아래 빈 공간을 채우고, 답변이 생기면 답변 아래로 밀려난다.
           팀원이 만든 캠퍼스 지도(카카오/V-World 전환)를 정적 HTML 그대로 띄운다.
           배포 도메인이 바뀌어도 따라가도록 절대 IP가 아닌 상대경로를 쓴다. */}
-      <section className={styles.campusMap}>
+      {/* 전체화면일 때 iframe이 fixed로 흐름에서 빠지므로, 원래 높이만큼 자리를 예약해
+          뒤쪽 레이아웃과 스크롤 위치가 튀지 않게 한다. */}
+      <section
+        className={styles.campusMap}
+        ref={mapSectionRef}
+        style={mapFullscreen ? { minHeight: CAMPUS_MAP_HEIGHT_PX } : undefined}
+      >
         <iframe
-          className={styles.campusMapFrame}
+          className={
+            mapFullscreen ? `${styles.campusMapFrame} ${styles.campusMapFrameFullscreen}` : styles.campusMapFrame
+          }
           height={CAMPUS_MAP_HEIGHT_PX}
           src="/campus-map/map_switcher.html"
           title="제주대학교 캠퍼스 지도"
         />
+        <button
+          aria-label={mapFullscreen ? "지도 전체화면 닫기" : "지도 전체화면으로 보기"}
+          aria-pressed={mapFullscreen}
+          className={
+            mapFullscreen ? `${styles.campusMapToggle} ${styles.campusMapToggleFullscreen}` : styles.campusMapToggle
+          }
+          onClick={() => setMapFullscreen((previous) => !previous)}
+          ref={mapToggleRef}
+          type="button"
+        >
+          {mapFullscreen ? <X size={18} /> : <Maximize2 size={18} />}
+        </button>
       </section>
     </MobileShell>
   );

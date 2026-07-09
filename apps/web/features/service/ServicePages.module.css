@@ -700,6 +700,7 @@
 }
 
 .campusMap {
+  position: relative;
   margin-top: 14px;
 }
 
@@ -713,6 +714,53 @@
   overflow: hidden;
   background: #f8fbfb;
   box-shadow: 0 8px 22px rgba(20, 54, 58, 0.05);
+}
+
+/* 전체화면: 같은 iframe 요소에 클래스만 더해 뷰포트를 덮는다(재마운트 금지 → 지도 상태 유지).
+   iOS 사파리가 requestFullscreen을 지원하지 않아 CSS 오버레이로 처리한다.
+   조상에 transform/filter/contain이 없어 fixed가 뷰포트 기준으로 잡힌다.
+   height는 iframe의 height 속성(320)을 덮어써야 하므로 명시한다. */
+.campusMapFrameFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 30; /* .nav(5)와 .sheetBackdrop(20)보다 위 */
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.campusMapToggle {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #dfe8ea;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #12363a;
+  box-shadow: 0 4px 14px rgba(20, 54, 58, 0.16);
+  cursor: pointer;
+}
+
+.campusMapToggle:hover {
+  background: #ffffff;
+}
+
+/* 전체화면일 때도 같은 자리(오른쪽 하단). iframe 위에 떠야 하므로 z-index를 한 단계 위로.
+   iOS 홈 인디케이터에 가리지 않도록 안전영역만큼 띄운다. */
+.campusMapToggleFullscreen {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 31;
 }
 
 /* 애니메이션을 원치 않는 사용자에게는 즉시 펼친다. */
