@@ -17,7 +17,12 @@ from app.schemas.resources import (
 )
 from app.services.home_service import get_home_data
 
-BOARD_CATEGORIES = ["질문게시판", "중고거래", "나눔"]
+# 중고거래와 나눔은 실제로 글이 잘 섞여서(팔기/나눔이 한 글에 같이 있음) 하나로 합쳤다.
+# 기존에 '중고거래'/'나눔'으로 저장된 글은 ensure_database에서 이 값으로 통일된다.
+BOARD_CATEGORIES = ["질문게시판", "중고거래/나눔", "꿀팁", "기타"]
+
+# 합쳐지기 전의 옛 카테고리 값. 데이터 마이그레이션에서 이 값들을 '중고거래/나눔'으로 바꾼다.
+LEGACY_MERGED_CATEGORIES = ("중고거래", "나눔")
 
 
 def get_meetings_data() -> MeetingsResponse:
@@ -36,7 +41,7 @@ def get_board_data() -> BoardResponse:
     return BoardResponse(
         categories=BOARD_CATEGORIES,
         posts=list_board_posts(),
-        notice="생활게시판 글은 닉네임으로만 공개됩니다.",
+        notice="질문·중고거래·나눔부터 생활 꿀팁까지, 제주 생활을 자유롭게 나눠보세요.",
     )
 
 

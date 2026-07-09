@@ -4,10 +4,12 @@ import Link from "next/link";
 import { ChevronRight, ClipboardList, Search, ShieldCheck } from "lucide-react";
 import styles from "./HomeScreen.module.css";
 
+// 생활게시판 카테고리(resource_service.BOARD_CATEGORIES)와 이름을 맞춘다.
+// '기타'는 안내 카드로 굳이 노출하지 않는다(글쓰기에서 고를 수 있다).
 const BOARD_ITEMS = [
   { title: "질문게시판", body: "장소, 영업시간, 맛집을 바로 물어봐요", icon: Search },
-  { title: "중고거래", body: "기숙사 생활용품과 책을 사고팔아요", icon: ClipboardList },
-  { title: "나눔", body: "버물리, 연고처럼 급한 물품을 나눠요", icon: ShieldCheck },
+  { title: "중고거래/나눔", body: "생활용품과 책을 사고팔거나 나눠요", icon: ClipboardList },
+  { title: "꿀팁", body: "제주 생활에 도움 되는 노하우를 공유해요", icon: ShieldCheck },
 ];
 
 const BOARD_TARGET = "/board";

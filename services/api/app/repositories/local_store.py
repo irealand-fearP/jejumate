@@ -426,9 +426,21 @@ def _ensure_database_postgres() -> None:
             connection._raw.rollback()
         _seed(connection)
         _seed_board_posts(connection)
+        _migrate_board_categories(connection)
         connection.commit()
     finally:
         connection.close()
+
+
+def _migrate_board_categories(connection) -> None:
+    """'중고거래'와 '나눔'을 '중고거래/나눔' 한 카테고리로 합친 뒤, 기존에 옛 값으로
+    저장된 글들을 새 값으로 통일한다. 통일하지 않으면 옛 글이 새 필터에 하나도 안 잡힌다.
+
+    멱등이라 매 기동마다 돌아도 안전하다(두 번째부터는 대상 행이 0건).
+    resource_service.LEGACY_MERGED_CATEGORIES와 같은 값을 쓴다(순환 import를 피해 직접 적음)."""
+    connection.execute(
+        "UPDATE board_posts SET category = '중고거래/나눔' WHERE category IN ('중고거래', '나눔')"
+    )
 
 
 def ensure_database() -> None:
@@ -466,6 +478,7 @@ def ensure_database() -> None:
         # 게시판 시드는 모임 시드(_seed)의 meeting_count 가드와 무관하게 항상 확인한다 —
         # 이미 모임이 있는 기존 개발 DB에서도 board_posts는 비어 있을 수 있기 때문.
         _seed_board_posts(connection)
+        _migrate_board_categories(connection)
         connection.commit()
     finally:
         connection.close()
@@ -494,21 +507,21 @@ def _seed_board_posts(connection: sqlite3.Connection) -> None:
         ),
         (
             "board-market-desk",
-            "중고거래",
+            "중고거래/나눔",
             "원룸용 접이식 책상 나눔 가격에 팝니다",
             "이호동 근처, 상태 좋아요. 직거래만 가능합니다.",
             "이호주민",
         ),
         (
             "board-market-bike",
-            "중고거래",
+            "중고거래/나눔",
             "자전거(생활용) 3개월 사용, 저렴하게 드려요",
             "타이어 최근 교체했습니다. 서귀포 인근에서 만나요.",
             "서귀포라이더",
         ),
         (
             "board-share-firstaid",
-            "나눔",
+            "중고거래/나눔",
             "버물리/연고 여유분 나눔합니다",
             "여행 오면서 넉넉히 챙겨왔는데 남아서 나눔해요.",
             "제주헬퍼",

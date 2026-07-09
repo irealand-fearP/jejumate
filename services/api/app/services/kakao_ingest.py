@@ -66,10 +66,14 @@ def _strip_system_notices(content: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
+# 중고거래와 나눔은 게시판에서 하나의 카테고리로 합쳤다(resource_service.BOARD_CATEGORIES).
+# 'other'(잡담)는 여기에 넣지 않는다 — 매핑에 없으면 게시판으로 변환하지 않고 버린다.
+# '기타' 카테고리는 사용자가 직접 글을 쓸 때만 고르는 값이다.
 _TYPE_TO_BOARD_CATEGORY = {
-    "secondhand": "중고거래",
-    "share": "나눔",
+    "secondhand": "중고거래/나눔",
+    "share": "중고거래/나눔",
     "question": "질문게시판",
+    "tip": "꿀팁",
 }
 
 

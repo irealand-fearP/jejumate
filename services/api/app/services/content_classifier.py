@@ -12,8 +12,9 @@ from app.core.config import settings
 
 CHAT_MODEL = "gpt-5-mini"
 
-# 생활게시판 기존 3카테고리 + 모임 후보(meetup) + 그 외(other, 변환 안 함).
-CONTENT_TYPES = ["meetup", "secondhand", "share", "question", "other"]
+# 생활게시판으로 옮길 유형 + 모임 후보(meetup) + 그 외(other, 변환 안 함).
+# secondhand/share는 게시판에서 '중고거래/나눔' 한 카테고리로 합쳐진다(kakao_ingest 매핑).
+CONTENT_TYPES = ["meetup", "secondhand", "share", "question", "tip", "other"]
 MEETING_CATEGORIES = ["meal", "work", "move", "coffee", "run"]
 
 _SYSTEM_PROMPT = """너는 제주 대학생 오픈채팅방 메시지를 분류하는 도우미다.
@@ -22,6 +23,7 @@ _SYSTEM_PROMPT = """너는 제주 대학생 오픈채팅방 메시지를 분류�
 - secondhand: 중고거래 글
 - share: 무료 나눔 글
 - question: 궁금한 걸 묻는 글
+- tip: 제주 생활에 도움 되는 꿀팁·노하우를 알려주는 글 (예: "공항버스는 앱으로 미리 끊는 게 싸요")
 - other: 위에 안 속하는 잡담/일상 대화
 
 meetup이면 함께 갈 장소·활동을 20자 이내로 새로 요약한 title과, 다음 중 가장 가까운
