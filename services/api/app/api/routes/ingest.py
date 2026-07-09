@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Header, HTTPException, Query
 
 from app.core.config import settings
+from app.repositories.local_store import cleanup_expired_parties
 from app.schemas.common import ApiResponse
-from app.schemas.ingest import KakaoIngestResponse
+from app.schemas.ingest import KakaoIngestResponse, PartyCleanupResponse
 from app.services.kakao_ingest import ingest_new_messages
 
 router = APIRouter(tags=["ingest"])
@@ -36,4 +37,24 @@ def ingest_kakao(
     return ApiResponse(
         request_id="local_service_request",
         data=KakaoIngestResponse(ingested=ingested, cursor=cursor),
+    )
+
+
+@router.get("/cleanup/expired-parties", response_model=ApiResponse[PartyCleanupResponse])
+def cleanup_parties(
+    secret: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+) -> ApiResponse[PartyCleanupResponse]:
+    """마감 2일 지난 사용자 파티를 실제 삭제한다(신청·채팅 cascade).
+
+    서버리스(Vercel) 배포용 트리거 — 자체 서버는 백그라운드 루프가 같은 함수를
+    주기 실행하므로 이 엔드포인트가 없어도 정리가 돌아간다. 인증은 ingest와 동일.
+    """
+    if not _is_authorized(secret, authorization):
+        raise HTTPException(status_code=403, detail="권한이 없어요")
+
+    deleted = cleanup_expired_parties()
+    return ApiResponse(
+        request_id="local_service_request",
+        data=PartyCleanupResponse(deleted=deleted),
     )

@@ -1677,6 +1677,32 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     )
 
 
+def cleanup_expired_parties() -> int:
+    """마감(ends_at) 후 party_delete_after_days(기본 2일)가 지난 사용자 파티를 DB에서
+    실제로 삭제한다(목록 숨김과 달리 복구 불가). 연관 신청·채팅도 함께 지워 고아
+    레코드를 막는다. 대상은 source != 'kakao_chat'뿐이고, users/profiles(닉네임·익명ID)는
+    건드리지 않는다 — 그건 영구 보존 방침. 삭제한 파티 수를 반환한다."""
+    cutoff_iso = (
+        datetime.now(timezone.utc) - timedelta(days=settings.party_delete_after_days)
+    ).isoformat()
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id FROM meetings
+            WHERE source != 'kakao_chat'
+              AND ends_at IS NOT NULL
+              AND {_time_order_expr('ends_at')} < {_time_order_expr('?')}
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+        meeting_ids = [row["id"] for row in rows]
+        for meeting_id in meeting_ids:
+            connection.execute("DELETE FROM meeting_chat_messages WHERE meeting_id = ?", (meeting_id,))
+            connection.execute("DELETE FROM meeting_applications WHERE meeting_id = ?", (meeting_id,))
+            connection.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
+    return len(meeting_ids)
+
+
 def get_ingest_cursor(source: str) -> int:
     """카톡 실시간 수집 증분 커서(마지막으로 처리한 항목 id). 없으면 0(처음부터)."""
     with _connect() as connection:

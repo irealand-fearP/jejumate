@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # 매정하다 — 카톡 수집 파티(즉시 숨김, grace 없음)와 달리 여유 시간을 준다.
     service_meeting_hide_grace_minutes: int = 60
 
+    # 마감 후 이 일수가 지난 서비스 파티는 DB에서 실제로 삭제한다(신청·채팅 cascade).
+    # 숨김(grace)과 달리 복구 불가한 삭제다. users/profiles는 대상이 아니다.
+    party_delete_after_days: int = 2
+    party_cleanup_interval_seconds: int = 3600
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

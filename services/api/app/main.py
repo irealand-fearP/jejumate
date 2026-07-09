@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import board, health, home, ingest, interactions, meetings, profile
 from app.core.config import settings
+from app.repositories.local_store import cleanup_expired_parties
 from app.services.kakao_ingest import ingest_new_messages
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,20 @@ async def _kakao_polling_loop() -> None:
         except Exception:  # noqa: BLE001 - 폴링 루프는 한 번 실패해도 계속 돌아야 한다.
             logger.exception("카톡 수집 실패")
         await asyncio.sleep(settings.kakao_poll_interval_seconds)
+
+
+async def _party_cleanup_loop() -> None:
+    """마감 2일 지난 사용자 파티를 주기적으로 실제 삭제한다(자체 서버 전용 —
+    서버리스는 GET /api/cleanup/expired-parties 트리거로 대신한다)."""
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            deleted = await loop.run_in_executor(None, cleanup_expired_parties)
+            if deleted:
+                logger.info("만료 파티 정리: %s건 삭제", deleted)
+        except Exception:  # noqa: BLE001 - 정리 루프도 한 번 실패해도 계속 돌아야 한다.
+            logger.exception("만료 파티 정리 실패")
+        await asyncio.sleep(settings.party_cleanup_interval_seconds)
 
 
 def create_app() -> FastAPI:
@@ -57,6 +72,7 @@ def create_app() -> FastAPI:
         if os.environ.get("VERCEL"):
             return
         asyncio.create_task(_kakao_polling_loop())
+        asyncio.create_task(_party_cleanup_loop())
 
     return app
 
