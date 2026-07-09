@@ -1,5 +1,32 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+## 2026-07-09 오후~저녁 Claude 갱신 — UX 대량 개편 배치 (커밋 ef2bfdf까지)
+
+리브랜딩 이후 오늘 반영된 것 전부. 4곳(WSL fork·윈도우 fork·GitHub codex-latest·자체서버 115.68.226.19) 동기화·배포·라이브 검증 완료 상태다.
+
+**리브랜딩:** 서비스명 "제주메이트"→"시냅스팟"(SYNAPSE POT). 로고=손 두 개가 시냅스로 연결되는 컬러 일러스트(apps/web/public/assets/synapse-pot-logo.png, 헤더용 축소본 synapse-pot-logo-header.png). 화면 문구만 교체, 코드·저장소·도메인(jejumate)은 그대로.
+
+**파티/모임:** '전체' 필터=서비스 파티만(카톡 파티는 '오픈채팅' 필터에서만), 홈 미리보기는 카톡 섞임 유지. 파티 목록 최신순(created_at DESC). 페이지네이션(15개/페이지, '< 1 2 3 4 5 >' 5개 윈도우, 공용 usePagination.ts). 파티 탈퇴(참가자)/해산(호스트, 신규 DELETE /api/meetings/{id}?owner_secret=). 카테고리 칩은 wrap(좁은 폰 2줄). 신청 완료 시 중앙 모달. 호스트 승인은 배너→바텀시트(admin 페이지 이동 없이, 공용 useHostApplications.ts).
+
+**채팅:** 좌우 정렬(내 것 오른쪽) + 4초 실시간 폴링 + 자동 하단 스크롤(위 읽는 중엔 방해 안 함). 전부 공용 ChatSheet.tsx — 채팅 수정은 여기 한 곳만.
+
+**질문/RAG:** 질문탭에 제주대 캠퍼스 상시 지도(질문 전 하단, 답변 후 답변 아래로). 카카오맵 JS 키는 서버 apps/web/.env.production.local의 NEXT_PUBLIC_KAKAO_MAP_APP_KEY(baed9dec…, 도메인 http://115.68.226.19:8126 등록됨). 지도 장소검색은 keywordSearch 변형+제주 편향(useKakaoPlaceSearch.ts).
+
+**생활게시판:** 카테고리 [질문게시판, 중고거래/나눔(통합), 꿀팁, 기타](+전체). 배너 문구 교체. 카톡 분류 매핑(kakao_ingest.py _TYPE_TO_BOARD_CATEGORY): secondhand·share→'중고거래/나눔', question→'질문게시판', tip→'꿀팁'. 옛 데이터 멱등 마이그레이션됨.
+
+**내정보:** '공개되는/공개되지 않는 정보' 섹션 삭제. '참여중인 파티' 통합(호스트/참가자 역할 배지 + 탈퇴/해산 버튼).
+
+**홈 폰트 위계:** HomeScreen.module.css의 font-weight만 조정(섹션제목 800/카드제목 700/본문 400~500/라벨 600/버튼 700). 레이아웃·색·크기 불변. 다른 화면 CSS는 안 건드림.
+
+**콜드스타트/수집:** 일일 변환 상한 30→300(오후 병목 해소). 카톡 파티는 created_at+4시간 후 자동삭제(kakao_party_delete_after_hours), 사용자 파티는 마감+2일 삭제, 게시판·RAG 근거는 보존.
+
+**버그픽스:** 파티 탈퇴 500 — Postgres MAX(a,b) 미지원 → GREATEST 분기(승인 참가자 탈퇴 시 approved_count 감소). SQLite는 MAX 유지.
+
+**⚠️ 자주 겪은 함정:** ①로컬 SQLite 테스트 통과해도 배포 Postgres에서 SQL 함수 차이로 깨질 수 있음(MAX/datetime 등 — USE_POSTGRES 분기 확인). ②QuestionScreen.tsx는 코덱스 질문화면 개편분과 자주 병합 충돌 — 양쪽 기능(히어로/후속질문 vs 지도/애니메이션) 다 살려서 해결. ③배포는 반드시 자체서버+Vercel 양쪽. 자체서버 웹은 next build 필요, API는 systemctl restart만.
+
+**미완/다음:** 발표자료(docs/발표자료-초안.md, shared/presentation-draft.md — 팀명·팀원·리허설 남음), 학교 홍보 제안서(shared/school-proposal-draft.md, PDF는 윈도우 jejumate-work/). 발표 7/10(금) 14:30.
+
+
 ## 2026-07-09 오전 Claude 갱신 — 대규모 기능 배치 배포 완료 (커밋 e650ecb)
 
 전부 자체 서버(115.68.226.19)+Vercel 양쪽 배포·검증 완료:
