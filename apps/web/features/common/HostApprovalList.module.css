@@ -1,0 +1,125 @@
+.groups {
+  display: grid;
+  gap: 16px;
+}
+
+.group {
+  display: grid;
+  gap: 8px;
+}
+
+.groupTitle {
+  margin: 0;
+  color: #172024;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: #f8fbfb;
+}
+
+.itemMain {
+  min-width: 0;
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nickname {
+  color: #172024;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.message {
+  margin: 4px 0 0;
+  color: #687178;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 750;
+  word-break: break-word;
+}
+
+.badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.pending {
+  background: #fff3d6;
+  color: #8a6100;
+}
+
+.approved {
+  background: #e9f8f6;
+  color: #007f81;
+}
+
+.rejected {
+  background: #eef1f3;
+  color: #566067;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.approveButton,
+.rejectButton {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.approveButton {
+  background: #009f9b;
+  color: #ffffff;
+}
+
+.rejectButton {
+  border: 1px solid #dce6e8;
+  background: #ffffff;
+  color: #596168;
+}
+
+.approveButton:disabled,
+.rejectButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.empty {
+  padding: 22px 12px;
+  border-radius: 10px;
+  background: #f8fbfb;
+  color: #596168;
+  font-size: 13px;
+  font-weight: 750;
+  text-align: center;
+}

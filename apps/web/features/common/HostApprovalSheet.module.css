@@ -1,0 +1,93 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  background: rgba(0, 22, 24, 0.34);
+  backdrop-filter: blur(7px);
+}
+
+.sheet {
+  position: relative;
+  width: min(100vw, 430px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 22px;
+  border-radius: 18px 18px 0 0;
+  background: #ffffff;
+}
+
+.grip {
+  justify-self: center;
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: #dce6e8;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  color: #7f8b91;
+}
+
+.hero {
+  display: grid;
+  gap: 4px;
+}
+
+.hero h2 {
+  margin: 0;
+  color: #111315;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.hero p {
+  margin: 0;
+  color: #687178;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.body {
+  min-height: 80px;
+}
+
+.loading {
+  padding: 22px 12px;
+  color: #687178;
+  font-size: 13px;
+  font-weight: 750;
+  text-align: center;
+}
+
+.error {
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f1c9c9;
+  color: #c84444;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.actions {
+  display: flex;
+}
+
+.closeButton {
+  flex: 1;
+  height: 46px;
+  border: 1px solid #dce6e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #596168;
+  font-size: 14px;
+  font-weight: 950;
+}
