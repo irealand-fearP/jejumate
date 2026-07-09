@@ -3,31 +3,26 @@
 import { useEffect, useState } from "react";
 import {
   CalendarClock,
-  Eye,
-  EyeOff,
   LogOut,
   MapPin,
   MessageCircle,
   ShieldCheck,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 import {
   createNickname,
   deleteMeeting,
   deleteMyApplication,
-  getMeetingChatMessages,
   getMeetingDetail,
   getMyApplicationNotifications,
-  sendMeetingChatMessage,
   type ApplicantNotification,
-  type ChatMessage,
   type HomeMeeting,
   type ProfilePreviewData,
 } from "@/lib/api";
 import { listOwnedMeetings, removeOwnerSecret } from "@/lib/ownerSecret";
 import { CenterModal } from "@/features/common/CenterModal";
+import { ChatSheet } from "@/features/common/ChatSheet";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
 
@@ -43,11 +38,12 @@ type OwnedMeetingItem = {
   meeting: HomeMeeting | null;
 };
 
+// 공용 ChatSheet에 넘길 최소 정보. 접근 권한(호스트 관리 코드/익명 ID)은 ChatSheet가
+// localStorage와 profile에서 알아서 읽는다.
 type ChatTarget = {
   meetingId: string;
   title: string;
-  anonymousId?: string;
-  ownerSecret?: string;
+  placeLabel: string;
 };
 
 // '참여중인 파티' 통합 목록 한 줄. 호스트/참가자 두 데이터 소스를 같은 모양으로 맞춰서 함께 정렬·렌더링한다.
@@ -101,12 +97,6 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatNotice, setChatNotice] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatNickname, setChatNickname] = useState("");
-  const [chatBusy, setChatBusy] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -213,51 +203,12 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     setActionError(null);
   }
 
-  async function openChat(target: ChatTarget) {
-    setChatTarget(target);
-    setChatError(null);
-    setChatInput("");
-    setChatNickname(profile?.nickname ?? nickname);
-    setChatBusy(true);
-
-    try {
-      const chat = await getMeetingChatMessages(target.meetingId, {
-        anonymousId: target.anonymousId,
-        ownerSecret: target.ownerSecret,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-    } catch (error) {
-      setChatError(error instanceof Error ? error.message : "채팅을 불러오지 못했어요.");
-    } finally {
-      setChatBusy(false);
-    }
-  }
-
-  function closeChat() {
-    setChatTarget(null);
-  }
-
-  async function sendChat() {
-    if (!chatTarget || chatNickname.trim().length < 2 || chatInput.trim().length < 1) return;
-    setChatBusy(true);
-    setChatError(null);
-
-    try {
-      const chat = await sendMeetingChatMessage(chatTarget.meetingId, {
-        nickname: chatNickname.trim(),
-        content: chatInput.trim(),
-        anonymous_id: chatTarget.anonymousId,
-        owner_secret: chatTarget.ownerSecret,
-      });
-      setChatMessages(chat.messages);
-      setChatNotice(chat.notice);
-      setChatInput("");
-    } catch (error) {
-      setChatError(error instanceof Error ? error.message : "메시지를 보내지 못했어요.");
-    } finally {
-      setChatBusy(false);
-    }
+  // 채팅은 공용 ChatSheet가 담당한다(4초 폴링·본인/타인 정렬 포함) — 여기서는 어떤 파티의
+  // 채팅을 열지만 결정한다. 예전엔 이 화면이 자체 채팅 구현을 갖고 있어서 폴링도 정렬도
+  // 없었고, "내가 보내거나 다시 들어와야 새 메시지가 보인다"는 버그가 있었다.
+  function handleChatProfileCreated(nextProfile: LocalProfile) {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+    setProfile(nextProfile);
   }
 
   // 호스트 목록 + 승인된 참가 목록을 '참여중인 파티' 하나로 합치고 날짜순으로 정렬한다.
@@ -273,7 +224,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     chatTarget: {
       meetingId: meeting.meeting_id,
       title: meeting.meeting_title,
-      anonymousId: profile?.anonymousId,
+      placeLabel: meeting.place_label,
     },
   }));
 
@@ -287,7 +238,7 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     detailLabel: owned.meeting ? `${owned.meeting.approved_count}/${owned.meeting.capacity}명` : null,
     ownerSecret: owned.ownerSecret,
     chatTarget: owned.meeting
-      ? { meetingId: owned.meetingId, title: owned.meeting.title, ownerSecret: owned.ownerSecret }
+      ? { meetingId: owned.meetingId, title: owned.meeting.title, placeLabel: owned.meeting.place_label }
       : null,
   }));
 
@@ -356,7 +307,11 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
                 </div>
                 <div className={styles.partyActions}>
                   {party.chatTarget ? (
-                    <button className={styles.secondaryButton} onClick={() => openChat(party.chatTarget as ChatTarget)} type="button">
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={() => setChatTarget(party.chatTarget as ChatTarget)}
+                      type="button"
+                    >
                       <MessageCircle size={14} /> 채팅
                     </button>
                   ) : null}
@@ -388,26 +343,6 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
       <section className={styles.profileGrid}>
         <div className={styles.profileCard}>
           <h2>
-            <Eye size={17} /> 공개되는 정보
-          </h2>
-          <ul>
-            {data.public_fields.map((field) => (
-              <li key={field}>{field}</li>
-            ))}
-          </ul>
-        </div>
-        <div className={styles.profileCard}>
-          <h2>
-            <EyeOff size={17} /> 공개되지 않는 정보
-          </h2>
-          <ul>
-            {data.hidden_fields.map((field) => (
-              <li key={field}>{field}</li>
-            ))}
-          </ul>
-        </div>
-        <div className={styles.profileCard}>
-          <h2>
             <ShieldCheck size={17} /> 안전 기준
           </h2>
           <ul>
@@ -419,78 +354,15 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
       </section>
 
       {chatTarget ? (
-        <div className={styles.sheetBackdrop} onClick={closeChat}>
-          <section className={styles.sheet} onClick={(event) => event.stopPropagation()}>
-            <button className={styles.sheetClose} onClick={closeChat} type="button" aria-label="닫기">
-              <X size={20} />
-            </button>
-            <div className={styles.sheetGrip} />
-            <div className={styles.sheetHero}>
-              <span>
-                <MessageCircle size={14} /> 파티 채팅
-              </span>
-              <h2>{chatTarget.title}</h2>
-            </div>
-
-            <div className={styles.form}>
-              {chatNotice ? <p className={styles.meta}>{chatNotice}</p> : null}
-              {chatBusy && chatMessages.length === 0 ? (
-                <p className={styles.meta}>불러오는 중...</p>
-              ) : chatMessages.length === 0 ? (
-                <p className={styles.meta}>아직 메시지가 없어요. 첫 인사를 남겨보세요.</p>
-              ) : (
-                <ul className={styles.applicantList}>
-                  {chatMessages.map((message) => (
-                    <li className={styles.notificationRow} key={message.id}>
-                      <div>
-                        <p className={styles.notificationTitle}>{message.sender_nickname}</p>
-                        <p className={styles.meta}>{message.content}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {chatError ? <div className={styles.result}>{chatError}</div> : null}
-
-              <label className={styles.label} htmlFor="profile-chat-nickname">
-                닉네임
-              </label>
-              <input
-                className={styles.input}
-                id="profile-chat-nickname"
-                maxLength={20}
-                onChange={(event) => setChatNickname(event.target.value)}
-                value={chatNickname}
-              />
-              <label className={styles.label} htmlFor="profile-chat-message">
-                메시지
-              </label>
-              <textarea
-                className={styles.textarea}
-                id="profile-chat-message"
-                maxLength={500}
-                onChange={(event) => setChatInput(event.target.value)}
-                placeholder="약속 장소나 준비물을 편하게 이야기해보세요."
-                value={chatInput}
-              />
-            </div>
-
-            <div className={styles.sheetActions}>
-              <button className={styles.secondaryButton} onClick={closeChat} type="button">
-                닫기
-              </button>
-              <button
-                className={styles.primaryButton}
-                disabled={chatBusy || chatNickname.trim().length < 2 || chatInput.trim().length < 1}
-                onClick={sendChat}
-                type="button"
-              >
-                {chatBusy ? "보내는 중" : "메시지 보내기"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ChatSheet
+          meetingId={chatTarget.meetingId}
+          meetingTitle={chatTarget.title}
+          meetingPlaceLabel={chatTarget.placeLabel}
+          hasAccess
+          profile={profile}
+          onProfileCreated={handleChatProfileCreated}
+          onClose={() => setChatTarget(null)}
+        />
       ) : null}
 
       {pendingAction ? (

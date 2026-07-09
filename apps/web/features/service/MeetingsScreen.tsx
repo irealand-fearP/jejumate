@@ -279,12 +279,14 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
 
   const visibleMeetings = useMemo(() => {
     // 카테고리 필터를 먼저 적용하고, 검색어를 AND로 겹쳐 좁힌다.
-    let filtered = meetings;
+    // 카톡 수집 파티는 '오픈채팅' 필터에서만 보여준다 — '전체'를 포함한 나머지 필터는
+    // 서비스에서 직접 만든 파티만 다룬다(홈 미리보기는 지금처럼 섞어서 보여준다).
+    let filtered = meetings.filter((meeting) => meeting.source !== "kakao_chat");
     if (activeFilter === "오픈채팅") {
       filtered = meetings.filter((meeting) => meeting.source === "kakao_chat");
     } else if (activeFilter !== "전체") {
       const categories = FILTER_TO_CATEGORIES[activeFilter] ?? [];
-      filtered = meetings.filter((meeting) => categories.includes(meeting.category));
+      filtered = filtered.filter((meeting) => categories.includes(meeting.category));
     }
 
     // 목록 전체를 이미 받아왔으므로 검색은 프론트 필터링으로 충분하다(새 API 불필요).
