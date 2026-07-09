@@ -181,32 +181,26 @@
   text-decoration: none;
 }
 
-/* 칩이 화면 폭보다 길면 줄바꿈 대신 가로 스크롤한다(스크롤바는 숨기고 터치 관성 유지). */
+/* 카테고리 필터 칩. 한 줄에 다 안 들어가면 가로 스크롤 대신 다음 줄로 넘긴다 —
+   좁은 폰에서 마지막 칩이 잘려 보이면 "더 있다"는 걸 알아채기 어렵다.
+   화면이 넓으면 자연스럽게 한 줄로 남는다. */
 .filterRow {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 9px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.filterRow::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .filterChip,
 .filterActive {
   flex: 0 0 auto;
-  min-width: 74px;
+  /* 6개가 설계 폭(430px)에서는 한 줄에 들어가도록 최소폭·좌우 여백을 줄였다.
+     더 좁은 폰에서는 flex-wrap이 알아서 다음 줄로 넘긴다. */
+  min-width: 56px;
   height: 39px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 15px;
+  padding: 0 10px;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 900;
@@ -481,9 +475,11 @@
 
   .filterChip,
   .filterActive {
-    min-width: 64px;
+    /* 칩 6개가 설계 폭(430px)에서 한 줄에 들어가도록 최소폭·좌우 여백을 줄인다.
+       그보다 좁은 폰에서는 flex-wrap이 다음 줄로 넘긴다. */
+    min-width: 54px;
     height: 34px;
-    padding: 0 12px;
+    padding: 0 9px;
     font-size: 12.5px;
   }
 

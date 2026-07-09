@@ -1,5 +1,13 @@
-/* 칩이 화면 폭보다 길면 줄바꿈 대신 가로 스크롤한다(스크롤바는 숨기고 터치 관성 유지). */
-.toolbar,
+/* 카테고리 필터 칩. 한 줄에 다 안 들어가면 가로 스크롤 대신 다음 줄로 넘긴다 —
+   좁은 폰에서 마지막 칩이 잘려 보이면 "더 있다"는 걸 알아채기 어렵다.
+   화면이 넓으면 자연스럽게 한 줄로 남는다. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+/* 질문 화면 추천 질문은 문구가 길고 개수가 늘 수 있어 가로 스크롤을 유지한다. */
 .suggestions {
   display: flex;
   flex-wrap: nowrap;
@@ -12,7 +20,6 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.toolbar::-webkit-scrollbar,
 .suggestions::-webkit-scrollbar {
   display: none;
 }
