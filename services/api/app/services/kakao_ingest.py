@@ -33,7 +33,10 @@ logger = logging.getLogger(__name__)
 KAKAO_CHATS_URL = "https://dm.kggstudio.com/chats"
 INGEST_SOURCE = "kakao_live"
 MIN_CONTENT_LENGTH = 10
-COLDSTART_DAILY_LIMIT = 30
+# 하루 자동 변환 상한. 초기값 30은 이틀 연속 정오 전에 소진돼 오후 메시지가 서비스에
+# 등록되지 않는 병목이 됐다(2026-07-09 사용자 리포트). 스팸 폭주 방어선 역할만 하도록
+# 실제 채팅량(하루 수백 건, 필터 통과분은 그 일부)을 넉넉히 웃도는 값으로 상향.
+COLDSTART_DAILY_LIMIT = 300
 
 _EMOJI_PATTERN = re.compile(
     "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF\U00002190-\U000021FF\U00002B00-\U00002BFF]+"
