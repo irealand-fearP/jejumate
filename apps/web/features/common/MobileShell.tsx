@@ -28,7 +28,7 @@ export function MobileShell({
       <section className={styles.phone}>
         <header className={styles.header}>
           <Link className={styles.brand} href="/">
-            제주메이트
+            시냅스팟
           </Link>
           <div>
             <h1>{title}</h1>
