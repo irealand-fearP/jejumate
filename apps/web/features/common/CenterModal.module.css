@@ -1,0 +1,75 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40; /* 바텀시트(20)보다 위에 뜬다 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 54, 58, 0.34);
+  backdrop-filter: blur(7px);
+}
+
+.modal {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 320px);
+  padding: 22px 20px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgba(20, 54, 58, 0.22);
+  text-align: center;
+}
+
+.title {
+  color: #111315;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.description {
+  margin: 0;
+  color: #596168;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.confirmButton,
+.cancelButton,
+.destructiveButton {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.confirmButton {
+  background: #009f9b;
+  color: #ffffff;
+}
+
+.destructiveButton {
+  background: #d94b3f;
+  color: #ffffff;
+}
+
+.cancelButton {
+  border: 1px solid #dce6e8;
+  background: #ffffff;
+  color: #596168;
+}
+
+.confirmButton:disabled,
+.cancelButton:disabled,
+.destructiveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}

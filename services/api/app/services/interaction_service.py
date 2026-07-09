@@ -8,6 +8,7 @@ from app.schemas.interactions import (
     MeetingApplicationListResponse,
     MeetingApplicationResponse,
     MeetingCreateResponse,
+    MeetingDeleteResponse,
     MeetingStatusResponse,
     NicknameResponse,
     RagAskResponse,
@@ -114,3 +115,7 @@ def delete_my_application(meeting_id: str, application_id: str, anonymous_id: st
     return local_store.delete_my_application(
         meeting_id=meeting_id, application_id=application_id, anonymous_id=anonymous_id
     )
+
+
+def delete_meeting(meeting_id: str, owner_secret: str) -> MeetingDeleteResponse:
+    return local_store.delete_meeting(meeting_id=meeting_id, owner_secret=owner_secret)

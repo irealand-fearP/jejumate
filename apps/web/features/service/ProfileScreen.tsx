@@ -5,14 +5,18 @@ import {
   CalendarClock,
   Eye,
   EyeOff,
+  LogOut,
   MapPin,
   MessageCircle,
   ShieldCheck,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
 import {
   createNickname,
+  deleteMeeting,
+  deleteMyApplication,
   getMeetingChatMessages,
   getMeetingDetail,
   getMyApplicationNotifications,
@@ -22,7 +26,8 @@ import {
   type HomeMeeting,
   type ProfilePreviewData,
 } from "@/lib/api";
-import { listOwnedMeetings } from "@/lib/ownerSecret";
+import { listOwnedMeetings, removeOwnerSecret } from "@/lib/ownerSecret";
+import { CenterModal } from "@/features/common/CenterModal";
 import { MobileShell } from "@/features/common/MobileShell";
 import styles from "./ServicePages.module.css";
 
@@ -49,11 +54,22 @@ type ChatTarget = {
 type PartyListItem = {
   key: string;
   role: "host" | "participant";
+  meetingId: string;
   title: string;
   placeLabel: string | null;
   startsAt: string | null;
   detailLabel: string | null;
   chatTarget: ChatTarget | null;
+  /** 참가자 항목의 '파티 탈퇴'용(내 신청 id). */
+  applicationId?: string;
+  /** 호스트 항목의 '파티 해산'용(관리 코드). */
+  ownerSecret?: string;
+};
+
+// 확인 다이얼로그로 물어볼 파티 관리 동작.
+type PartyAction = {
+  kind: "leave" | "disband";
+  party: PartyListItem;
 };
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
@@ -78,6 +94,11 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   const [approvedMeetings, setApprovedMeetings] = useState<ApplicantNotification[]>([]);
   const [ownedMeetings, setOwnedMeetings] = useState<OwnedMeetingItem[]>([]);
   const [ownedLoading, setOwnedLoading] = useState(false);
+
+  // 확인 다이얼로그로 물어보는 중인 파티 관리 동작(탈퇴/해산).
+  const [pendingAction, setPendingAction] = useState<PartyAction | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -158,6 +179,40 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     }
   }
 
+  /** 확인 다이얼로그에서 '확인'을 눌렀을 때 실제로 탈퇴/해산을 수행한다. */
+  async function runPendingAction() {
+    if (!pendingAction) return;
+    const { kind, party } = pendingAction;
+    setActionBusy(true);
+    setActionError(null);
+
+    try {
+      if (kind === "leave") {
+        if (!party.applicationId || !profile?.anonymousId) return;
+        await deleteMyApplication(party.meetingId, party.applicationId, profile.anonymousId);
+        // 목록에서 즉시 제거한다(서버 재조회를 기다리지 않는다).
+        setApprovedMeetings((current) => current.filter((m) => m.application_id !== party.applicationId));
+      } else {
+        if (!party.ownerSecret) return;
+        await deleteMeeting(party.meetingId, party.ownerSecret);
+        setOwnedMeetings((current) => current.filter((owned) => owned.meetingId !== party.meetingId));
+        // 해산했으면 이 기기에 남은 관리 코드도 지운다.
+        removeOwnerSecret(party.meetingId);
+      }
+      setPendingAction(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "처리하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  function closePendingAction() {
+    if (actionBusy) return;
+    setPendingAction(null);
+    setActionError(null);
+  }
+
   async function openChat(target: ChatTarget) {
     setChatTarget(target);
     setChatError(null);
@@ -209,10 +264,12 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   const participantParties: PartyListItem[] = approvedMeetings.map((meeting) => ({
     key: `participant-${meeting.application_id}`,
     role: "participant",
+    meetingId: meeting.meeting_id,
     title: meeting.meeting_title,
     placeLabel: meeting.place_label,
     startsAt: meeting.starts_at,
     detailLabel: `호스트 ${meeting.host_nickname}`,
+    applicationId: meeting.application_id,
     chatTarget: {
       meetingId: meeting.meeting_id,
       title: meeting.meeting_title,
@@ -223,10 +280,12 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
   const hostParties: PartyListItem[] = ownedMeetings.map((owned) => ({
     key: `host-${owned.meetingId}`,
     role: "host",
+    meetingId: owned.meetingId,
     title: owned.meeting?.title ?? "삭제되었거나 찾을 수 없는 파티",
     placeLabel: owned.meeting?.place_label ?? null,
     startsAt: owned.meeting?.starts_at ?? null,
     detailLabel: owned.meeting ? `${owned.meeting.approved_count}/${owned.meeting.capacity}명` : null,
+    ownerSecret: owned.ownerSecret,
     chatTarget: owned.meeting
       ? { meetingId: owned.meetingId, title: owned.meeting.title, ownerSecret: owned.ownerSecret }
       : null,
@@ -295,11 +354,31 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
                   ) : null}
                   {party.startsAt ? <p className={styles.meta}>{formatDateTime(party.startsAt)}</p> : null}
                 </div>
-                {party.chatTarget ? (
-                  <button className={styles.secondaryButton} onClick={() => openChat(party.chatTarget as ChatTarget)} type="button">
-                    <MessageCircle size={14} /> 채팅
-                  </button>
-                ) : null}
+                <div className={styles.partyActions}>
+                  {party.chatTarget ? (
+                    <button className={styles.secondaryButton} onClick={() => openChat(party.chatTarget as ChatTarget)} type="button">
+                      <MessageCircle size={14} /> 채팅
+                    </button>
+                  ) : null}
+                  {party.role === "participant" && party.applicationId ? (
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={() => setPendingAction({ kind: "leave", party })}
+                      type="button"
+                    >
+                      <LogOut size={14} /> 파티 탈퇴
+                    </button>
+                  ) : null}
+                  {party.role === "host" && party.ownerSecret ? (
+                    <button
+                      className={styles.dangerButton}
+                      onClick={() => setPendingAction({ kind: "disband", party })}
+                      type="button"
+                    >
+                      <Trash2 size={14} /> 파티 해산
+                    </button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -412,6 +491,27 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
             </div>
           </section>
         </div>
+      ) : null}
+
+      {pendingAction ? (
+        <CenterModal
+          busy={actionBusy}
+          cancelLabel="취소"
+          confirmLabel={
+            actionBusy ? "처리 중" : pendingAction.kind === "disband" ? "해산하기" : "탈퇴하기"
+          }
+          description={
+            actionError
+              ? actionError
+              : pendingAction.kind === "disband"
+                ? `'${pendingAction.party.title}' 파티를 해산합니다. 참가자들에게 알림 없이 파티가 삭제되며, 신청과 채팅도 함께 사라집니다. 되돌릴 수 없습니다.`
+                : `'${pendingAction.party.title}' 파티에서 탈퇴합니다. 다시 참여하려면 새로 신청해야 합니다.`
+          }
+          destructive={pendingAction.kind === "disband"}
+          onClose={closePendingAction}
+          onConfirm={runPendingAction}
+          title={pendingAction.kind === "disband" ? "파티를 해산할까요?" : "파티에서 탈퇴할까요?"}
+        />
       ) : null}
     </MobileShell>
   );

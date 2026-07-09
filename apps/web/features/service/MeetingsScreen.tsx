@@ -44,6 +44,7 @@ import { formatCapacityStatus } from "@/lib/format";
 import { CATEGORY_TO_FILTER, FILTER_TO_CATEGORIES } from "@/lib/meetingCategories";
 import { getOwnerSecret, saveOwnerSecret } from "@/lib/ownerSecret";
 import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotificationBanner";
+import { CenterModal } from "@/features/common/CenterModal";
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { MobileShell } from "@/features/common/MobileShell";
@@ -128,6 +129,8 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     return data.filters[0] ?? "전체";
   });
   const [searchKeyword, setSearchKeyword] = useState("");
+  // 신청 성공 안내(중앙 모달) 본문. null이면 모달을 띄우지 않는다.
+  const [applicationDone, setApplicationDone] = useState<string | null>(null);
   const [selected, setSelected] = useState<HomeMeeting | null>(null);
   const [profile, setProfile] = useState<LocalProfile | null>(() => readProfile());
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
@@ -333,7 +336,10 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
         message: message.trim() || undefined,
         anonymous_id: currentProfile.anonymousId,
       });
-      setResult(`${application.public_alias} 님의 신청이 접수됐습니다. ${application.next_step}`);
+      // 성공하면 신청 시트를 닫고 중앙 모달로 결과를 알린다(인라인 문구는 놓치기 쉽다).
+      // 문구는 홈 화면과 동일하게 맞춘다 — 같은 동작에 다른 말이 나오면 어색하다.
+      setSelected(null);
+      setApplicationDone(`${application.public_alias} 님의 신청이 저장되었습니다. ${application.next_step}`);
     } catch {
       setResult("신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -1041,6 +1047,14 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
           myApplicationId={approvedApplications.get(chatMeeting.id)}
           onLeft={() => handleMeetingLeft(chatMeeting.id)}
           onClose={() => setChatMeeting(null)}
+        />
+      ) : null}
+
+      {applicationDone ? (
+        <CenterModal
+          description={applicationDone}
+          onClose={() => setApplicationDone(null)}
+          title="신청 접수 완료"
         />
       ) : null}
     </MobileShell>

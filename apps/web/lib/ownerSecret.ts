@@ -19,6 +19,15 @@ export function getOwnerSecret(meetingId: string): string | null {
   }
 }
 
+// 파티를 해산했으면 남은 관리 코드도 지운다(없는 모임을 계속 조회하지 않도록).
+export function removeOwnerSecret(meetingId: string) {
+  try {
+    localStorage.removeItem(STORAGE_PREFIX + meetingId);
+  } catch {
+    // localStorage를 못 쓰는 환경이면 그냥 넘어간다.
+  }
+}
+
 // admin 콘솔용: 이 기기에서 등록한(관리 코드를 저장해둔) 모든 모임을 나열한다.
 export function listOwnedMeetings(): Array<{ meetingId: string; ownerSecret: string }> {
   try {

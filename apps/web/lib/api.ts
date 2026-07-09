@@ -185,6 +185,11 @@ export type ApplicationDeleteResult = {
   status: string;
 };
 
+export type MeetingDeleteResult = {
+  meeting_id: string;
+  status: string;
+};
+
 export type ApplicantNotification = {
   application_id: string;
   meeting_id: string;
@@ -360,6 +365,15 @@ export async function getMyApplicationNotifications(anonymousId: string): Promis
 }
 
 // 신청 삭제(본인 취소). 승인/거절과 달리 owner_secret이 아니라 anonymous_id로 본인 확인한다.
+/** 파티 해산(호스트 전용). 승인/거절과 같은 owner_secret 권한 모델을 쓴다.
+ *  admin 콘솔에서도 재사용할 수 있게 여기 함수로 둔다. */
+export async function deleteMeeting(meetingId: string, ownerSecret: string): Promise<MeetingDeleteResult> {
+  return postApiQuery<MeetingDeleteResult>(
+    `/api/meetings/${meetingId}?owner_secret=${encodeURIComponent(ownerSecret)}`,
+    "DELETE"
+  );
+}
+
 export async function deleteMyApplication(
   meetingId: string,
   applicationId: string,
