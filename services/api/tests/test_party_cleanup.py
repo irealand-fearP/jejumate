@@ -1,8 +1,11 @@
-"""마감 2일 지난 사용자 파티 실제 삭제(cleanup_expired_parties) 테스트.
+"""만료 파티 실제 삭제(cleanup_expired_parties) 테스트.
 
-목록 숨김(grace period)과 달리 이건 복구 불가한 실삭제다. 연관
-신청·채팅까지 cascade로 지우되, users/profiles(닉네임·익명ID)와
-카톡 수집 파티(source='kakao_chat')는 건드리지 않는다.
+목록 숨김(grace period)과 달리 이건 복구 불가한 실삭제다. 두 갈래 규칙:
+- 사용자 파티: 마감(ends_at) 후 2일
+- 카톡 수집 파티: 등록(created_at) 후 4시간
+
+연관 신청·채팅까지 cascade로 지우되, users/profiles(닉네임·익명ID)와
+생활게시판 글(board_posts)은 건드리지 않는다.
 """
 from __future__ import annotations
 
@@ -59,6 +62,33 @@ def _users_count() -> int:
         return connection.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
 
 
+def _set_created_at_and_source(meeting_id: str, *, created_at: datetime, source: str):
+    with local_store._connect() as connection:
+        connection.execute(
+            "UPDATE meetings SET created_at = ?, source = ? WHERE id = ?",
+            (created_at.isoformat(), source, meeting_id),
+        )
+
+
+def _insert_board_post(post_id: str, *, source: str) -> None:
+    with local_store._connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO board_posts (id, category, title, body, author_nickname, source, created_at)
+            VALUES (?, 'share', '오픈채팅 나눔 글', '본문', '오픈채팅', ?, ?)
+            """,
+            (post_id, source, local_store._now()),
+        )
+
+
+def _board_post_count(post_id: str) -> int:
+    with local_store._connect() as connection:
+        row = connection.execute(
+            "SELECT COUNT(*) AS n FROM board_posts WHERE id = ?", (post_id,)
+        ).fetchone()
+    return row["n"]
+
+
 def test_deletes_party_with_applications_and_chats_after_two_days():
     # 시드 모임(고정 날짜)이 시간이 지나 삭제 대상이 되면 기대값이 흔들린다 — 먼저 비운다.
     local_store.cleanup_expired_parties()
@@ -107,13 +137,56 @@ def test_keeps_party_before_two_days():
     assert _count("meetings", meeting.meeting_id) == 1
 
 
-def test_keeps_kakao_party_even_after_two_days():
+def test_keeps_kakao_party_with_old_ends_at_but_recent_created_at():
+    """카톡 파티는 ends_at이 아무리 오래됐어도 created_at 기준으로만 지운다 —
+    방금 등록된 파티는 마감 시각이 과거여도 남아 있어야 한다."""
     # 시드 모임(고정 날짜)이 시간이 지나 삭제 대상이 되면 기대값이 흔들린다 — 먼저 비운다.
     local_store.cleanup_expired_parties()
-    """카톡 수집 파티는 이 정리 대상이 아니다(별도 수명 주기)."""
     meeting = _create_meeting("호스트바당이", "host-3")
     old = datetime.now(timezone.utc) - timedelta(days=settings.party_delete_after_days + 1)
     _set_ends_at_and_source(meeting.meeting_id, ends_at=old, source="kakao_chat")
 
     assert local_store.cleanup_expired_parties() == 0
     assert _count("meetings", meeting.meeting_id) == 1
+
+
+def test_deletes_kakao_party_created_over_four_hours_ago():
+    """카톡 수집 파티는 등록 후 kakao_party_delete_after_hours(기본 4시간)가 지나면 삭제된다."""
+    local_store.cleanup_expired_parties()
+    meeting = _create_meeting("호스트바당이", "host-4")
+    old = datetime.now(timezone.utc) - timedelta(
+        hours=settings.kakao_party_delete_after_hours, minutes=1
+    )
+    _set_created_at_and_source(meeting.meeting_id, created_at=old, source="kakao_chat")
+
+    assert local_store.cleanup_expired_parties() == 1
+    assert _count("meetings", meeting.meeting_id) == 0
+
+
+def test_keeps_kakao_party_created_under_three_hours_ago():
+    """3시간 전 등록된 카톡 파티는 아직 살아 있어야 한다(4시간 규칙)."""
+    local_store.cleanup_expired_parties()
+    meeting = _create_meeting("호스트바당이", "host-5")
+    recent = datetime.now(timezone.utc) - timedelta(hours=3)
+    _set_created_at_and_source(meeting.meeting_id, created_at=recent, source="kakao_chat")
+
+    assert local_store.cleanup_expired_parties() == 0
+    assert _count("meetings", meeting.meeting_id) == 1
+
+
+def test_cleanup_never_touches_kakao_board_posts():
+    """생활게시판의 오픈채팅 글은 파티 정리와 무관하게 보존한다(사용자 명시 지시)."""
+    local_store.cleanup_expired_parties()
+    _insert_board_post("board-kakao-1", source="kakao_chat")
+
+    # 삭제 대상 카톡 파티를 하나 만들어 정리를 실제로 돌린다.
+    meeting = _create_meeting("호스트바당이", "host-6")
+    old = datetime.now(timezone.utc) - timedelta(
+        hours=settings.kakao_party_delete_after_hours, minutes=1
+    )
+    _set_created_at_and_source(meeting.meeting_id, created_at=old, source="kakao_chat")
+
+    assert local_store.cleanup_expired_parties() == 1
+    assert _count("meetings", meeting.meeting_id) == 0
+    # 파티는 지워졌지만 게시판 글은 그대로다.
+    assert _board_post_count("board-kakao-1") == 1

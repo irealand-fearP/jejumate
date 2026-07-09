@@ -173,6 +173,14 @@ def _time_order_expr(column: str) -> str:
     return f"({column})::timestamptz" if USE_POSTGRES else f"datetime({column})"
 
 
+def _time_sort_key(value: str) -> datetime:
+    """파이썬에서 타임스탬프 문자열을 정렬할 때 쓰는 키. _time_order_expr과 같은 이유로
+    문자열 그대로 비교하면 안 된다(+09:00과 +00:00이 섞여 순서가 어긋난다).
+    오프셋이 없는 값은 다른 컬럼들과 같은 규약대로 UTC로 본다."""
+    parsed = datetime.fromisoformat(value)
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+
+
 def _split_statements(script: str) -> list[str]:
     return [statement.strip() for statement in script.split(";") if statement.strip()]
 
@@ -934,10 +942,12 @@ def report_board_target(
 
 
 def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
-    """공개+열린 모임 조회. ORDER BY는 문자열이 아니라 datetime()으로 비교한다 —
-    시드 데이터는 +09:00, API로 만든 모임은 +00:00 오프셋을 쓰는데 TEXT 컬럼을
-    그대로 비교하면 실제 시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을
-    정규화해서 비교해준다).
+    """공개+열린 모임 조회. 최신 등록순(created_at DESC)으로 정렬한다 — 새로 올린
+    파티가 목록 맨 위에 보여야 등록한 사람이 바로 확인할 수 있다.
+
+    ORDER BY는 문자열이 아니라 datetime()으로 비교한다 — 시드 데이터는 +09:00,
+    API로 만든 모임은 +00:00 오프셋을 쓰는데 TEXT 컬럼을 그대로 비교하면 실제
+    시간 순서와 어긋나는 버그가 있었다(datetime()이 오프셋을 정규화해서 비교해준다).
 
     오픈채팅 수집(source='kakao_chat') 모임은 마감 시각이 지나면 즉시 숨긴다.
     호스트가 직접 관리하는 서비스 내 모임(source != 'kakao_chat')은 마감 직후
@@ -958,7 +968,7 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
             OR (m.source = 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
             OR (m.source != 'kakao_chat' AND {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
           )
-        ORDER BY {_time_order_expr('m.starts_at')} ASC
+        ORDER BY {_time_order_expr('m.created_at')} DESC
         {limit_clause}
         """,
         params,
@@ -996,14 +1006,16 @@ def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slot
         JOIN profiles p ON p.id = m.host_profile_id
         WHERE m.visibility = 'public' AND m.status IN ('open', 'closing_soon') AND m.source != 'kakao_chat'
           AND (m.ends_at IS NULL OR {_time_order_expr('m.ends_at')} >= {_time_order_expr('?')})
-        ORDER BY {_time_order_expr('m.starts_at')} ASC
+        ORDER BY {_time_order_expr('m.created_at')} DESC
         LIMIT ?
         """,
         (grace_cutoff_iso, service_limit),
     ).fetchall()
 
+    # 합친 뒤에도 최신 등록순을 유지한다. 여기서 starts_at으로 다시 정렬하면 위 두
+    # 쿼리의 created_at DESC가 무의미해진다(선택되는 행만 바뀌고 표시 순서는 그대로).
     combined = list(service_rows) + list(kakao_rows)
-    combined.sort(key=lambda row: row["starts_at"])
+    combined.sort(key=lambda row: _time_sort_key(row["created_at"]), reverse=True)
     return combined[:limit]
 
 
@@ -1678,22 +1690,35 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
 
 
 def cleanup_expired_parties() -> int:
-    """마감(ends_at) 후 party_delete_after_days(기본 2일)가 지난 사용자 파티를 DB에서
-    실제로 삭제한다(목록 숨김과 달리 복구 불가). 연관 신청·채팅도 함께 지워 고아
-    레코드를 막는다. 대상은 source != 'kakao_chat'뿐이고, users/profiles(닉네임·익명ID)는
-    건드리지 않는다 — 그건 영구 보존 방침. 삭제한 파티 수를 반환한다."""
-    cutoff_iso = (
-        datetime.now(timezone.utc) - timedelta(days=settings.party_delete_after_days)
-    ).isoformat()
+    """만료된 파티를 DB에서 실제로 삭제한다(목록 숨김과 달리 복구 불가). 규칙은 두 갈래다:
+
+    - 사용자 파티(source != 'kakao_chat'): 마감(ends_at) 후 party_delete_after_days(기본 2일)
+    - 카톡 수집 파티(source = 'kakao_chat'): 등록(created_at) 후
+      kakao_party_delete_after_hours(기본 4시간). 콜드스타트용 임시 콘텐츠라 마감 시각이
+      아니라 등록 시각을 기준으로 짧게 정리한다.
+
+    연관 신청·채팅도 함께 지워 고아 레코드를 막는다. users/profiles(닉네임·익명ID),
+    생활게시판 글(board_posts), RAG 문서(rag_documents)는 건드리지 않는다 — 보존 방침.
+    삭제한 파티 수를 반환한다."""
+    now = datetime.now(timezone.utc)
+    service_cutoff_iso = (now - timedelta(days=settings.party_delete_after_days)).isoformat()
+    kakao_cutoff_iso = (now - timedelta(hours=settings.kakao_party_delete_after_hours)).isoformat()
+
     with _connect() as connection:
         rows = connection.execute(
             f"""
             SELECT id FROM meetings
-            WHERE source != 'kakao_chat'
-              AND ends_at IS NOT NULL
-              AND {_time_order_expr('ends_at')} < {_time_order_expr('?')}
+            WHERE (
+                source != 'kakao_chat'
+                AND ends_at IS NOT NULL
+                AND {_time_order_expr('ends_at')} < {_time_order_expr('?')}
+              )
+               OR (
+                source = 'kakao_chat'
+                AND {_time_order_expr('created_at')} < {_time_order_expr('?')}
+              )
             """,
-            (cutoff_iso,),
+            (service_cutoff_iso, kakao_cutoff_iso),
         ).fetchall()
         meeting_ids = [row["id"] for row in rows]
         for meeting_id in meeting_ids:
