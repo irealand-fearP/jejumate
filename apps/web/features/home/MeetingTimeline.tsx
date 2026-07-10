@@ -67,7 +67,7 @@ export function MeetingTimeline({
       </div>
 
       <div className={styles.filterRow}>
-        {filters.map((filter) => (
+        {filters.filter((filter) => filter !== "오픈채팅").map((filter) => (
           <Link
             className={filter === "전체" ? styles.filterActive : styles.filterChip}
             href={filterHref(filter)}
