@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, ChevronRight, Flag, MessageCircle, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Flag, MessageCircle, Plus, Search, Trash2, X } from "lucide-react";
 import { MobileShell } from "@/features/common/MobileShell";
 import { Pagination } from "@/features/common/Pagination";
 import { usePagination } from "@/features/common/usePagination";
@@ -78,11 +78,30 @@ export function BoardScreen({ data }: { data: BoardData }) {
   const [commentBody, setCommentBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const posts =
-    activeFilter === "전체" ? boardData.posts : boardData.posts.filter((post) => post.category === activeFilter);
+  const [searchKeyword, setSearchKeyword] = useState("");
 
-  // 카테고리 필터가 바뀌면 1페이지로 되돌린다.
-  const { page, totalPages, pageItems: pagedPosts, goToPage, listTopRef } = usePagination(posts, activeFilter);
+  const posts = useMemo(() => {
+    // 카테고리 칩을 먼저 적용하고, 검색어를 AND로 겹쳐 더 좁힌다.
+    const filtered =
+      activeFilter === "전체" ? boardData.posts : boardData.posts.filter((post) => post.category === activeFilter);
+
+    // 글 목록을 이미 통으로 받아왔으므로 검색은 프론트 필터링으로 충분하다(새 API 불필요).
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) return filtered;
+
+    return filtered.filter((post) =>
+      [post.title, post.body, post.author_nickname].some((field) => field?.toLowerCase().includes(keyword)),
+    );
+  }, [activeFilter, boardData.posts, searchKeyword]);
+
+  // 카테고리 필터나 검색어가 바뀌면 1페이지로 되돌린다.
+  const {
+    page,
+    totalPages,
+    pageItems: pagedPosts,
+    goToPage,
+    listTopRef,
+  } = usePagination(posts, `${activeFilter}|${searchKeyword.trim()}`);
 
   function saveProfileLocally(nextProfile: LocalProfile) {
     window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
@@ -224,6 +243,18 @@ export function BoardScreen({ data }: { data: BoardData }) {
           글쓰기
         </button>
       </div>
+
+      <div className={styles.meetingSearch}>
+        <Search size={16} aria-hidden="true" />
+        <input
+          aria-label="게시글 검색"
+          onChange={(event) => setSearchKeyword(event.target.value)}
+          placeholder="글 제목·내용·닉네임 검색"
+          type="search"
+          value={searchKeyword}
+        />
+      </div>
+
       <div ref={listTopRef} />
 
       <section className={styles.boardList}>
@@ -244,8 +275,17 @@ export function BoardScreen({ data }: { data: BoardData }) {
           ))
         ) : (
           <div className={styles.boardEmpty}>
-            <b>아직 글이 없어요</b>
-            <span>첫 질문이나 나눔 글을 남겨보세요.</span>
+            {searchKeyword.trim() ? (
+              <>
+                <b>검색 결과가 없어요</b>
+                <span>{`'${searchKeyword.trim()}'와 맞는 글을 찾지 못했어요.`}</span>
+              </>
+            ) : (
+              <>
+                <b>아직 글이 없어요</b>
+                <span>첫 질문이나 나눔 글을 남겨보세요.</span>
+              </>
+            )}
           </div>
         )}
       </section>
