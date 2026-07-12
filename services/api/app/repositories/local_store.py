@@ -379,6 +379,18 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS kakao_upload_messages (
+  client_message_hash TEXT PRIMARY KEY,
+  room TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  sent_at_text TEXT NOT NULL,
+  content TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT,
+  created_at TEXT NOT NULL,
+  processed_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS ingest_cursors (
   source TEXT PRIMARY KEY,
   last_id INTEGER NOT NULL DEFAULT 0,
@@ -1962,6 +1974,77 @@ def add_kakao_rag_document(*, item_id: int, content: str, embedding: list[float]
                 "UPDATE rag_documents SET embedding_vec = ?::vector WHERE id = ?",
                 (vec_literal, document_id),
             )
+
+
+def has_kakao_rag_document(item_id: int) -> bool:
+    document_id = _stable_id("rag-document", f"kakao-live-{item_id}")
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT 1 FROM rag_documents WHERE id = ?", (document_id,)
+        ).fetchone()
+    return row is not None
+
+
+def store_kakao_upload_messages(messages: list[dict[str, str]]) -> int:
+    """Windows 수집기 메시지를 해시 기준으로 멱등 저장하고 신규 건수를 반환한다."""
+    inserted = 0
+    now = _now()
+    with _connect() as connection:
+        for message in messages:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO kakao_upload_messages (
+                  client_message_hash, room, sender, sent_at_text, content,
+                  status, result, created_at, processed_at
+                )
+                VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, NULL)
+                """,
+                (
+                    message["client_message_hash"],
+                    message["room"],
+                    message["sender"],
+                    message["sent_at_text"],
+                    message["content"],
+                    now,
+                ),
+            )
+            inserted += max(cursor.rowcount, 0)
+    return inserted
+
+
+def get_pending_kakao_upload_messages(limit: int) -> list[dict]:
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT client_message_hash, room, sender, sent_at_text, content
+            FROM kakao_upload_messages
+            WHERE status = 'pending'
+            ORDER BY created_at, client_message_hash
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_kakao_upload_processed(client_message_hash: str, result: str) -> None:
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE kakao_upload_messages
+            SET status = 'processed', result = ?, processed_at = ?
+            WHERE client_message_hash = ?
+            """,
+            (result, _now(), client_message_hash),
+        )
+
+
+def count_pending_kakao_upload_messages() -> int:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT COUNT(*) AS count FROM kakao_upload_messages WHERE status = 'pending'"
+        ).fetchone()
+    return int(row["count"])
 
 
 # --- 콜드스타트 자동 변환(카톡 메시지 → 모임/게시판 콘텐츠) ---

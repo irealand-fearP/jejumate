@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     kakao_ingest_piggyback_max_items: int = 1
     ingest_secret: str | None = None
     cron_secret: str | None = None
+    # Windows 카카오톡 내보내기 수집기 전용. 기존 크론/관리용 비밀과 분리해
+    # 수집기 PC가 침해돼도 다른 관리 엔드포인트까지 호출하지 못하게 한다.
+    kakao_upload_secret: str | None = None
 
     # 사용자가 만든 서비스 파티는 마감(ends_at) 직후 바로 공개 목록에서 사라지면
     # 매정하다 — 카톡 수집 파티(즉시 숨김, grace 없음)와 달리 여유 시간을 준다.

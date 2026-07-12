@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import board, health, home, ingest, interactions, meetings, profile
 from app.core.config import settings
 from app.repositories.local_store import cleanup_expired_parties
-from app.services.kakao_ingest import ingest_new_messages
+from app.services.kakao_ingest import ingest_uploaded_messages
 
 logger = logging.getLogger(__name__)
 # 루트 로거가 기본 WARNING이라 logger.info()가 조용히 버려진다 — 이 로거만 INFO로 올리고
@@ -36,11 +36,18 @@ async def _kakao_polling_loop() -> None:
     loop = asyncio.get_running_loop()
     while True:
         try:
-            # ingest_new_messages는 동기(requests류) I/O라 이벤트 루프에서 바로 돌리면
+            # 업로드 큐 처리는 동기 I/O라 이벤트 루프에서 바로 돌리면
             # OpenAI 임베딩 호출이 끝날 때까지 서버 전체가 응답을 못 한다 — 스레드로 뺀다.
-            count, cursor = await loop.run_in_executor(None, ingest_new_messages)
+            count, filtered, pending = await loop.run_in_executor(
+                None, ingest_uploaded_messages
+            )
             if count:
-                logger.info("카톡 수집: %s건 적재, 커서 %s", count, cursor)
+                logger.info(
+                    "카톡 업로드 큐: %s건 적재, %s건 필터, %s건 남음",
+                    count,
+                    filtered,
+                    pending,
+                )
         except Exception:  # noqa: BLE001 - 폴링 루프는 한 번 실패해도 계속 돌아야 한다.
             logger.exception("카톡 수집 실패")
         await asyncio.sleep(settings.kakao_poll_interval_seconds)

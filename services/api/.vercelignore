@@ -1,0 +1,9 @@
+.data/
+.env
+.env.*
+.vercel/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.log
+tests/

@@ -1,5 +1,9 @@
 # 코덱스 인수인계 문서 (Claude 팀 → 코덱스)
 
+> **2026-07-13 최신 작업:** 이 문서 맨 끝의
+> `2026-07-13 최우선 인계 — Windows 카카오톡 수집기 재구축` 섹션을 먼저 읽을 것.
+> 기존 `dm.kggstudio.com` 설명은 최신 구조가 아니다.
+
 ## 2026-07-09 오후~저녁 Claude 갱신 — UX 대량 개편 배치 (커밋 ef2bfdf까지)
 
 리브랜딩 이후 오늘 반영된 것 전부. 4곳(WSL fork·윈도우 fork·GitHub codex-latest·자체서버 115.68.226.19) 동기화·배포·라이브 검증 완료 상태다.
@@ -409,3 +413,86 @@ git 저장소가 포함돼 있으니 `git log`로 전체 이력을 볼 수 있�
   제어)은 아래 "API 규약" 섹션대로 유지할 것.
 - RAG `rag_similarity_threshold`는 0.5 유지. 근거 없으면 sources 빈 배열 + 안내 문구(임의
   문서 반환 금지) 원칙도 유지.
+# 2026-07-13 최우선 인계 — Windows 카카오톡 수집기 재구축
+
+> 이 섹션이 아래의 오래된 `dm.kggstudio.com` 폴링/카톡 파이프라인 미연동 설명보다
+> 우선한다. 기존 팀원 중간 서버 의존성은 활성 경로에서 제거했다.
+
+## 오늘 완료한 결과
+
+- 새 흐름: **카카오톡 PC 텍스트 내보내기 → Windows 수집기 → 시냅스팟 API →
+  Postgres 큐 → 기존 개인정보 마스킹·노이즈 필터·임베딩·분류·RAG/게시판 변환**.
+- 프로덕션 API `https://jejumate-api.vercel.app`에 배포 완료.
+- 전용 환경변수 `KAKAO_UPLOAD_SECRET`을 256비트 난수로 생성해 아래 두 곳에 설정:
+  - Vercel `jejumate-api` Production: Sensitive 타입
+  - 현재 Windows 사용자 환경변수
+  - **값은 코드·문서·로그 어디에도 기록하지 않았고 앞으로도 출력하지 말 것.**
+- 실제 내보내기 파일 7건을 업로드·처리했고 서버 큐 0건 확인.
+- 같은 파일 재실행 시 `신규=0`, `남음=0` 확인(중복 방지 정상).
+- Windows 예약 작업 `Synapspot Kakao Export Collector` 설치:
+  - 10분마다 최신 `Documents/KakaoTalk_*_group.txt` 확인
+  - 마지막 실행 결과 `0` 확인
+  - 로그: `%LOCALAPPDATA%\Synapspot\kakao-export-collector.log`
+  - 로컬 중복 상태: `%LOCALAPPDATA%\Synapspot\kakao-export-state.json`
+
+## 새 API와 저장 구조
+
+- `POST /api/ingest/kakao/messages`
+  - `Authorization: Bearer <KAKAO_UPLOAD_SECRET>` 전용 인증
+  - 최대 20건, `client_message_hash` 64자리 SHA-256 검증
+  - `kakao_upload_messages` 테이블에 먼저 멱등 저장하고 즉시 응답
+- `POST /api/ingest/kakao/process?max_items=1`
+  - 느린 OpenAI 임베딩·분류를 업로드와 분리해 큐에서 처리
+  - 처리 중 타임아웃이 나도 원문 큐가 남아 다음 실행에서 재시도
+- 기존 `GET /api/ingest/kakao`와 로컬 startup 루프도 이제 새 업로드 큐를 처리한다.
+  `dm.kggstudio.com` 폴링 함수는 롤백 참고용으로 코드에 남아 있지만 활성 경로가 아니다.
+- 업로드 해시는 61비트 namespaced 정수 item ID로 안정 변환되어 기존
+  `add_kakao_rag_document`/콜드스타트 파이프라인을 그대로 재사용한다.
+
+## 오늘 추가·수정한 파일(아직 커밋하지 않음)
+
+```text
+M services/api/app/api/routes/ingest.py
+M services/api/app/core/config.py
+M services/api/app/main.py
+M services/api/app/repositories/local_store.py
+M services/api/app/schemas/ingest.py
+M services/api/app/services/kakao_ingest.py
+? services/api/.vercelignore
+? services/api/app/services/kakao_export.py
+? services/api/scripts/kakao_export_collector.py
+? services/api/scripts/run_kakao_export_collector.ps1
+? services/api/tests/test_kakao_export.py
+? services/api/tests/test_kakao_upload.py
+```
+
+`.vercelignore`는 로컬 126.65MB SQLite 파일(`services/api/.data/jejumate.sqlite3`)이
+Vercel 100MB 업로드 제한을 넘긴 문제를 해결한다. DB 파일 자체는 삭제하지 않았다.
+
+## 검증
+
+- 실제 KakaoTalk 내보내기 UTF-8 파일 파싱: 7건/작성자 7명/공지 3줄 제외.
+- 수동 회귀 테스트 7개 통과(`pytest`가 시스템 Python에 없어 테스트 함수 직접 실행).
+- `python -m compileall -q app scripts tests` 통과.
+- `git diff --check` 통과(CRLF 변환 경고만 존재).
+- 배포 `/health` 200.
+- 잘못된 Bearer 키 403.
+- 실제 7건 처리 후 큐 0, 재실행 신규 0.
+- 예약 작업 수동 실행 결과 0.
+
+## 남은 일 — 다음 Claude가 이어서 할 부분
+
+1. **카카오톡의 대화 내보내기 버튼 자동화**가 아직 안 됐다.
+   - 현재 10분 예약 작업은 사용자가 새 txt 파일을 내보내면 이후 업로드·처리는 자동이다.
+   - 카카오톡 자체 DB(`chatLogs_*.edb`, `chatListInfo.edb`)는 헤더가 암호화되어 표준
+     SQLite 읽기 전용 연결이 실패했다. 키 추출/복호화 의존 방식은 채택하지 말 것.
+   - 카카오톡 UI가 Windows UI Automation에 본문/메뉴를 거의 노출하지 않아, 내보내기
+     자동화는 창을 잠깐 foreground로 가져오는 Win32 입력 방식이 필요하다.
+2. 브라우저에 잘못 열린 마이크 권한 팝업이 카카오톡 foreground 진단을 막고 있다.
+   사용자가 팝업의 `X`를 닫은 다음 UI 자동화 작업을 재개할 것.
+3. Vercel CLI `--prod`는 자동으로 팀 전용 alias만 연결했다. 재배포 후 반드시 실제 공개
+   주소도 새 배포로 다시 연결할 것:
+   `vercel alias set <새 deployment URL> jejumate-api.vercel.app`
+4. 변경 사항은 배포됐지만 Git에는 아직 커밋하지 않았다. 검토 후 커밋/푸시할 것.
+
+---

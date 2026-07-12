@@ -1,4 +1,23 @@
-# Codex 작업/검토 인계: 질문 영역 + 지도 프리뷰 융합 아이디어
+# 2026-07-13 최신 Claude 전달사항
+
+카카오톡 수집기를 기존 팀원의 `dm.kggstudio.com` 없이 새로 구축했다. 상세 내용과
+정확한 파일 목록·검증·남은 작업은 **`CODEX-HANDOFF.md` 맨 끝의
+`2026-07-13 최우선 인계 — Windows 카카오톡 수집기 재구축`**을 먼저 읽을 것.
+
+핵심 상태:
+
+- 프로덕션 `https://jejumate-api.vercel.app` 배포 완료.
+- 새 전용 비밀키 `KAKAO_UPLOAD_SECRET`은 Vercel Production(Sensitive)과 Windows
+  사용자 환경에만 설정. 값은 절대 출력/문서화/커밋하지 말 것.
+- 실제 7건 처리, 큐 0, 재실행 신규 0 확인.
+- `Synapspot Kakao Export Collector` 예약 작업이 10분마다 내보내기 txt를 감지·업로드.
+- 카카오톡 내보내기 버튼 자동 클릭만 미완료. 현재는 사용자가 txt를 만들면 그 뒤가 자동.
+- 로컬 Kakao `.edb`는 암호화되어 표준 SQLite로 읽을 수 없음. 복호화 방식은 채택하지 말 것.
+- 오늘 변경은 아직 커밋하지 않았으므로 `git status` 확인 후 이어갈 것.
+
+---
+
+# 이전 Codex 작업/검토 인계: 질문 영역 + 지도 프리뷰 융합 아이디어
 
 현재 Claude가 작업 중이라 Codex는 추가 수정 중단. 워킹트리에 Codex 변경분 4개 파일이 남아 있음.
 

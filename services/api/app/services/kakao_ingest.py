@@ -19,10 +19,15 @@ from app.repositories.local_store import (
     add_kakao_rag_document,
     create_coldstart_board_post,
     create_coldstart_meeting,
+    count_pending_kakao_upload_messages,
+    get_pending_kakao_upload_messages,
     get_coldstart_count_today,
     get_ingest_cursor,
     has_coldstart_content,
+    has_kakao_rag_document,
+    mark_kakao_upload_processed,
     set_ingest_cursor,
+    store_kakao_upload_messages,
     try_claim_kakao_ingest_attempt,
 )
 from app.services.content_classifier import classify_message
@@ -173,6 +178,46 @@ def ingest_new_messages(*, max_items: int | None = None) -> tuple[int, int]:
         set_ingest_cursor(INGEST_SOURCE, max_id)
 
     return ingested, max_id
+
+
+def _uploaded_item_id(client_message_hash: str) -> int:
+    """해시를 기존 정수 item_id 공간과 겹치지 않는 61비트 양수로 바꾼다."""
+    return (1 << 60) | int(client_message_hash[:15], 16)
+
+
+def enqueue_uploaded_messages(messages: list[dict[str, str]]) -> int:
+    return store_kakao_upload_messages(messages)
+
+
+def ingest_uploaded_messages(*, max_items: int = 10) -> tuple[int, int, int]:
+    """Windows 수집기 큐를 처리하고 (적재, 필터, 남은 큐)를 반환한다."""
+    ingested = 0
+    filtered = 0
+    for item in get_pending_kakao_upload_messages(max(max_items, 1)):
+        item_hash = item["client_message_hash"]
+        item_id = _uploaded_item_id(item_hash)
+        if has_kakao_rag_document(item_id):
+            mark_kakao_upload_processed(item_hash, "duplicate")
+            continue
+
+        content = mask_personal_info((item.get("content") or "").strip())
+        content = _strip_system_notices(content)
+        if _is_noise(content):
+            mark_kakao_upload_processed(item_hash, "filtered")
+            filtered += 1
+            continue
+
+        embedding = embed_text(content)
+        add_kakao_rag_document(item_id=item_id, content=content, embedding=embedding)
+        convert_to_coldstart_content(
+            item_id=item_id,
+            content=content,
+            created_at=item.get("sent_at_text", ""),
+        )
+        mark_kakao_upload_processed(item_hash, "ingested")
+        ingested += 1
+
+    return ingested, filtered, count_pending_kakao_upload_messages()
 
 
 def maybe_ingest_kakao_now() -> None:
