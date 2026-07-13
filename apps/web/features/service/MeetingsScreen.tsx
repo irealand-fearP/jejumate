@@ -310,6 +310,25 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     );
   }, [activeFilter, meetings, searchKeyword]);
 
+  const filtersWithNewMeetings = useMemo(() => {
+    const newFilters = new Set<string>();
+
+    for (const filter of data.filters) {
+      if (filter === "전체") continue;
+
+      const hasNewMeeting = meetings.some((meeting) => {
+        if (!meeting.is_new) return false;
+        if (filter === "오픈채팅") return meeting.source === "kakao_chat";
+        if (meeting.source === "kakao_chat") return false;
+        return (FILTER_TO_CATEGORIES[filter] ?? []).includes(meeting.category);
+      });
+
+      if (hasNewMeeting) newFilters.add(filter);
+    }
+
+    return newFilters;
+  }, [data.filters, meetings]);
+
   // 카테고리 필터나 검색어가 바뀌면 1페이지로 되돌린다.
   const {
     page,
@@ -529,16 +548,25 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
       <HostPendingBanner variant="inline" />
       <ApplicantNotificationBanner variant="inline" />
       <div className={styles.toolbar}>
-        {data.filters.map((filter) => (
-          <button
-            className={`${styles.chip} ${activeFilter === filter ? styles.chipActive : ""}`}
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            type="button"
-          >
-            {filter}
-          </button>
-        ))}
+        {data.filters.map((filter) => {
+          const hasNewMeeting = filtersWithNewMeetings.has(filter);
+          return (
+            <button
+              aria-label={`${filter}${hasNewMeeting ? ", 새 글 있음" : ""}`}
+              className={`${styles.chip} ${activeFilter === filter ? styles.chipActive : ""}`}
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              type="button"
+            >
+              {filter}
+              {hasNewMeeting ? (
+                <span aria-hidden="true" className={styles.newFilterBadge}>
+                  N
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       <div className={styles.meetingSearch}>
