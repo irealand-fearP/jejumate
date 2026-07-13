@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronRight, Flag, MessageCircle, Plus, Search, Trash2, X } from "lucide-react";
 import { MobileShell } from "@/features/common/MobileShell";
 import { Pagination } from "@/features/common/Pagination";
@@ -10,6 +10,7 @@ import {
   createBoardPost,
   createNickname,
   deleteBoardPost,
+  getBoardData,
   getBoardPost,
   reportBoardPost,
   type BoardData,
@@ -19,12 +20,42 @@ import {
 import styles from "./ServicePages.module.css";
 
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
+const BOARD_CATEGORY_SEEN_STORAGE_KEY = "jejumate.boardCategorySeenAt.v1";
+const BOARD_POLL_INTERVAL_MS = 15000;
 
 type LocalProfile = {
   profileId: string;
   nickname: string;
   anonymousId: string;
 };
+
+type CategorySeenAt = Record<string, number>;
+
+function readCategorySeenAt(): CategorySeenAt {
+  if (typeof window === "undefined") return {};
+  const raw = window.localStorage.getItem(BOARD_CATEGORY_SEEN_STORAGE_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, number] =>
+        typeof entry[1] === "number" && Number.isFinite(entry[1]),
+      ),
+    );
+  } catch {
+    window.localStorage.removeItem(BOARD_CATEGORY_SEEN_STORAGE_KEY);
+    return {};
+  }
+}
+
+function latestPostTime(posts: BoardPost[], category: string): number {
+  return posts.reduce((latest, post) => {
+    if (post.category !== category) return latest;
+    const createdAt = new Date(post.created_at).getTime();
+    return Number.isFinite(createdAt) ? Math.max(latest, createdAt) : latest;
+  }, 0);
+}
 
 function buildLocalProfile(profile: NicknameProfile): LocalProfile {
   return {
@@ -79,6 +110,55 @@ export function BoardScreen({ data }: { data: BoardData }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [categorySeenAt, setCategorySeenAt] = useState<CategorySeenAt>({});
+  const [seenStateLoaded, setSeenStateLoaded] = useState(false);
+
+  useEffect(() => {
+    setCategorySeenAt(readCategorySeenAt());
+    setSeenStateLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      getBoardData()
+        .then((refreshed) => {
+          if (!cancelled) setBoardData(refreshed);
+        })
+        .catch(() => {
+          // 일시적인 갱신 실패는 현재 목록을 유지하고 다음 주기에 다시 시도한다.
+        });
+    }, BOARD_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!seenStateLoaded || activeFilter === "전체") return;
+    const latest = latestPostTime(boardData.posts, activeFilter);
+    if (!latest) return;
+
+    setCategorySeenAt((current) => {
+      if ((current[activeFilter] ?? 0) >= latest) return current;
+      const next = { ...current, [activeFilter]: latest };
+      window.localStorage.setItem(BOARD_CATEGORY_SEEN_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [activeFilter, boardData.posts, seenStateLoaded]);
+
+  const unreadCategories = useMemo(() => {
+    const unread = new Set<string>();
+    if (!seenStateLoaded) return unread;
+
+    for (const categoryName of boardData.categories) {
+      const latest = latestPostTime(boardData.posts, categoryName);
+      if (latest > (categorySeenAt[categoryName] ?? 0)) unread.add(categoryName);
+    }
+    return unread;
+  }, [boardData.categories, boardData.posts, categorySeenAt, seenStateLoaded]);
 
   const posts = useMemo(() => {
     // 카테고리 칩을 먼저 적용하고, 검색어를 AND로 겹쳐 더 좁힌다.
@@ -107,6 +187,18 @@ export function BoardScreen({ data }: { data: BoardData }) {
     window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
     setProfile(nextProfile);
     setNickname(nextProfile.nickname);
+  }
+
+  function selectFilter(filter: string) {
+    setActiveFilter(filter);
+    if (filter === "전체") return;
+
+    const seenAt = Math.max(Date.now(), latestPostTime(boardData.posts, filter));
+    setCategorySeenAt((current) => {
+      const next = { ...current, [filter]: seenAt };
+      window.localStorage.setItem(BOARD_CATEGORY_SEEN_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }
 
   async function ensureProfile(): Promise<LocalProfile> {
@@ -146,6 +238,12 @@ export function BoardScreen({ data }: { data: BoardData }) {
         body: body.trim(),
         author_nickname: currentProfile.nickname,
         anonymous_id: currentProfile.anonymousId,
+      });
+      const nextSeenAt = Math.max(Date.now(), latestPostTime([created], created.category));
+      setCategorySeenAt((current) => {
+        const next = { ...current, [created.category]: nextSeenAt };
+        window.localStorage.setItem(BOARD_CATEGORY_SEEN_STORAGE_KEY, JSON.stringify(next));
+        return next;
       });
       setBoardData((current) => ({ ...current, posts: [created, ...current.posts] }));
       setActiveFilter("전체");
@@ -227,16 +325,25 @@ export function BoardScreen({ data }: { data: BoardData }) {
       <div className={styles.notice}>{boardData.notice}</div>
       <div className={styles.boardActionRow}>
         <div className={styles.toolbar}>
-          {filters.map((filter) => (
-            <button
-              className={`${styles.chip} ${activeFilter === filter ? styles.chipActive : ""}`}
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              type="button"
-            >
-              {filter}
-            </button>
-          ))}
+          {filters.map((filter) => {
+            const hasUnreadPosts = filter !== "전체" && unreadCategories.has(filter);
+            return (
+              <button
+                aria-label={`${filter}${hasUnreadPosts ? ", 새 글 있음" : ""}`}
+                className={`${styles.chip} ${activeFilter === filter ? styles.chipActive : ""}`}
+                key={filter}
+                onClick={() => selectFilter(filter)}
+                type="button"
+              >
+                {filter}
+                {hasUnreadPosts ? (
+                  <span aria-hidden="true" className={styles.newFilterBadge}>
+                    N
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
         <button className={styles.boardWriteButton} onClick={() => setShowWriteSheet(true)} type="button">
           <Plus size={16} />
