@@ -57,9 +57,7 @@ export function MeetingCard({
     <article className={styles.timelineItem}>
       <div className={styles.timeColumn}>
         <strong>{formatTime(meeting.starts_at)}</strong>
-        <span>
-          {index < 3 ? "☀" : "🌙"} ~ {formatTime(meeting.ends_at)}
-        </span>
+        <span>{isExternal ? "오픈채팅 작성" : `${index < 3 ? "☀" : "🌙"} ~ ${formatTime(meeting.ends_at)}`}</span>
       </div>
       <div className={styles.timelineRail}>
         <span />

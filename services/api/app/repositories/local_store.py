@@ -447,6 +447,7 @@ def _ensure_database_postgres() -> None:
         _seed(connection)
         _seed_board_posts(connection)
         _migrate_board_categories(connection)
+        _migrate_legacy_kakao_meeting_times(connection)
         connection.commit()
     finally:
         connection.close()
@@ -461,6 +462,37 @@ def _migrate_board_categories(connection) -> None:
     connection.execute(
         "UPDATE board_posts SET category = '중고거래/나눔' WHERE category IN ('중고거래', '나눔')"
     )
+
+
+def _migrate_legacy_kakao_meeting_times(connection) -> None:
+    """예전 오픈채팅 파티의 임시 +24시간 일정을 수집 시각 기준으로 한 번만 정리한다.
+
+    예전 행은 원문 채팅 시각을 별도 컬럼에 보관하지 않았으므로 created_at(수집 시각)을
+    안전한 대체값으로 쓴다. 새 형식은 starts_at과 created_at이 같은 원문 시각이라 이후
+    기동에서는 건드리지 않는다.
+    """
+    rows = connection.execute(
+        "SELECT id, starts_at, created_at FROM meetings WHERE source = 'kakao_chat'"
+    ).fetchall()
+    for row in rows:
+        try:
+            starts_at = datetime.fromisoformat(row["starts_at"])
+            created_at = datetime.fromisoformat(row["created_at"])
+        except (TypeError, ValueError):
+            continue
+        if starts_at.tzinfo is None:
+            starts_at = starts_at.replace(tzinfo=timezone.utc)
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        starts_at = starts_at.astimezone(timezone.utc)
+        created_at = created_at.astimezone(timezone.utc)
+        if abs((starts_at - created_at).total_seconds()) < 1:
+            continue
+        ends_at = created_at + timedelta(hours=settings.kakao_party_delete_after_hours)
+        connection.execute(
+            "UPDATE meetings SET starts_at = ?, ends_at = ? WHERE id = ?",
+            (created_at.isoformat(), ends_at.isoformat(), row["id"]),
+        )
 
 
 def ensure_database() -> None:
@@ -499,6 +531,7 @@ def ensure_database() -> None:
         # 이미 모임이 있는 기존 개발 DB에서도 board_posts는 비어 있을 수 있기 때문.
         _seed_board_posts(connection)
         _migrate_board_categories(connection)
+        _migrate_legacy_kakao_meeting_times(connection)
         connection.commit()
     finally:
         connection.close()
@@ -1027,9 +1060,8 @@ def _open_meeting_rows(connection: sqlite3.Connection, limit: int | None = None)
 
 
 def _home_meeting_rows(connection: sqlite3.Connection, *, limit: int, kakao_slots: int) -> list[sqlite3.Row]:
-    """홈 미리보기(LIMIT 6)용. 시작 시각으로만 정렬하면 콜드스타트(오픈채팅) 모임은
-    starts_at이 대체로 다음날이라 서비스 모임에 밀려 홈에 한 건도 안 보이는 문제가
-    있었다 — 콜드스타트 콘텐츠로 홈을 채우는 게 이 기능의 목적이라 자리를 예약한다."""
+    """홈 미리보기(LIMIT 6)용. 콜드스타트(오픈채팅) 콘텐츠가 서비스 파티에 밀려
+    홈에 한 건도 안 보이지 않도록 지정한 수만큼 자리를 예약한다."""
     kakao_slots = min(kakao_slots, limit)
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
@@ -1243,6 +1275,21 @@ def _local_kst_to_utc_iso(value: str) -> str:
     DB의 다른 타임스탬프들과 동일하게 UTC로 저장해야 _time_order_expr 정렬이 맞는다."""
     naive = datetime.fromisoformat(value)
     return naive.replace(tzinfo=_KST).astimezone(timezone.utc).isoformat()
+
+
+def _kakao_source_time_to_utc(value: str) -> datetime:
+    """카카오 원문 입력 시각을 UTC로 정규화한다.
+
+    Windows 내보내기(sent_at_text)는 오프셋 없는 한국시간이고, 외부 채팅 API는
+    오프셋이 포함된 ISO 문자열을 줄 수 있어 두 형식을 모두 처리한다.
+    """
+    try:
+        source_dt = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return datetime.now(timezone.utc)
+    if source_dt.tzinfo is None:
+        source_dt = source_dt.replace(tzinfo=_KST)
+    return source_dt.astimezone(timezone.utc)
 
 
 def create_meeting(
@@ -1786,9 +1833,9 @@ def cleanup_expired_parties() -> int:
     """만료된 파티를 DB에서 실제로 삭제한다(목록 숨김과 달리 복구 불가). 규칙은 두 갈래다:
 
     - 사용자 파티(source != 'kakao_chat'): 마감(ends_at) 후 party_delete_after_days(기본 2일)
-    - 카톡 수집 파티(source = 'kakao_chat'): 등록(created_at) 후
-      kakao_party_delete_after_hours(기본 4시간). 콜드스타트용 임시 콘텐츠라 마감 시각이
-      아니라 등록 시각을 기준으로 짧게 정리한다.
+    - 카톡 수집 파티(source = 'kakao_chat'): 원문 채팅 입력 시각(created_at) 후
+      kakao_party_delete_after_hours(기본 4시간). 콜드스타트용 임시 콘텐츠라 원문 시각을
+      기준으로 짧게 정리한다.
 
     연관 신청·채팅도 함께 지워 고아 레코드를 막는다. users/profiles(닉네임·익명ID),
     생활게시판 글(board_posts), RAG 문서(rag_documents)는 건드리지 않는다 — 보존 방침.
@@ -2116,17 +2163,11 @@ def create_coldstart_meeting(
     """오픈채팅 동행/이동 구인 글을 모임 후보로 변환한다. 호스트가 없는 외부 글이라
     owner_secret 없이(NULL) 등록하고, 신청/승인은 프론트에서 cta.enabled=False로 막는다."""
     meeting_id = _stable_id("meeting", f"kakao-live-{item_id}")
-    try:
-        source_dt = datetime.fromisoformat(created_at)
-    except ValueError:
-        source_dt = datetime.now(timezone.utc)
-    if source_dt.tzinfo is None:
-        source_dt = source_dt.replace(tzinfo=timezone.utc)
-    # 원문에서 정확한 약속 시각을 안정적으로 파싱하기 어려워, 메시지가 올라온 뒤
-    # 하루 정도(+24h, 3시간짜리 창) 유효한 것으로 보고 지나면 자동 숨김 처리한다
-    # (_open_meeting_rows의 source='kakao_chat' 만료 필터).
-    starts_at = (source_dt + timedelta(hours=24)).isoformat()
-    ends_at = (source_dt + timedelta(hours=27)).isoformat()
+    source_dt = _kakao_source_time_to_utc(created_at)
+    # 원문에서 약속 시각을 안정적으로 추출하기 어려우므로 화면에는 채팅 작성 시각을
+    # 보여준다. 노출·삭제도 같은 원문 시각부터 짧은 유효기간(기본 4시간)만 적용한다.
+    starts_at = source_dt.isoformat()
+    ends_at = (source_dt + timedelta(hours=settings.kakao_party_delete_after_hours)).isoformat()
     now = _now()
 
     with _connect() as connection:
@@ -2149,7 +2190,7 @@ def create_coldstart_meeting(
                 description,
                 starts_at,
                 ends_at,
-                now,
+                starts_at,
                 now,
             ),
         )

@@ -607,7 +607,7 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
               <div className={styles.time}>
                 <CalendarClock size={18} />
                 <strong>{formatTime(meeting.starts_at)}</strong>
-                <span>~ {formatTime(meeting.ends_at)}</span>
+                <span>{isExternal ? "오픈채팅 작성" : `~ ${formatTime(meeting.ends_at)}`}</span>
               </div>
               <div className={styles.timelineDot} aria-hidden="true">
                 <span />

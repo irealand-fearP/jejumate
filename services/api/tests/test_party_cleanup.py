@@ -2,7 +2,7 @@
 
 목록 숨김(grace period)과 달리 이건 복구 불가한 실삭제다. 두 갈래 규칙:
 - 사용자 파티: 마감(ends_at) 후 2일
-- 카톡 수집 파티: 등록(created_at) 후 4시간
+- 카톡 수집 파티: 원문 채팅 입력 시각(created_at) 후 4시간
 
 연관 신청·채팅까지 cascade로 지우되, users/profiles(닉네임·익명ID)와
 생활게시판 글(board_posts)은 건드리지 않는다.
@@ -151,7 +151,7 @@ def test_keeps_kakao_party_with_old_ends_at_but_recent_created_at():
 
 
 def test_deletes_kakao_party_created_over_four_hours_ago():
-    """카톡 수집 파티는 등록 후 kakao_party_delete_after_hours(기본 4시간)가 지나면 삭제된다."""
+    """카톡 수집 파티는 원문 입력 후 kakao_party_delete_after_hours(기본 4시간)가 지나면 삭제된다."""
     local_store.cleanup_expired_parties()
     meeting = _create_meeting("호스트바당이", "host-4")
     old = datetime.now(timezone.utc) - timedelta(
@@ -172,6 +172,29 @@ def test_keeps_kakao_party_created_under_three_hours_ago():
 
     assert local_store.cleanup_expired_parties() == 0
     assert _count("meetings", meeting.meeting_id) == 1
+
+
+def test_coldstart_party_uses_original_kst_message_time_and_four_hour_expiry():
+    """오프셋 없는 카톡 내보내기 시각은 KST로 해석해 화면·유효기간에 함께 쓴다."""
+    local_store.create_coldstart_meeting(
+        item_id=987654321,
+        title="원문 시간 테스트",
+        meeting_category="move",
+        description="공항 이동 동행을 구합니다.",
+        created_at="2026-07-13 18:43:00",
+    )
+
+    with local_store._connect() as connection:
+        row = connection.execute(
+            "SELECT starts_at, ends_at, created_at FROM meetings WHERE title = ?",
+            ("원문 시간 테스트",),
+        ).fetchone()
+
+    assert row["starts_at"] == "2026-07-13T09:43:00+00:00"
+    assert row["created_at"] == row["starts_at"]
+    assert datetime.fromisoformat(row["ends_at"]) - datetime.fromisoformat(row["starts_at"]) == timedelta(
+        hours=settings.kakao_party_delete_after_hours
+    )
 
 
 def test_cleanup_never_touches_kakao_board_posts():

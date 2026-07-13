@@ -52,9 +52,9 @@ class Settings(BaseSettings):
     party_delete_after_days: int = 2
     party_cleanup_interval_seconds: int = 3600
 
-    # 카톡 수집 파티는 마감 시각이 아니라 '등록 시각(created_at)' 기준으로 지운다 —
-    # 콜드스타트용 임시 콘텐츠라 몇 시간만 살아 있으면 된다. 게시판 글(board_posts)과
-    # RAG 문서(rag_documents)는 이 정리 대상이 아니다(계속 보존).
+    # 카톡 수집 파티는 원문 채팅 입력 시각(created_at) 기준으로 지운다 — 콜드스타트용
+    # 임시 콘텐츠라 몇 시간만 살아 있으면 된다. 게시판 글(board_posts)과 RAG 문서
+    # (rag_documents)는 이 정리 대상이 아니다(계속 보존).
     kakao_party_delete_after_hours: int = 4
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
