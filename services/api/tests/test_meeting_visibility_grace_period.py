@@ -100,6 +100,18 @@ def test_kakao_meeting_hidden_immediately_after_ending_no_grace():
     assert meeting.meeting_id not in _home_meeting_ids()
 
 
+def test_recent_kakao_meeting_is_marked_new_for_filter_badge():
+    """최근 오픈채팅 글도 오픈채팅 필터의 N 배지를 켤 수 있어야 한다."""
+    meeting = _create_meeting("오픈채팅", "host-kakao-new")
+    future = datetime.now(timezone.utc) + timedelta(hours=2)
+    _set_ends_at_and_source(meeting.meeting_id, ends_at=future, source="kakao_chat")
+
+    listed = {item.id: item for item in local_store.list_open_meetings()}
+
+    assert listed[meeting.meeting_id].source == "kakao_chat"
+    assert listed[meeting.meeting_id].is_new is True
+
+
 def test_expired_service_meeting_still_visible_in_my_applications():
     """마감+grace 지난 파티라도 내정보(참여중인 파티, 신청자 알림 조회)에는 여전히 보여야 한다."""
     meeting = _create_meeting("호스트바당이", "host-5")

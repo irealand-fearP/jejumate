@@ -785,7 +785,9 @@ def _meeting_from_row(row: sqlite3.Row, *, now: datetime | None = None) -> HomeM
         status=row["status"],
         cta=cta,
         is_popular=False if is_external else _is_popular_meeting(capacity=row["capacity"], approved_count=row["approved_count"]),
-        is_new=False if is_external else _is_new_meeting(created_at=row["created_at"], now=now),
+        # 카테고리 탭의 새 글 표시에는 오픈채팅 수집 글도 포함한다. 카드 자체는 이미
+        # 출처 배지가 있으므로 프론트에서 외부 글의 NEW 문구만 중복 렌더링하지 않는다.
+        is_new=_is_new_meeting(created_at=row["created_at"], now=now),
         source=source,
     )
 

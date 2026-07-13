@@ -72,7 +72,7 @@ export function MeetingCard({
           <span className={styles.meetingBadgeRow}>
             {isExternal ? <em className={styles.externalBadge}>오픈채팅에서 온 글</em> : null}
             {meeting.is_popular ? <em>인기</em> : null}
-            {meeting.is_new ? <em>NEW</em> : null}
+            {meeting.is_new && !isExternal ? <em>NEW</em> : null}
           </span>
         ) : null}
         <span className={styles.meetingTitleLine}>
