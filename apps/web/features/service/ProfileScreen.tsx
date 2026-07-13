@@ -11,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import {
+  ApiError,
   createNickname,
   deleteMeeting,
   deleteMyApplication,
@@ -133,16 +134,22 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
     }
     setOwnedLoading(true);
     Promise.all(
-      owned.map(async ({ meetingId, ownerSecret }) => {
+      owned.map(async ({ meetingId, ownerSecret }): Promise<OwnedMeetingItem | null> => {
         try {
           const meeting = await getMeetingDetail(meetingId);
           return { meetingId, ownerSecret, meeting };
-        } catch {
+        } catch (error) {
+          // 404 = 서버에서 이미 실삭제된 유령 파티. 이 기기의 관리 코드를 정리하고 목록에서 제외한다.
+          if (error instanceof ApiError && error.status === 404) {
+            removeOwnerSecret(meetingId);
+            return null;
+          }
+          // 404가 아닌 오류(네트워크 등)는 절대 지우지 않는다 — 정보 없는 카드로 남겨 기존 동작 유지.
           return { meetingId, ownerSecret, meeting: null };
         }
       })
     ).then((results) => {
-      setOwnedMeetings(results);
+      setOwnedMeetings(results.filter((item): item is OwnedMeetingItem => item !== null));
       setOwnedLoading(false);
     });
   }, []);
@@ -184,9 +191,17 @@ export function ProfileScreen({ data }: { data: ProfilePreviewData }) {
         setApprovedMeetings((current) => current.filter((m) => m.application_id !== party.applicationId));
       } else {
         if (!party.ownerSecret) return;
-        await deleteMeeting(party.meetingId, party.ownerSecret);
+        try {
+          await deleteMeeting(party.meetingId, party.ownerSecret);
+        } catch (error) {
+          // 서버에서 이미 실삭제(기간만료 등)된 유령 파티는 404가 온다.
+          // 이 경우도 '해산 성공'과 동일하게 목록·관리 코드 정리를 진행한다.
+          if (!(error instanceof ApiError && error.status === 404)) {
+            throw error;
+          }
+        }
         setOwnedMeetings((current) => current.filter((owned) => owned.meetingId !== party.meetingId));
-        // 해산했으면 이 기기에 남은 관리 코드도 지운다.
+        // 해산했으면(또는 이미 삭제됐으면) 이 기기에 남은 관리 코드도 지운다.
         removeOwnerSecret(party.meetingId);
       }
       setPendingAction(null);

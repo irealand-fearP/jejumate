@@ -1,5 +1,18 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+// 응답 실패를 던질 때 HTTP status를 함께 실어 보내는 에러.
+// 화면 쪽에서 404(이미 삭제됨) 같은 상태를 구분해 다르게 처리할 수 있게 한다.
+// (message 문자열은 기존 throw new Error(...)와 동일하게 유지 — 다른 화면 회귀 방지)
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export type ApiResponse<T> = {
   request_id: string;
   data: T;
@@ -252,7 +265,7 @@ async function postApi<TResponse, TPayload>(path: string, payload: TPayload): Pr
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new ApiError(response.status, `API request failed: ${response.status}`);
   }
 
   const body = (await response.json()) as ApiResponse<TResponse>;
@@ -272,7 +285,7 @@ async function getApi<TResponse>(path: string): Promise<TResponse> {
     } catch {
       // 에러 바디가 JSON이 아니면 무시하고 기본 메시지 사용
     }
-    throw new Error(detail ?? `API request failed: ${response.status}`);
+    throw new ApiError(response.status, detail ?? `API request failed: ${response.status}`);
   }
 
   const body = (await response.json()) as ApiResponse<TResponse>;
@@ -292,7 +305,7 @@ async function postApiQuery<TResponse>(path: string, method: "POST" | "DELETE" =
     } catch {
       // 에러 바디가 JSON이 아니면 무시하고 기본 메시지 사용
     }
-    throw new Error(detail ?? `API request failed: ${response.status}`);
+    throw new ApiError(response.status, detail ?? `API request failed: ${response.status}`);
   }
 
   const body = (await response.json()) as ApiResponse<TResponse>;
