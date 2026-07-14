@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.repositories import local_store
+from app.data.jejunu_campus_map import campus_building_documents
 from app.services.jejunu_official_ingest import seed_jejunu_official_documents
 
 FAKE_EMBEDDING = [1.0, 0.0, 0.0]
@@ -170,4 +171,40 @@ def test_location_answer_includes_structured_map_location(
     assert result.map_location.title == "제주대학교 수의과대학"
     assert result.map_location.lat == 33.4520059
     assert result.map_location.lng == 126.5585883
+    assert result.map_location.source_url == OFFICIAL_MAP_URL
+
+
+@patch("app.repositories.local_store.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.jejunu_official_ingest.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.rag_answer_service.settings")
+def test_any_campus_building_location_includes_structured_map_location(
+    mock_rag_settings, mock_seed_embed, mock_query_embed
+):
+    engineering_three = next(
+        document
+        for document in campus_building_documents()
+        if document["source_id"] == "campus-building-gonggwadaehak3hogwan"
+    )
+    seed_jejunu_official_documents((engineering_three,))
+    mock_rag_settings.openai_api_key = "test-key"
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = _fake_response(
+            {
+                "answer": "공과대학3호관은 공과대학1호관 남쪽에 있습니다.",
+                "citations": [{"index": 0, "supports": True}],
+            }
+        )
+        mock_openai_cls.return_value = mock_client
+
+        result = local_store.answer_rag_question(
+            question="공대3호관 어디에있어?", anonymous_id=None
+        )
+
+    assert result.answer_source == "official"
+    assert result.map_location is not None
+    assert result.map_location.title == "제주대학교 공과대학3호관"
+    assert result.map_location.lat == 33.45651
+    assert result.map_location.lng == 126.5655039
     assert result.map_location.source_url == OFFICIAL_MAP_URL

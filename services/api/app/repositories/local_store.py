@@ -13,6 +13,11 @@ from pathlib import Path
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from app.core.config import settings
+from app.data.jejunu_campus_map import (
+    CAMPUS_MAP_SOURCE_URL,
+    campus_buildings,
+    match_campus_building,
+)
 from app.schemas.home import (
     ActivitySummary,
     HomeMeeting,
@@ -1795,14 +1800,22 @@ _OFFICIAL_SOURCE_ALIASES = (
 )
 
 _CAMPUS_MAP_LOCATIONS = {
-    "campus-map-veterinary-college": RagMapLocation(
-        title="제주대학교 수의과대학",
-        lat=33.4520059,
-        lng=126.5585883,
-        description="부설 동물병원에서 북서쪽 약 76m",
-        source_url="https://www.jejunu.ac.kr/schoolinfo/campinfo/campusmap.htm",
-    ),
+    building["source_id"]: RagMapLocation(
+        title=f"제주대학교 {building['name']}",
+        lat=building["lat"],
+        lng=building["lng"],
+        description=building["description"],
+        source_url=CAMPUS_MAP_SOURCE_URL,
+    )
+    for building in campus_buildings()
 }
+_CAMPUS_MAP_LOCATIONS["campus-map-veterinary-college"] = RagMapLocation(
+    title="제주대학교 수의과대학",
+    lat=33.4520059,
+    lng=126.5585883,
+    description="부설 동물병원에서 북서쪽 약 76m",
+    source_url=CAMPUS_MAP_SOURCE_URL,
+)
 
 _LOCATION_QUESTION_KEYWORDS = ("어디", "위치", "찾아가", "가는길", "근처", "좌표", "지도")
 
@@ -1811,6 +1824,9 @@ def _official_source_ids_for_question(question: str) -> tuple[str, ...]:
     """명시적인 대학 주제는 관련 공식 문서에만 결정적으로 연결한다."""
     normalized = question.replace(" ", "").lower()
     source_ids: list[str] = []
+    campus_building = match_campus_building(question)
+    if campus_building:
+        source_ids.append(campus_building["source_id"])
     for keywords, mapped_source_ids in _OFFICIAL_SOURCE_ALIASES:
         if any(keyword in normalized for keyword in keywords):
             for source_id in mapped_source_ids:
@@ -1824,6 +1840,8 @@ def _should_search_jejunu_official(question: str) -> bool:
     normalized = question.replace(" ", "").lower()
     if any(keyword in normalized for keyword in _COMMUNITY_INFORMATION_KEYWORDS):
         return False
+    if match_campus_building(question):
+        return True
     if any(keyword in normalized for keyword in _OFFICIAL_INFORMATION_KEYWORDS):
         return True
     return "제주대학교" in normalized or "제주대" in normalized

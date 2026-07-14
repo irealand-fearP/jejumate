@@ -220,6 +220,8 @@ def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, moc
         ("제주대 근처 맛집 추천해줘", False),
         ("주차등록은 어디서 해?", True),
         ("자동차 정기이용 해지는 어떻게 해?", True),
+        ("골프연습장은 어디에 있어?", True),
+        ("공대3호관 어디에있어?", True),
         ("모임 신청은 어디서 해?", False),
     ],
 )
@@ -239,7 +241,13 @@ def test_refreshes_time_sensitive_official_search(question, expected):
     assert local_store._should_refresh_jejunu_official_search(question) is expected
 
 
-def test_veterinary_location_question_prioritizes_campus_map_source():
+def test_veterinary_location_question_prioritizes_exact_building_source():
     source_ids = local_store._official_source_ids_for_question("대학교 내 수의대 위치 알려줘")
 
-    assert source_ids[0] == "campus-map-veterinary-college"
+    assert source_ids[0] == "campus-building-suuigwadaehak"
+
+
+def test_engineering_location_question_prioritizes_exact_building_source():
+    source_ids = local_store._official_source_ids_for_question("공대3호관 어디에있어?")
+
+    assert source_ids == ("campus-building-gonggwadaehak3hogwan",)

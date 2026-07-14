@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 
+from app.data.jejunu_campus_map import campus_building_documents
 from app.data.jejunu_official import JEJUNU_OFFICIAL_DOCUMENTS, JejunuOfficialDocument
 from app.repositories import local_store
 from app.services.embedding_service import embed_text
@@ -12,9 +14,11 @@ SOURCE_TYPE = "jejunu_official"
 
 
 def seed_jejunu_official_documents(
-    documents: tuple[JejunuOfficialDocument, ...] = JEJUNU_OFFICIAL_DOCUMENTS,
+    documents: Sequence[JejunuOfficialDocument | dict[str, str]] | None = None,
 ) -> int:
     """공식 문서와 원문 URL을 upsert하고 처리한 문서 수를 반환한다."""
+    if documents is None:
+        documents = (*JEJUNU_OFFICIAL_DOCUMENTS, *campus_building_documents())
     now = local_store._now()
 
     with local_store._connect() as connection:
