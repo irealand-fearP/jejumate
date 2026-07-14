@@ -1,0 +1,531 @@
+<style>
+  :root {
+    --ground: #FBFCFC;
+    --surface: #FFFFFF;
+    --ink: #13201E;
+    --muted: #56655F;
+    --faint: #7C8A84;
+    --line: #E3EAE7;
+    --accent: #0E8C7C;
+    --accent-ink: #076456;
+    --accent-soft: #E1F1ED;
+    --warn: #B06A2E;
+    --warn-soft: #F5EADD;
+    --shadow: 0 1px 2px rgba(19,32,30,.04), 0 8px 24px rgba(19,32,30,.05);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0D1514;
+      --surface: #141F1D;
+      --ink: #E9F1EE;
+      --muted: #9BAAA4;
+      --faint: #75847E;
+      --line: #253433;
+      --accent: #2ED3BC;
+      --accent-ink: #7CE7D6;
+      --accent-soft: #16302C;
+      --warn: #E0A863;
+      --warn-soft: #2C2519;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #FBFCFC; --surface: #FFFFFF; --ink: #13201E; --muted: #56655F; --faint: #7C8A84;
+    --line: #E3EAE7; --accent: #0E8C7C; --accent-ink: #076456; --accent-soft: #E1F1ED;
+    --warn: #B06A2E; --warn-soft: #F5EADD; --shadow: 0 1px 2px rgba(19,32,30,.04), 0 8px 24px rgba(19,32,30,.05);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0D1514; --surface: #141F1D; --ink: #E9F1EE; --muted: #9BAAA4; --faint: #75847E;
+    --line: #253433; --accent: #2ED3BC; --accent-ink: #7CE7D6; --accent-soft: #16302C;
+    --warn: #E0A863; --warn-soft: #2C2519; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
+      'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  .eyebrow {
+    font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+
+  /* ── Header ── */
+  header.hero { padding: 72px 0 40px; border-bottom: 1px solid var(--line); }
+  .hero .logomark {
+    display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px;
+    font-weight: 700; letter-spacing: .02em; font-size: .95rem; color: var(--muted);
+  }
+  .hero .logomark .dot {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-ink));
+    position: relative; flex: none;
+  }
+  .hero .logomark .dot::after {
+    content: ""; position: absolute; inset: 8px 8px auto auto; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--ground);
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.15rem); line-height: 1.12; font-weight: 800;
+    letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; max-width: 20ch;
+  }
+  h1 .hl { color: var(--accent); }
+  .lede {
+    font-size: clamp(1.02rem, 2vw, 1.2rem); color: var(--muted); max-width: 62ch;
+    margin: 0 0 8px; text-wrap: pretty;
+  }
+  .method {
+    margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+    font-size: .9rem; color: var(--muted);
+  }
+  .method .chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    font-weight: 600; color: var(--ink);
+  }
+  .method .chip b { color: var(--accent-ink); font-weight: 700; }
+
+  /* ── Scorecard ── */
+  .scorecard {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin: 44px 0 8px;
+  }
+  .stat {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 20px; box-shadow: var(--shadow);
+  }
+  .stat .num {
+    font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--accent);
+  }
+  .stat .num .unit { font-size: 1rem; font-weight: 700; color: var(--faint); margin-left: 2px; }
+  .stat .lab { margin-top: 10px; font-size: .86rem; color: var(--muted); line-height: 1.45; }
+
+  /* ── Section ── */
+  section.group { padding: 46px 0 8px; }
+  .group-head { margin-bottom: 22px; }
+  .group-head h2 {
+    font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; margin: 6px 0 6px;
+  }
+  .group-head p { margin: 0; color: var(--muted); font-size: .95rem; max-width: 64ch; }
+
+  /* ── Comparison card ── */
+  .qcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; margin-bottom: 22px;
+  }
+  .qhead { padding: 20px 24px 18px; border-bottom: 1px solid var(--line); }
+  .qmeta { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .qnum {
+    font-variant-numeric: tabular-nums; font-weight: 800; font-size: .8rem;
+    color: var(--faint); letter-spacing: .04em;
+  }
+  .qtag {
+    font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-ink);
+  }
+  .qtag.warn { background: var(--warn-soft); color: var(--warn); }
+  .qtext { font-size: 1.14rem; font-weight: 700; letter-spacing: -.01em; margin: 0; text-wrap: pretty; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel { padding: 20px 24px 22px; }
+  .panel.rag { border-right: 1px solid var(--line); background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 40%, transparent), transparent 120px); }
+  .plabel {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .plabel .name {
+    font-size: .74rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .panel.rag .name { color: var(--accent-ink); }
+  .panel.base .name { color: var(--faint); }
+  .badge {
+    font-size: .7rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .badge.evi { background: var(--accent); color: #fff; }
+  .badge.none { background: transparent; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+  :root[data-theme="dark"] .badge.evi, @media (prefers-color-scheme: dark) { }
+  .badge.gk { background: transparent; color: var(--faint); border: 1px solid var(--line); }
+  .answer { font-size: .95rem; color: var(--ink); white-space: pre-wrap; margin: 0; }
+  .panel.base .answer { color: var(--muted); }
+  .answer.clip {
+    max-height: 12.5em; overflow: hidden; position: relative;
+    -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent);
+    mask-image: linear-gradient(180deg, #000 78%, transparent);
+  }
+
+  .takeaway {
+    padding: 15px 24px; border-top: 1px solid var(--line);
+    display: flex; gap: 11px; align-items: baseline; background: var(--ground);
+    font-size: .92rem;
+  }
+  .takeaway .k {
+    flex: none; font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent-ink); padding-top: 2px;
+  }
+  .takeaway.warn .k { color: var(--warn); }
+  .takeaway p { margin: 0; color: var(--ink); }
+  .takeaway b { color: var(--accent-ink); font-weight: 700; }
+  .takeaway.warn b { color: var(--warn); }
+
+  /* ── Findings ── */
+  section.findings { padding: 52px 0 20px; border-top: 1px solid var(--line); margin-top: 40px; }
+  .findings h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -.015em; margin: 8px 0 24px; }
+  .fgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .fcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow);
+  }
+  .fcard h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
+  .fcard.win h3 { color: var(--accent-ink); }
+  .fcard.limit h3 { color: var(--warn); }
+  .fcard p { margin: 0; color: var(--muted); font-size: .94rem; }
+  .fcard p b { color: var(--ink); font-weight: 700; }
+
+  footer {
+    padding: 40px 0 64px; color: var(--faint); font-size: .82rem; border-top: 1px solid var(--line);
+    margin-top: 44px; line-height: 1.7;
+  }
+  footer b { color: var(--muted); font-weight: 700; }
+
+  @media (max-width: 720px) {
+    .scorecard { grid-template-columns: repeat(2, 1fr); }
+    .panels { grid-template-columns: 1fr; }
+    .panel.rag { border-right: none; border-bottom: 1px solid var(--line); }
+    .fgrid { grid-template-columns: 1fr; }
+    header.hero { padding: 48px 0 32px; }
+  }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="logomark"><span class="dot"></span> SYNAPSE POT · 시냅스팟</span>
+    <div class="eyebrow">RAG 성능 검증 · 2026 제주대 계절학기 커뮤니티</div>
+    <h1>우리 데이터를 붙이면 답이 <span class="hl">달라진다</span></h1>
+    <p class="lede">같은 모델(gpt-5-mini)에 같은 질문 15개를 두 방식으로 던졌습니다. 하나는 모델의 일반 지식만으로, 다른 하나는 카카오톡 오픈채팅·학교 데이터를 근거로 검색해서(RAG). 유일한 차이는 <b>“우리 데이터를 봤느냐”</b>뿐입니다.</p>
+    <div class="method">
+      <span class="chip">모델 <b>gpt-5-mini</b></span>
+      <span class="chip">근거 코퍼스 <b>카톡 5,521 · 게시판 135 · 파티 26</b></span>
+      <span class="chip">질문 <b>15개 × 2방식</b></span>
+      <span class="chip">실행 <b>라이브 API</b></span>
+    </div>
+
+    <div class="scorecard">
+      <div class="stat">
+        <div class="num">12<span class="unit">/15</span></div>
+        <div class="lab">RAG가 <b>실제 근거를 찾아</b> 답한 질문 (community)</div>
+      </div>
+      <div class="stat">
+        <div class="num">8<span class="unit">/8</span></div>
+        <div class="lab">실데이터 질문에서 RAG가 <b>더 구체적</b>으로 우위</div>
+      </div>
+      <div class="stat">
+        <div class="num">0<span class="unit">건</span></div>
+        <div class="lab">근거 없을 때 <b>지어낸 답</b> — 모르면 “모른다”</div>
+      </div>
+      <div class="stat">
+        <div class="num">3<span class="unit">/15</span></div>
+        <div class="lab">일반 상식 질문은 <b>단독도 충분</b> (정직한 대조군)</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 그룹 1 -->
+  <section class="group">
+    <div class="group-head">
+      <div class="eyebrow">그룹 1 — 실데이터 명중형</div>
+      <h2>우리 커뮤니티만 아는 실시간·로컬 정보</h2>
+      <p>택시팟·기숙사·생활정보처럼 카톡 오픈채팅에 실제로 쌓인 주제. 일반 챗봇은 알 수 없는 영역에서 RAG가 무엇을 하는지 보여줍니다.</p>
+    </div>
+
+    <!-- Q1 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q01</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">지금 애월에서 기숙사 가는 택시팟 있어?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">네. 학생들이 애월에서 기숙사 가는 택시팟을 구한다는 글이 있습니다 — “애월에서 기숙사 택시 한 분 더 구해요!!”라는 모집 글이 근거로 확인됩니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">일반적으로 애월에서 대학 기숙사까지 택시팟이 있다고 확정적으로 말하긴 어렵습니다. 지역 커뮤니티에서 학생들이 수시로 모아서 운행하는 경우가 있는데, 보통 다음 경로로 찾아볼 수 있습니다 — 지역 대학생 카톡방/텔레그램 확인, 학교 커뮤니티 게시판, 페이스북/인스타 지역 그룹… 지금 당장 실시간 정보가 필요하면 카톡방에 직접 글을 올려보세요.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>RAG는 <b>실제 모집글을 인용</b>해 “있다”고 답하고, 단독은 “찾는 방법”만 안내합니다.</p></div>
+    </article>
+
+    <!-- Q3 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q03</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">기숙사에서 제주공항 갈 때 보통 몇 시에 택시 같이 타?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">근거 게시글들을 보면 기숙사→제주공항 택시팟 모집은 <b>오전 10시 출발</b>을 기준으로 한 사례가 반복됩니다. 따라서 학생들 사이에서는 오전 10시쯤 함께 타는 경우가 흔합니다. (다른 사례로 제주시청 행 6:20 출발 글이 하나 있었습니다.)</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">일반적으로 비행기 출발 시간에 따라 다르지만 — 오전 출발(07~09시)이면 06:00~06:30, 낮 출발(13시)이면 11:30~12:00쯤 모이는 식입니다. 국제선은 2~3시간 전… 정확한 시간은 비행기 출발 시간, 기숙사 위치, 일정에 따라 조정하는 게 좋아요.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>RAG는 실제 데이터에서 <b>“오전 10시”라는 구체적 시각</b>을 뽑고, 단독은 비행기 시간 기준의 일반론을 나열합니다.</p></div>
+    </article>
+
+    <!-- Q5 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q05</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">어바웃커피 와이파이 비밀번호 알아?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">근거 문서에는 ‘어바웃커피 와이파이 비번 아시는분’이라는 <b>동일한 문의 글만</b> 있고, 비밀번호 자체는 포함돼 있지 않습니다. 따라서 제공된 근거만으로는 알 수 없습니다. 카페에 직접 문의하시길 권합니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer">일반적으로 카페 Wi-Fi 비밀번호는 매장별로 다르고 자주 바뀝니다. 정확한 비밀번호는 매장 직원에게 직접 물어보는 게 가장 확실합니다. 카운터·메뉴판·영수증에 적어놓는 경우가 많습니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">핵심 사례</span><p>둘 다 “모른다”지만, RAG는 <b>근거(문의글만 있음)까지 밝히며 지어내지 않습니다.</b> 이게 신뢰도의 핵심 — 없으면 없다고 말합니다.</p></div>
+    </article>
+
+    <!-- Q8 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q08</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">시청 근처에서 기숙사로 가는 택시팟 자주 올라와?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">네. 시청 쪽에서 기숙사로 가는 택시팟 모집 글이 <b>실제로 올라옵니다</b> — 근거 문서에 같은 취지의 글이 여러 건 확인됩니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">일반적으로는 시청 근처에서 기숙사로 가는 택시팟 글이 <b>자주 올라오진 않는 편</b>입니다. 시청 주변은 택시 수요·공급이 안정적이라 합승 필요성이 적고… 다만 새벽 시간대나 비 오는 날엔 늘어날 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>결론이 <b>정반대</b>입니다. 단독은 “잘 안 올라온다”고 그럴듯하게 추측하지만, 실제 데이터를 본 RAG는 “자주 올라온다”고 확인합니다.</p></div>
+    </article>
+
+    <!-- Q4 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q04</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">기숙사 건조기 관련해서 알아둘 점 있어?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">학생들이 올린 글 기준으로 — <b>배기관(배기구) 막힘</b>으로 빨래가 안 마를 수 있으니 성능이 나쁘면 배기관을 의심하세요. 또 <b>‘1호관 잘 되는 건조기’</b>를 서로 물어보는 문의가 있으니, 같은 호관에서 잘 되는 기기를 물어보는 게 실용적입니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">일반 지식 기준으로 — 사용 시간·요금(분 단위 과금), 용량 확인, 세탁물 분류, 소재별 주의(울·실크), 필터 청소, 과열·화재 예방, 드라이어볼 활용… 기숙사마다 사용 규칙이 다르니 안내문을 확인하세요.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>RAG는 <b>이 기숙사에서 실제로 겪은 문제(배기관·1호관)</b>를 짚고, 단독은 어느 건조기에나 통하는 일반 상식을 길게 나열합니다.</p></div>
+    </article>
+
+    <!-- Q6 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q06</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">계절학기 기숙사 퇴사나 연장 신청은 어떻게 해?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">계절학기 중 퇴사·연장은 <b>기숙사 관리실에 문의</b>해 절차를 확인하고, 연장은 반드시 <b>행정실 승인</b>을 받아야 합니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">학교마다 다르지만 일반적으로 — 신청 시기(계절학기 시작 전 공지), 신청 방법(포털/행정실/이메일), 비용·환불(일수 기준), 방 배정·퇴실 절차(열쇠 반납·점검), 예외사항… 학교 포털 공지를 확인하세요.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>RAG는 이 학교의 <b>실제 창구(관리실 → 행정실 승인)</b>를 바로 짚고, 단독은 장문의 일반 절차를 훑습니다.</p></div>
+    </article>
+
+    <!-- Q2 & Q7 compact -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q02 · Q07</span><span class="qtag">실데이터</span></div>
+        <p class="qtext">함덕 해수욕장 택시 동행 있어? / 성이시돌목장·김녕에서 기숙사 오는 사람 있어?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 각 3건</span></div>
+          <p class="answer">함덕 → “두 분 구한다”는 글 확인. 김녕 → 여러 시각의 모집글 다수, 서귀포 밤 10시 이후 글도 확인. <b>지명·인원·시간까지 실제 글에서 그대로</b> 가져옵니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer">“직접 커뮤니티를 볼 수 없어 확인이 어렵다”며, 에브리타임·오픈채팅에 글 올리는 방법과 통학 버스 소요시간 같은 일반 팁으로 답합니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>구체적인 장소를 물을수록 격차가 벌어집니다 — RAG는 <b>실제 글</b>, 단독은 <b>“찾는 방법”</b>.</p></div>
+    </article>
+  </section>
+
+  <!-- 그룹 2 -->
+  <section class="group">
+    <div class="group-head">
+      <div class="eyebrow">그룹 2 — 환각 유발형</div>
+      <h2>단독이 “그럴듯하게 지어내는지” 시험</h2>
+      <p>답하기 애매한 질문에서 일반 챗봇이 확신에 차서 틀리는지, RAG는 근거 유무를 어떻게 다루는지 봅니다.</p>
+    </div>
+
+    <!-- Q10 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q10</span><span class="qtag">환각 유발</span></div>
+        <p class="qtext">제주대 기숙사 1호관 세탁실 상황 알려줘</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer"><b>1호관 B동 세탁기</b> 관련 글이 있습니다 — 돈을 많이 넣어 약 90분 사용할 분을 구한다는 내용으로, 현재 사용 중이고 시간이 많이 남은 상태입니다. (4호관 3층 세탁기 관련 글도 별도로 있습니다.)</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">최신 근거는 없지만 일반적으로 — 운영시간 오전 7시~오후 11시, 세탁기 4~8대·건조기 2~4대, 요금 2,000~3,000원대, 오전·저녁 혼잡… <b>추정치</b>를 나열합니다. 정확한 상황은 관리사무소에 확인하세요.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>단독은 그럴듯한 <b>추정 스펙</b>을 만들어내고, RAG는 <b>“B동, 90분 사용 중”</b> 같은 실시간 상황을 전합니다.</p></div>
+    </article>
+
+    <!-- Q12 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q12</span><span class="qtag">환각 유발</span></div>
+        <p class="qtext">제주대 근처에서 학생들이 실제로 자주 가는 곳은?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 3건</span></div>
+          <p class="answer">근거에 따르면 학생들이 자주 찾는 건 <b>‘말랑이(간식)’ 파는 곳</b>과 <b>새벽에도 공부할 수 있는 장소</b>입니다. 실제로 학생들이 물어본 관심사를 그대로 반영합니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer clip">일반적으로 카페, 분식집, 편의점·마트, 호프·이자카야, 노래방·PC방, 공원·해변, 스터디카페… 어느 대학가에나 있을 법한 상권을 폭넓게 나열합니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>단독은 “대학가라면 이럴 것”을 나열하고, RAG는 <b>이 커뮤니티의 진짜 관심사(말랑이·새벽 공부)</b>를 짚습니다.</p></div>
+    </article>
+
+    <!-- Q9 & Q11 compact -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q09 · Q11</span><span class="qtag warn">근거 없음</span></div>
+        <p class="qtext">계절학기 학점교류방 분위기 어때? / 요즘 제일 많이 나오는 이동 경로가 뭐야?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge gk">일반지식 전환</span></div>
+          <p class="answer">이 질문들은 근거 검색에서 <b>충분한 문서를 못 찾아</b>, RAG가 스스로 일반 지식으로 전환하며 “수집한 근거는 없다”고 화면에 표시합니다. <b>없는 근거를 지어내지 않습니다.</b></p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer">단독도 비슷한 수준의 일반적 답변을 냅니다. 이 경우 둘의 품질은 사실상 동률 — 차이는 RAG가 <b>“근거 없음”을 사용자에게 명시</b>한다는 점입니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>RAG의 안전장치: 근거가 없으면 <b>솔직히 일반지식으로 전환하고 배지로 표시</b>합니다. “우리 데이터인 척”하지 않습니다.</p></div>
+    </article>
+  </section>
+
+  <!-- 그룹 3 -->
+  <section class="group">
+    <div class="group-head">
+      <div class="eyebrow">그룹 3 — 대조군</div>
+      <h2>단독으로도 충분한 일반 상식 질문</h2>
+      <p>“무조건 RAG에 유리하게 짠 것 아니냐”는 반박을 막기 위한 정직한 대조군. 여기선 결과가 비슷하거나, 오히려 단독이 낫기도 합니다.</p>
+    </div>
+
+    <!-- Q14 -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q14</span><span class="qtag warn">단독 우위</span></div>
+        <p class="qtext">제주 흑돼지가 유명한 이유가 뭐야?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge evi">근거 1건</span></div>
+          <p class="answer">근거 문서가 ‘빨간집 뭐가 유명한지’라는 짧은 질문뿐이라, <b>흑돼지가 왜 유명한지는 설명하지 못합니다.</b> 근거에 없는 내용을 지어내지 않기 때문입니다.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge gk">일반지식</span></div>
+          <p class="answer">품종 특성, 사육 환경, 먹이·관리, 브랜드화, 희소성까지 <b>짜임새 있게 설명</b>합니다. 이런 일반 상식은 단독이 더 낫습니다.</p>
+        </div>
+      </div>
+      <div class="takeaway warn"><span class="k">정직한 한계</span><p>RAG는 <b>만능이 아닙니다.</b> 우리 데이터가 없는 일반 상식 영역에선 오히려 단독이 낫습니다 — 그래서 둘을 <b>상황에 맞게 결합</b>하는 설계가 정답입니다.</p></div>
+    </article>
+
+    <!-- Q13 & Q15 compact -->
+    <article class="qcard">
+      <div class="qhead">
+        <div class="qmeta"><span class="qnum">Q13 · Q15</span><span class="qtag">대조군</span></div>
+        <p class="qtext">제주 3박4일 코스 추천 / 제주 여름 날씨는 보통 어때?</p>
+      </div>
+      <div class="panels">
+        <div class="panel rag">
+          <div class="plabel"><span class="name">RAG · 우리 데이터</span><span class="badge gk">근거 부족·일반지식</span></div>
+          <p class="answer">여행코스 → 근거가 “추천 좀 해달라”는 질문글뿐이라 코스 대신 <b>여행 스타일을 되물어</b> 맞춤 추천으로 유도. 여름 날씨 → 일반지식으로 무난히 답변.</p>
+        </div>
+        <div class="panel base">
+          <div class="plabel"><span class="name">단독 · gpt-5-mini</span><span class="badge none">근거 없음</span></div>
+          <p class="answer">여름 날씨는 거의 동일한 품질로 답변. 다만 여행코스에선 이번 실행에서 <b>“답변을 만들지 못했어요”</b>라며 실패한 응답이 나오기도 했습니다.</p>
+        </div>
+      </div>
+      <div class="takeaway"><span class="k">한 줄 평</span><p>일반 상식(날씨)은 <b>동률</b>. 대조군을 통해 “RAG가 늘 이기게 짠 게 아니다”라는 신뢰를 확보합니다.</p></div>
+    </article>
+  </section>
+
+  <!-- Findings -->
+  <section class="findings">
+    <div class="eyebrow">종합 결론</div>
+    <h2>무엇이 증명됐나</h2>
+    <div class="fgrid">
+      <div class="fcard win">
+        <h3>1. 구체성 — 일반론 vs 실제 글</h3>
+        <p>실데이터 질문 <b>8개 전부</b>에서 RAG가 우위. 단독이 “찾아보세요”라고 안내할 때 RAG는 <b>실제 모집글·시각·장소</b>를 그대로 인용합니다.</p>
+      </div>
+      <div class="fcard win">
+        <h3>2. 신뢰성 — 지어내지 않는다</h3>
+        <p>근거가 없으면 RAG는 <b>“모른다 / 근거 없음”을 명시</b>합니다(Q5 와이파이, Q9·Q11). 그럴듯한 환각 대신 검증 가능한 답을 냅니다.</p>
+      </div>
+      <div class="fcard win">
+        <h3>3. 정반대 결론을 바로잡음</h3>
+        <p>Q8에서 단독은 “택시팟 잘 안 올라온다”고 <b>틀리게 추측</b>했지만, 데이터를 본 RAG는 “자주 올라온다”고 사실을 확인했습니다.</p>
+      </div>
+      <div class="fcard limit">
+        <h3>4. 정직한 한계 — 만능은 아니다</h3>
+        <p>흑돼지·날씨 같은 <b>일반 상식은 단독이 충분하거나 더 낫습니다.</b> 그래서 시냅스팟은 근거가 있으면 RAG, 없으면 일반지식으로 <b>자동 전환</b>하는 하이브리드로 설계됐습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p><b>측정 방법</b> · 동일 모델 gpt-5-mini에 질문 15개를 두 방식으로 실행. RAG는 라이브 API(<code>/api/rag/ask</code>)의 검색+생성 경로, 단독은 검색 없이 모델 일반 지식만 사용. 근거 코퍼스는 카카오톡 오픈채팅 5,521건 · 생활게시판 135건 · 파티 26건. RAG 답변의 <code>answer_source</code>가 <b>community</b>면 근거 확보, <b>general_knowledge</b>면 근거 부족으로 일반지식 전환.</p>
+    <p style="margin-top:10px;">SYNAPSE POT · 2026 제주대학교 하계 계절학기 커뮤니티 · RAG 성능 검증 리포트</p>
+  </footer>
+</main>
