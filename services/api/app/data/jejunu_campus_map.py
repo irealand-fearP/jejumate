@@ -11,6 +11,21 @@ from typing import Any, TypedDict
 
 
 CAMPUS_MAP_SOURCE_URL = "https://www.jejunu.ac.kr/schoolinfo/campinfo/campusmap.htm"
+SARA_CAMPUS_SOURCE_URL = "https://www.jejunu.ac.kr/schoolinfo/campinfo/location/sara.htm"
+_SARA_EDUCATION_MAJORS = (
+    "초등윤리교육전공",
+    "초등국어교육전공",
+    "초등수학교육전공",
+    "초등사회교육전공",
+    "초등과학교육전공",
+    "초등체육교육전공",
+    "초등음악교육전공",
+    "초등미술교육전공",
+    "초등실과교육전공",
+    "초등교육학전공",
+    "초등영어교육전공",
+    "초등컴퓨터교육전공",
+)
 _CAMPUS_MAP_ASSET = (
     Path(__file__).resolve().parents[4]
     / "apps"
@@ -67,6 +82,7 @@ class CampusBuilding(TypedDict):
     aliases: tuple[str, ...]
     room_count: int
     floors: tuple[dict[str, Any], ...]
+    source_url: str
 
 
 class CampusDepartmentLocation(TypedDict):
@@ -285,6 +301,23 @@ def _extract_department_locations(
                 "room_label": room_label,
             }
         )
+    sara_building = buildings_by_name["사라캠퍼스 교육대학"]
+    for name in _SARA_EDUCATION_MAJORS:
+        locations.append(
+            {
+                "name": name,
+                "aliases": tuple(
+                    sorted(
+                        _department_aliases(name),
+                        key=lambda value: (-len(_normalize(value)), value),
+                    )
+                ),
+                "building_source_id": sara_building["source_id"],
+                "building_name": sara_building["name"],
+                "floor": "층 정보 없음",
+                "room_label": "사라캠퍼스 교육대학",
+            }
+        )
     return tuple(locations)
 
 
@@ -322,8 +355,34 @@ def campus_buildings() -> tuple[CampusBuilding, ...]:
                 "aliases": tuple(sorted(aliases, key=lambda value: (-len(_normalize(value)), value))),
                 "room_count": int(raw.get("roomCount") or 0),
                 "floors": tuple(raw.get("floors") or ()),
+                "source_url": CAMPUS_MAP_SOURCE_URL,
             }
         )
+
+    sara_aliases = {
+        "사라캠퍼스",
+        "사라캠퍼스 교육대학",
+        "교육대학",
+        "교육대",
+        "교대",
+        "초등교육과",
+        *_SARA_EDUCATION_MAJORS,
+    }
+    buildings.append(
+        {
+            "source_id": "campus-sara-college-of-education",
+            "name": "사라캠퍼스 교육대학",
+            "lat": 33.5150982,
+            "lng": 126.5528002,
+            "description": "제주시 일주동로 61 사라캠퍼스",
+            "aliases": tuple(
+                sorted(sara_aliases, key=lambda value: (-len(_normalize(value)), value))
+            ),
+            "room_count": 0,
+            "floors": (),
+            "source_url": SARA_CAMPUS_SOURCE_URL,
+        }
+    )
 
     department_locations = _extract_department_locations(buildings)
     department_aliases_by_building: dict[str, set[str]] = {}
@@ -338,6 +397,8 @@ def campus_buildings() -> tuple[CampusBuilding, ...]:
         building["aliases"] = tuple(
             sorted(aliases, key=lambda value: (-len(_normalize(value)), value))
         )
+        if building["source_id"] == "campus-sara-college-of-education":
+            continue
         nearest = min(
             (candidate for candidate in buildings if candidate["source_id"] != building["source_id"]),
             key=lambda candidate: _distance_m(building, candidate),
@@ -412,11 +473,18 @@ def campus_building_documents() -> tuple[dict[str, str], ...]:
             for candidate in nearby
         )
         floor_names = [str(floor.get("floor")) for floor in building["floors"] if floor.get("floor")]
-        body_parts = [
-            f"제주대학교 공식 아라캠퍼스맵의 {building['name']} 위치 안내.",
-            f"{building['name']}의 지도 좌표는 위도 {building['lat']}, 경도 {building['lng']}이다.",
-            f"주변 기준: {nearby_text}.",
-        ]
+        if building["source_id"] == "campus-sara-college-of-education":
+            body_parts = [
+                "제주대학교 공식 홈페이지의 사라캠퍼스 교육대학 위치 안내.",
+                f"지도 좌표는 위도 {building['lat']}, 경도 {building['lng']}이다.",
+                "주소는 제주특별자치도 제주시 일주동로 61(화북일동)이다.",
+            ]
+        else:
+            body_parts = [
+                f"제주대학교 공식 아라캠퍼스맵의 {building['name']} 위치 안내.",
+                f"{building['name']}의 지도 좌표는 위도 {building['lat']}, 경도 {building['lng']}이다.",
+                f"주변 기준: {nearby_text}.",
+            ]
         if floor_names:
             body_parts.append(f"캠퍼스맵에 표시된 층: {', '.join(floor_names)}.")
         if building["room_count"]:
@@ -433,7 +501,7 @@ def campus_building_documents() -> tuple[dict[str, str], ...]:
                 "source_id": building["source_id"],
                 "title": f"제주대학교 캠퍼스맵 {building['name']} 위치",
                 "body": " ".join(body_parts),
-                "url": CAMPUS_MAP_SOURCE_URL,
+                "url": building["source_url"],
             }
         )
     return tuple(documents)

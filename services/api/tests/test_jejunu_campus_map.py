@@ -15,8 +15,8 @@ from app.data.jejunu_campus_map import (
 def test_loads_all_campus_map_buildings_with_unique_source_ids():
     buildings = campus_buildings()
 
-    assert len(buildings) == 68
-    assert len({building["source_id"] for building in buildings}) == 68
+    assert len(buildings) == 69
+    assert len({building["source_id"] for building in buildings}) == 69
 
 
 def test_matches_golf_practice_range_alias():
@@ -69,7 +69,7 @@ def test_building_documents_include_coordinates_and_official_source():
         if document["source_id"] == "campus-building-gonggwadaehak3hogwan"
     )
 
-    assert len(documents) == 68
+    assert len(documents) == 69
     assert "위도 33.45651, 경도 126.5655039" in engineering_three["body"]
     assert "주변 기준" in engineering_three["body"]
     assert engineering_three["url"] == CAMPUS_MAP_SOURCE_URL
@@ -99,6 +99,8 @@ def test_extracts_department_locations_from_floor_spaces():
         ("미술학과 어디야?", "미술관"),
         ("기계시스템공학과 어디야?", "공과대학4호관"),
         ("전기에너지공학과 어디야?", "공과대학2호관"),
+        ("초등컴퓨터교육전공 어디야?", "사라캠퍼스 교육대학"),
+        ("초등교육과 어디야?", "사라캠퍼스 교육대학"),
     ),
 )
 def test_department_questions_match_their_buildings(question, building_name):
@@ -117,3 +119,22 @@ def test_building_document_contains_department_office_evidence():
 
     assert "학과·전공 위치" in engineering_four["body"]
     assert "건축학전공 지상1층 건축학전공사무실" in engineering_four["body"]
+
+
+def test_sara_campus_department_uses_official_external_campus_location():
+    building = match_campus_building("초등음악교육전공 어디있어?")
+
+    assert building is not None
+    assert building["source_id"] == "campus-sara-college-of-education"
+    assert building["lat"] == 33.5150982
+    assert building["lng"] == 126.5528002
+    assert building["source_url"].endswith("/location/sara.htm")
+
+    document = next(
+        document
+        for document in campus_building_documents()
+        if document["source_id"] == "campus-sara-college-of-education"
+    )
+    assert "제주시 일주동로 61" in document["body"]
+    assert "초등컴퓨터교육전공" in document["body"]
+    assert document["url"] == building["source_url"]

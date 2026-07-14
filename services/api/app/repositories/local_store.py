@@ -1808,7 +1808,7 @@ _CAMPUS_MAP_LOCATIONS = {
         lat=building["lat"],
         lng=building["lng"],
         description=building["description"],
-        source_url=CAMPUS_MAP_SOURCE_URL,
+        source_url=building["source_url"],
     )
     for building in campus_buildings()
 }
