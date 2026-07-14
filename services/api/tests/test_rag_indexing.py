@@ -222,6 +222,7 @@ def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, moc
         ("자동차 정기이용 해지는 어떻게 해?", True),
         ("골프연습장은 어디에 있어?", True),
         ("공대3호관 어디에있어?", True),
+        ("생명과학대는 어디있어?", True),
         ("모임 신청은 어디서 해?", False),
     ],
 )
@@ -251,3 +252,9 @@ def test_engineering_location_question_prioritizes_exact_building_source():
     source_ids = local_store._official_source_ids_for_question("공대3호관 어디에있어?")
 
     assert source_ids == ("campus-building-gonggwadaehak3hogwan",)
+
+
+def test_life_sciences_location_question_prioritizes_exact_building_source():
+    source_ids = local_store._official_source_ids_for_question("생명과학대는 어디있어?")
+
+    assert source_ids[0] == "campus-building-saengmyeongjawongwahakdaehak"

@@ -27,6 +27,16 @@ _ALIASES_PATTERN = re.compile(
     r"var buildingSearchAliases\s*=\s*(?P<data>\{.*?\});",
     re.DOTALL,
 )
+_CAMPUS_BUILDING_ALIAS_OVERRIDES = {
+    "생명자원과학대학": (
+        "생명과학대",
+        "생명과학대학",
+        "생명자원과학대",
+        "농생대",
+        "농생명대",
+        "농생명과학대",
+    ),
+}
 
 
 class CampusBuilding(TypedDict):
@@ -110,6 +120,7 @@ def campus_buildings() -> tuple[CampusBuilding, ...]:
         name = str(raw["name"])
         aliases = _generated_aliases(name)
         aliases.update(str(alias) for alias in configured_aliases.get(name, []))
+        aliases.update(_CAMPUS_BUILDING_ALIAS_OVERRIDES.get(name, ()))
         buildings.append(
             {
                 "source_id": _source_id(raw),
