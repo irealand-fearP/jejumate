@@ -1760,6 +1760,9 @@ _COMMUNITY_INFORMATION_KEYWORDS = (
     "세탁기",
     "건조기",
     "게시글",
+    "학점교류방",
+    "오픈채팅방",
+    "단톡방",
 )
 
 _DYNAMIC_OFFICIAL_SEARCH_KEYWORDS = (
@@ -1824,7 +1827,8 @@ def _official_source_ids_for_question(question: str) -> tuple[str, ...]:
     """명시적인 대학 주제는 관련 공식 문서에만 결정적으로 연결한다."""
     normalized = question.replace(" ", "").lower()
     source_ids: list[str] = []
-    campus_building = match_campus_building(question)
+    asks_for_location = any(keyword in normalized for keyword in _LOCATION_QUESTION_KEYWORDS)
+    campus_building = match_campus_building(question) if asks_for_location else None
     if campus_building:
         source_ids.append(campus_building["source_id"])
     for keywords, mapped_source_ids in _OFFICIAL_SOURCE_ALIASES:
@@ -1840,7 +1844,9 @@ def _should_search_jejunu_official(question: str) -> bool:
     normalized = question.replace(" ", "").lower()
     if any(keyword in normalized for keyword in _COMMUNITY_INFORMATION_KEYWORDS):
         return False
-    if match_campus_building(question):
+    if any(keyword in normalized for keyword in _LOCATION_QUESTION_KEYWORDS) and match_campus_building(
+        question
+    ):
         return True
     if any(keyword in normalized for keyword in _OFFICIAL_INFORMATION_KEYWORDS):
         return True

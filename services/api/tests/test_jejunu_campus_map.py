@@ -7,6 +7,7 @@ from app.data.jejunu_campus_map import (
     CAMPUS_MAP_SOURCE_URL,
     campus_building_documents,
     campus_buildings,
+    campus_department_locations,
     match_campus_building,
 )
 
@@ -72,3 +73,47 @@ def test_building_documents_include_coordinates_and_official_source():
     assert "위도 33.45651, 경도 126.5655039" in engineering_three["body"]
     assert "주변 기준" in engineering_three["body"]
     assert engineering_three["url"] == CAMPUS_MAP_SOURCE_URL
+
+
+def test_extracts_department_locations_from_floor_spaces():
+    locations = campus_department_locations()
+
+    assert len(locations) >= 80
+    assert any(
+        location["name"] == "건축학전공"
+        and location["building_name"] == "공과대학4호관"
+        and location["floor"] == "지상1층"
+        and location["room_label"] == "건축학전공사무실"
+        for location in locations
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "building_name"),
+    (
+        ("건축학과 어디있어?", "공과대학4호관"),
+        ("건축공학과 어디있어?", "공과대학1호관"),
+        ("국어교육과 위치 알려줘", "사범대학1호관"),
+        ("해양생명과학과 어디야?", "해양과학대학4호관"),
+        ("컴퓨터공학전공 어디야?", "공과대학4호관"),
+        ("미술학과 어디야?", "미술관"),
+        ("기계시스템공학과 어디야?", "공과대학4호관"),
+        ("전기에너지공학과 어디야?", "공과대학2호관"),
+    ),
+)
+def test_department_questions_match_their_buildings(question, building_name):
+    building = match_campus_building(question)
+
+    assert building is not None
+    assert building["name"] == building_name
+
+
+def test_building_document_contains_department_office_evidence():
+    engineering_four = next(
+        document
+        for document in campus_building_documents()
+        if document["source_id"] == "campus-building-gonggwadaehak4hogwan"
+    )
+
+    assert "학과·전공 위치" in engineering_four["body"]
+    assert "건축학전공 지상1층 건축학전공사무실" in engineering_four["body"]
