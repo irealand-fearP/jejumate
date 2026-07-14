@@ -218,10 +218,25 @@ def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, moc
         ("기숙사에서 공항 갈 택시팟 있어?", False),
         ("생활관 세탁기 몇 대야?", False),
         ("제주대 근처 맛집 추천해줘", False),
+        ("주차등록은 어디서 해?", True),
+        ("자동차 정기이용 해지는 어떻게 해?", True),
+        ("모임 신청은 어디서 해?", False),
     ],
 )
 def test_routes_university_facts_to_official_documents(question, expected):
     assert local_store._should_search_jejunu_official(question) is expected
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("주차등록은 어디서 해?", True),
+        ("휴학 신청 기간 알려줘", True),
+        ("수의대는 어디에 있어?", False),
+    ],
+)
+def test_refreshes_time_sensitive_official_search(question, expected):
+    assert local_store._should_refresh_jejunu_official_search(question) is expected
 
 
 def test_veterinary_location_question_prioritizes_campus_map_source():

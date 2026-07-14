@@ -1726,21 +1726,51 @@ _OFFICIAL_INFORMATION_KEYWORDS = (
     "복수전공",
     "기숙사",
     "생활관",
+    "주차",
+    "차량",
+    "자동차",
+    "정기이용",
+    "교통상황실",
+    "신청",
+    "등록",
+    "해지",
+    "납부",
+    "학적",
+    "성적",
+    "졸업",
+    "교환학생",
 )
 
 _COMMUNITY_INFORMATION_KEYWORDS = (
     "택시",
     "택시팟",
-    "모집",
     "구해",
     "같이",
     "맛집",
     "카페",
     "동행",
     "파티",
+    "모임",
     "밥친구",
     "세탁기",
     "건조기",
+    "게시글",
+)
+
+_DYNAMIC_OFFICIAL_SEARCH_KEYWORDS = (
+    "신청",
+    "등록",
+    "해지",
+    "납부",
+    "기간",
+    "마감",
+    "언제",
+    "서류",
+    "절차",
+    "모집",
+    "공지",
+    "주차",
+    "차량",
 )
 
 
@@ -1799,6 +1829,15 @@ def _should_search_jejunu_official(question: str) -> bool:
     return "제주대학교" in normalized or "제주대" in normalized
 
 
+def _should_refresh_jejunu_official_search(question: str) -> bool:
+    """변동 가능성이 높거나 정적 문서 별칭이 없는 공식 질문은 통합검색도 조회한다."""
+    normalized = question.replace(" ", "").lower()
+    return (
+        any(keyword in normalized for keyword in _DYNAMIC_OFFICIAL_SEARCH_KEYWORDS)
+        or not _official_source_ids_for_question(question)
+    )
+
+
 def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskResponse:
     """
     RAG 근거 검색: jejumate/backend(app/search.py)와 동일하게 OpenAI 임베딩 +
@@ -1808,8 +1847,22 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     normalized = question.strip()
     compact_question = normalized.replace(" ", "")
     asks_for_location = any(keyword in compact_question for keyword in _LOCATION_QUESTION_KEYWORDS)
-    query_vector = embed_text(normalized)
     official_only = _should_search_jejunu_official(normalized)
+    if official_only and _should_refresh_jejunu_official_search(normalized):
+        try:
+            from app.services.jejunu_portal_search import (
+                build_official_search_query,
+                search_and_ingest_jejunu_official,
+            )
+
+            official_search_query = build_official_search_query(normalized)
+            if official_search_query:
+                search_and_ingest_jejunu_official(official_search_query)
+        except Exception:
+            # 공식 사이트가 잠시 느리거나 점검 중이어도 기존 RAG 답변은 계속 제공한다.
+            logger.warning("제주대학교 통합검색 증분 색인 실패", exc_info=True)
+
+    query_vector = embed_text(normalized)
     source_filter = (
         " AND source_type = 'jejunu_official'"
         if official_only

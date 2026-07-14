@@ -15,7 +15,6 @@ def seed_jejunu_official_documents(
     documents: tuple[JejunuOfficialDocument, ...] = JEJUNU_OFFICIAL_DOCUMENTS,
 ) -> int:
     """공식 문서와 원문 URL을 upsert하고 처리한 문서 수를 반환한다."""
-    local_store.ensure_database()
     now = local_store._now()
 
     with local_store._connect() as connection:
