@@ -213,6 +213,14 @@
   font-weight: 850;
 }
 
+.answerMapFrame {
+  width: 100%;
+  height: 170px;
+  border: 1px solid #dce7e8;
+  border-radius: 10px;
+  background: #eef3f3;
+}
+
 .answerMap > p {
   margin: 0 2px;
   color: #718086;

@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
-import { JejuMapPreview } from "@/features/map/JejuMapPreview";
 import styles from "./QuestionScreen.module.css";
 
 const suggestions = [
@@ -74,6 +73,15 @@ function sourceTitle(sourceType: string, title: string) {
 
 function AnswerLocationMap({ location }: { location: NonNullable<RagAnswer["map_location"]> }) {
   const kakaoMapUrl = `https://map.kakao.com/link/map/${encodeURIComponent(location.title)},${location.lat},${location.lng}`;
+  const latitudePadding = 0.0022;
+  const longitudePadding = 0.0032;
+  const boundingBox = [
+    location.lng - longitudePadding,
+    location.lat - latitudePadding,
+    location.lng + longitudePadding,
+    location.lat + latitudePadding,
+  ].join(",");
+  const osmMapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(boundingBox)}&layer=mapnik&marker=${encodeURIComponent(`${location.lat},${location.lng}`)}`;
 
   return (
     <section className={styles.answerMap}>
@@ -87,17 +95,12 @@ function AnswerLocationMap({ location }: { location: NonNullable<RagAnswer["map_
           <ChevronRight size={14} />
         </a>
       </div>
-      <JejuMapPreview
-        height={170}
-        level={3}
-        places={[
-          {
-            title: location.title,
-            lat: location.lat,
-            lng: location.lng,
-            description: location.description ?? undefined,
-          },
-        ]}
+      <iframe
+        className={styles.answerMapFrame}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        src={osmMapUrl}
+        title={`${location.title} 위치 지도`}
       />
       {location.description ? <p>{location.description}</p> : null}
     </section>
