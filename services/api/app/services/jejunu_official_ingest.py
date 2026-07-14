@@ -19,14 +19,28 @@ def seed_jejunu_official_documents(
 
     with local_store._connect() as connection:
         for document in documents:
-            embedding = embed_text(f"{document['title']}\n{document['body']}")
             document_id = local_store._stable_id(
                 "rag-document", f"{SOURCE_TYPE}-{document['source_id']}"
             )
             source_id = local_store._stable_id(
                 "rag-source", f"{SOURCE_TYPE}-{document['source_id']}"
             )
-            embedding_json = json.dumps(embedding)
+            existing = connection.execute(
+                "SELECT title, body, embedding FROM rag_documents WHERE id = ?",
+                (document_id,),
+            ).fetchone()
+            content_changed = (
+                existing is None
+                or existing["title"] != document["title"]
+                or existing["body"] != document["body"]
+                or not existing["embedding"]
+            )
+            if content_changed:
+                embedding = embed_text(f"{document['title']}\n{document['body']}")
+                embedding_json = json.dumps(embedding)
+            else:
+                embedding = None
+                embedding_json = existing["embedding"]
 
             connection.execute(
                 """
@@ -81,7 +95,7 @@ def seed_jejunu_official_documents(
                 ),
             )
 
-            if local_store.USE_POSTGRES:
+            if local_store.USE_POSTGRES and embedding is not None:
                 vector = "[" + ",".join(str(value) for value in embedding) + "]"
                 connection.execute(
                     "UPDATE rag_documents SET embedding_vec = ?::vector WHERE id = ?",

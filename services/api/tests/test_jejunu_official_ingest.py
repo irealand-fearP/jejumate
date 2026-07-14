@@ -66,6 +66,16 @@ def test_seed_is_idempotent_and_keeps_original_url(mock_embed):
     assert mock_embed.call_count == 2
 
 
+@patch("app.services.jejunu_official_ingest.embed_text", return_value=FAKE_EMBEDDING)
+def test_unchanged_official_document_reuses_existing_embedding(mock_embed):
+    document = _document("수의예과와 수의학과가 있습니다.")
+
+    assert seed_jejunu_official_documents(document) == 1
+    assert seed_jejunu_official_documents(document) == 1
+
+    assert mock_embed.call_count == 1
+
+
 def _fake_response(payload: dict) -> MagicMock:
     response = MagicMock()
     response.choices = [MagicMock(message=MagicMock(content=json.dumps(payload)))]
