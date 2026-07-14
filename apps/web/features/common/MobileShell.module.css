@@ -59,6 +59,39 @@
   font-weight: 750;
 }
 
+.headerCompact {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.headerCompact .brand {
+  justify-self: start;
+  font-size: 16px;
+}
+
+.headerCompact .compactTitle {
+  justify-self: center;
+}
+
+.headerCompact h1 {
+  margin: 0;
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.headerAction {
+  min-width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  justify-self: end;
+}
+
 .content {
   display: grid;
   gap: 16px;

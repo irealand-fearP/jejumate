@@ -1,22 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
-  CheckCircle2,
+  Bell,
+  BrainCircuit,
+  ChevronRight,
+  FileText,
   Info,
-  Maximize2,
-  MessageCircleQuestion,
-  Search,
+  MessageCircle,
   SendHorizonal,
   ShieldAlert,
   ShieldCheck,
   ShieldQuestion,
   Sparkles,
-  X,
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
-import styles from "./ServicePages.module.css";
+import styles from "./QuestionScreen.module.css";
 
 const suggestions = [
   "오늘 제주공항에서 같이 이동할 사람 있어?",
@@ -25,23 +26,8 @@ const suggestions = [
   "오픈채팅에서 나온 최신 질문 알려줘",
 ];
 
-const quickTopics = ["동행", "맛집", "코스", "생활질문"];
-/** 질문 전 빈 공간을 채우기에 알맞은 지도 높이. */
-const CAMPUS_MAP_HEIGHT_PX = 320;
 const PROFILE_STORAGE_KEY = "jejumate.localProfile";
-
-/** 실제로 스크롤되는 조상을 찾는다.
- *  body는 globals.css에서 이미 overflow:hidden이라 잠가도 소용없고,
- *  진짜 스크롤러는 MobileShell의 .phone이다. */
-function findScrollableParent(element: HTMLElement | null): HTMLElement | null {
-  let node = element?.parentElement ?? null;
-  while (node) {
-    const overflowY = window.getComputedStyle(node).overflowY;
-    if (overflowY === "auto" || overflowY === "scroll") return node;
-    node = node.parentElement;
-  }
-  return null;
-}
+const KAKAO_ROOM_TITLE = "2026 제주대학교 하기 계절학기 학점교류방";
 
 type LocalProfile = {
   profileId: string;
@@ -49,18 +35,38 @@ type LocalProfile = {
   anonymousId: string;
 };
 
+type ConversationTurn = {
+  id: number;
+  question: string;
+  askedAt: string;
+  answer?: RagAnswer;
+  error?: string;
+};
+
 const CONFIDENCE_LABEL: Record<RagAnswer["confidence_grade"], string> = {
   high: "근거가 잘 맞아요",
   medium: "일부 근거가 맞아요",
   low: "근거 연결이 약해요",
-  none: "근거 없음",
+  none: "커뮤니티 근거가 없어요",
 };
 
 function confidenceIcon(grade: RagAnswer["confidence_grade"]) {
-  if (grade === "high") return <ShieldCheck size={14} />;
-  if (grade === "medium") return <ShieldQuestion size={14} />;
-  if (grade === "low") return <ShieldAlert size={14} />;
-  return null;
+  if (grade === "high") return <ShieldCheck size={18} />;
+  if (grade === "medium") return <ShieldQuestion size={18} />;
+  if (grade === "low") return <ShieldAlert size={18} />;
+  return <Info size={18} />;
+}
+
+function sourceLabel(sourceType: string) {
+  const normalized = sourceType.toLowerCase();
+  if (normalized.includes("kakao")) return "오픈채팅";
+  if (normalized.includes("board")) return "생활게시판";
+  if (normalized.includes("meeting") || normalized.includes("party")) return "파티";
+  return "참고자료";
+}
+
+function sourceTitle(sourceType: string, title: string) {
+  return sourceLabel(sourceType) === "오픈채팅" ? KAKAO_ROOM_TITLE : title;
 }
 
 function readProfile(): LocalProfile | null {
@@ -77,191 +83,225 @@ function readProfile(): LocalProfile | null {
 }
 
 export function QuestionScreen() {
-  const [question, setQuestion] = useState(suggestions[0]);
+  const [question, setQuestion] = useState("");
   const [profile] = useState<LocalProfile | null>(() => readProfile());
-  const [answer, setAnswer] = useState<RagAnswer | null>(null);
+  const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
-  const mapSectionRef = useRef<HTMLElement>(null);
-  const mapToggleRef = useRef<HTMLButtonElement>(null);
+  const nextTurnId = useRef(1);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // 전체화면 동안: 뒤쪽 스크롤을 잠그고, ESC로 닫을 수 있게 한다.
   useEffect(() => {
-    if (!mapFullscreen) return;
+    conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [turns, busy]);
 
-    const scroller = findScrollableParent(mapSectionRef.current);
-    const previousOverflow = scroller?.style.overflow ?? "";
-    if (scroller) scroller.style.overflow = "hidden";
+  async function submit(nextQuestion = question) {
+    const trimmedQuestion = nextQuestion.trim();
+    if (busy || trimmedQuestion.length < 2) return;
 
-    // 지도(iframe) 안을 터치하면 포커스가 iframe으로 넘어가 ESC가 부모까지 오지 않는다.
-    // 그래서 진입 직후 닫기 버튼에 포커스를 준다. (닫기 버튼은 항상 보이므로 대체 수단은 있다)
-    mapToggleRef.current?.focus();
+    const id = nextTurnId.current;
+    nextTurnId.current += 1;
+    const askedAt = new Intl.DateTimeFormat("ko-KR", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date());
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMapFullscreen(false);
-    }
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      if (scroller) scroller.style.overflow = previousOverflow;
-    };
-  }, [mapFullscreen]);
-
-  async function submit() {
-    if (question.trim().length < 2) return;
+    setQuestion("");
     setBusy(true);
-    setError(null);
+    setTurns((previous) => [...previous, { id, question: trimmedQuestion, askedAt }]);
 
     try {
-      setAnswer(await askRag(question.trim(), profile?.anonymousId));
+      const answer = await askRag(trimmedQuestion, profile?.anonymousId);
+      setTurns((previous) => previous.map((turn) => (turn.id === id ? { ...turn, answer } : turn)));
     } catch {
-      setError("답변을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
+      setTurns((previous) =>
+        previous.map((turn) =>
+          turn.id === id ? { ...turn, error: "답변을 불러오지 못했어요. 잠시 후 다시 시도해주세요." } : turn,
+        ),
+      );
     } finally {
       setBusy(false);
+      inputRef.current?.focus();
     }
   }
 
-  return (
-    <MobileShell active="question" title="질문" subtitle="오픈채팅과 서비스 데이터를 근거로 제주 정보를 찾아요">
-      <section className={styles.askHero}>
-        <div className={styles.askHeroIcon}>
-          <MessageCircleQuestion size={24} />
-        </div>
-        <div>
-          <span>JejuMate AI</span>
-          <h2>지금 제주에서 통하는 답을 찾아드려요</h2>
-          <p>동행, 이동, 맛집, 생활 질문을 실제 수집 글과 서비스 근거로 확인합니다.</p>
-        </div>
-      </section>
+  function chooseSuggestion(suggestion: string) {
+    setQuestion(suggestion);
+    inputRef.current?.focus();
+  }
 
-      <section className={styles.questionBox}>
-        <div className={styles.ragSearch}>
-          <Search size={18} />
-          <input
-            id="rag-page-question"
+  const headerAction = (
+    <Link aria-label="내 신청 알림" className={styles.notificationLink} href="/meetings?notifications=1">
+      <Bell size={21} />
+    </Link>
+  );
+
+  return (
+    <MobileShell active="question" headerAction={headerAction} headerVariant="compact" title="질문">
+      <div className={styles.chatPage}>
+        <section className={styles.chatIntro}>
+          <Sparkles size={19} />
+          <p>실시간 커뮤니티 근거로 답해요</p>
+        </section>
+
+        {turns.length === 0 ? (
+          <section className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <BrainCircuit size={27} />
+            </div>
+            <h2>제주에서 지금 궁금한 건?</h2>
+            <p>오픈채팅과 시냅스팟에 올라온 최신 글을 찾아 답해드릴게요.</p>
+            <div className={styles.starterQuestions}>
+              {suggestions.map((suggestion) => (
+                <button key={suggestion} onClick={() => chooseSuggestion(suggestion)} type="button">
+                  {suggestion}
+                  <ChevronRight size={15} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section aria-live="polite" className={styles.conversation}>
+          {turns.map((turn) => (
+            <article className={styles.turn} key={turn.id}>
+              <div className={styles.userMessageRow}>
+                <div className={styles.userBubble}>{turn.question}</div>
+                <time>{turn.askedAt}</time>
+              </div>
+
+              {turn.answer ? (
+                <div className={styles.assistantRow}>
+                  <div className={styles.assistantAvatar}>
+                    <BrainCircuit size={21} />
+                  </div>
+                  <div className={styles.assistantContent}>
+                    <p className={styles.answerText}>{turn.answer.answer}</p>
+
+                    <div
+                      className={`${styles.confidence} ${styles[`confidence-${turn.answer.confidence_grade}`]}`}
+                    >
+                      {confidenceIcon(turn.answer.confidence_grade)}
+                      <span>
+                        {CONFIDENCE_LABEL[turn.answer.confidence_grade]}
+                        {turn.answer.confidence_grade !== "none"
+                          ? ` · ${turn.answer.verified_source_count}건 확인`
+                          : ""}
+                      </span>
+                    </div>
+
+                    {turn.answer.sources.length > 0 ? (
+                      <div className={styles.sourceList}>
+                        {turn.answer.sources.map((source, index) => (
+                          <a
+                            className={source.supports_answer === false ? styles.sourceNeedsReview : ""}
+                            href={source.url}
+                            key={`${turn.id}-${source.source_type}-${source.title}-${index}`}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            <span className={styles.sourceIcon}>
+                              {sourceLabel(source.source_type) === "오픈채팅" ? (
+                                <MessageCircle size={19} />
+                              ) : (
+                                <FileText size={19} />
+                              )}
+                            </span>
+                            <span className={styles.sourceBody}>
+                              <small>{sourceLabel(source.source_type)}</small>
+                              <strong>{sourceTitle(source.source_type, source.title)}</strong>
+                              {source.supports_answer === false ? <em>답변 근거 재확인 필요</em> : null}
+                            </span>
+                            <ChevronRight size={18} />
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {turn.answer.answer_source === "general_knowledge" ? (
+                      <div className={styles.generalKnowledge}>
+                        <Info size={15} />
+                        <span>커뮤니티 근거가 없어 일반 지식을 참고했어요.</span>
+                      </div>
+                    ) : null}
+
+                    {turn.answer.safety_note ? <p className={styles.safetyNote}>{turn.answer.safety_note}</p> : null}
+
+                    {turn.answer.suggestions.length > 0 ? (
+                      <div className={styles.followUpBlock}>
+                        <strong>후속 질문</strong>
+                        <div className={styles.followUpRow}>
+                          {turn.answer.suggestions.slice(0, 3).map((suggestion) => (
+                            <button key={suggestion} onClick={() => chooseSuggestion(suggestion)} type="button">
+                              {suggestion}
+                              <ChevronRight size={14} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {turn.error ? (
+                <div className={styles.assistantRow}>
+                  <div className={`${styles.assistantAvatar} ${styles.assistantAvatarError}`}>
+                    <Info size={20} />
+                  </div>
+                  <p className={styles.errorMessage}>{turn.error}</p>
+                </div>
+              ) : null}
+            </article>
+          ))}
+
+          {busy ? (
+            <div aria-label="답변 생성 중" className={styles.assistantRow}>
+              <div className={styles.assistantAvatar}>
+                <BrainCircuit size={21} />
+              </div>
+              <div className={styles.typingIndicator}>
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          ) : null}
+          <div ref={conversationEndRef} />
+        </section>
+
+        <div aria-hidden="true" className={styles.composerSpacer} />
+      </div>
+
+      <div className={styles.composerDock}>
+        <div className={styles.composer}>
+          <textarea
+            aria-label="질문 입력"
+            disabled={busy}
             maxLength={120}
             onChange={(event) => setQuestion(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") submit();
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+              }
             }}
-            placeholder="예: 오늘 공항에서 애월 가는 택시팟 있어?"
+            placeholder="메시지를 입력하세요"
+            ref={inputRef}
+            rows={1}
             value={question}
-            aria-label="질문"
           />
           <button
-            aria-label="질문하기"
+            aria-label="질문 보내기"
             disabled={busy || question.trim().length < 2}
-            onClick={submit}
+            onClick={() => submit()}
             type="button"
           >
-            <SendHorizonal size={17} />
+            <SendHorizonal size={20} />
           </button>
         </div>
-        <div className={styles.topicRow} aria-label="질문 주제">
-          {quickTopics.map((topic) => (
-            <span key={topic}>{topic}</span>
-          ))}
-        </div>
-        <div className={styles.suggestions}>
-          {suggestions.map((suggestion) => (
-            <button className={styles.chip} key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {busy ? (
-        <section className={styles.answerLoading}>
-          <Sparkles size={16} />
-          <span>근거를 찾고 답변을 정리하는 중이에요.</span>
-        </section>
-      ) : null}
-
-      {error ? <div className={styles.result}>{error}</div> : null}
-
-      {/* 답변이 생기면 높이가 0에서 자연스럽게 펼쳐지고, 아래 지도가 그만큼 부드럽게 밀려난다.
-          (지도는 조건부가 아니라 항상 같은 자리에 렌더링되므로 다시 마운트되지 않는다) */}
-      <div className={`${styles.answerReveal} ${answer ? styles.answerRevealOpen : ""}`}>
-        <div className={styles.answerRevealInner}>
-          {answer ? (
-            <section className={styles.answer}>
-              <div className={styles.answerStatus}>
-                <CheckCircle2 size={16} />
-                <span>{answer.persisted ? "질문 로그 저장됨" : "답변 생성 완료"}</span>
-              </div>
-              <strong>{answer.answer}</strong>
-              {answer.confidence_grade !== "none" ? (
-                <div className={`${styles.confidenceBadge} ${styles[`confidence-${answer.confidence_grade}`]}`}>
-                  {confidenceIcon(answer.confidence_grade)}
-                  <span>
-                    {CONFIDENCE_LABEL[answer.confidence_grade]} (근거 {answer.total_source_count}건 중{" "}
-                    {answer.verified_source_count}건 일치)
-                  </span>
-                </div>
-              ) : null}
-              {answer.answer_source === "general_knowledge" ? (
-                <div className={styles.generalKnowledgeBadge}>
-                  <Info size={14} />
-                  <span>커뮤니티 근거 없음 · 일반 지식 참고 답변</span>
-                </div>
-              ) : null}
-              <p className={styles.meta}>{answer.safety_note}</p>
-              <div className={styles.sources}>
-                {answer.sources.map((source) => (
-                  <a href={source.url} key={`${source.source_type}-${source.title}`} rel="noreferrer" target="_blank">
-                    {source.supports_answer === false ? "검토 필요 · " : ""}
-                    {source.title}
-                  </a>
-                ))}
-              </div>
-              {answer.suggestions.length ? (
-                <div className={styles.followUpRow}>
-                  {answer.suggestions.slice(0, 3).map((suggestion) => (
-                    <button key={suggestion} onClick={() => setQuestion(suggestion)} type="button">
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
+        <p>답변은 커뮤니티 글을 요약하므로 중요한 정보는 원문에서 확인해주세요.</p>
       </div>
-
-      {/* 질문 전에는 아래 빈 공간을 채우고, 답변이 생기면 답변 아래로 밀려난다.
-          팀원이 만든 캠퍼스 지도(카카오/V-World 전환)를 정적 HTML 그대로 띄운다.
-          배포 도메인이 바뀌어도 따라가도록 절대 IP가 아닌 상대경로를 쓴다. */}
-      {/* 전체화면일 때 iframe이 fixed로 흐름에서 빠지므로, 원래 높이만큼 자리를 예약해
-          뒤쪽 레이아웃과 스크롤 위치가 튀지 않게 한다. */}
-      <section
-        className={styles.campusMap}
-        ref={mapSectionRef}
-        style={mapFullscreen ? { minHeight: CAMPUS_MAP_HEIGHT_PX } : undefined}
-      >
-        <iframe
-          className={
-            mapFullscreen ? `${styles.campusMapFrame} ${styles.campusMapFrameFullscreen}` : styles.campusMapFrame
-          }
-          height={CAMPUS_MAP_HEIGHT_PX}
-          src="/campus-map/map_switcher.html"
-          title="제주대학교 캠퍼스 지도"
-        />
-        <button
-          aria-label={mapFullscreen ? "지도 전체화면 닫기" : "지도 전체화면으로 보기"}
-          aria-pressed={mapFullscreen}
-          className={
-            mapFullscreen ? `${styles.campusMapToggle} ${styles.campusMapToggleFullscreen}` : styles.campusMapToggle
-          }
-          onClick={() => setMapFullscreen((previous) => !previous)}
-          ref={mapToggleRef}
-          type="button"
-        >
-          {mapFullscreen ? <X size={18} /> : <Maximize2 size={18} />}
-        </button>
-      </section>
     </MobileShell>
   );
 }

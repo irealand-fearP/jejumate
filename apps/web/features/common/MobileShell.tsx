@@ -17,23 +17,28 @@ export function MobileShell({
   title,
   subtitle,
   children,
+  headerAction,
+  headerVariant = "default",
 }: {
   active: string;
   title: string;
   subtitle?: string;
   children: ReactNode;
+  headerAction?: ReactNode;
+  headerVariant?: "default" | "compact";
 }) {
   return (
     <main className={styles.page}>
       <section className={styles.phone}>
-        <header className={styles.header}>
+        <header className={`${styles.header} ${headerVariant === "compact" ? styles.headerCompact : ""}`}>
           <Link className={styles.brand} href="/">
             시냅스팟
           </Link>
-          <div>
+          <div className={headerVariant === "compact" ? styles.compactTitle : ""}>
             <h1>{title}</h1>
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
+          {headerVariant === "compact" ? <div className={styles.headerAction}>{headerAction}</div> : null}
         </header>
         <div className={styles.content}>{children}</div>
         <nav className={styles.nav} aria-label="하단 탭">
