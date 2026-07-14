@@ -253,6 +253,13 @@ export type RagAnswer = {
   verified_source_count: number;
   total_source_count: number;
   answer_source: "official" | "community" | "general_knowledge";
+  map_location?: {
+    title: string;
+    lat: number;
+    lng: number;
+    description?: string | null;
+    source_url?: string | null;
+  } | null;
 };
 
 async function postApi<TResponse, TPayload>(path: string, payload: TPayload): Promise<TResponse> {

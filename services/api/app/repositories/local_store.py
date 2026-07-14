@@ -39,6 +39,7 @@ from app.schemas.interactions import (
     MeetingStatusResponse,
     NicknameResponse,
     RagAskResponse,
+    RagMapLocation,
     RagSource,
 )
 from app.schemas.resources import BoardComment, BoardDeleteResponse, BoardPost, BoardReportResponse
@@ -1763,6 +1764,18 @@ _OFFICIAL_SOURCE_ALIASES = (
     (("기숙사", "생활관"), ("student-dormitory",)),
 )
 
+_CAMPUS_MAP_LOCATIONS = {
+    "campus-map-veterinary-college": RagMapLocation(
+        title="제주대학교 수의과대학",
+        lat=33.4520059,
+        lng=126.5585883,
+        description="부설 동물병원에서 북서쪽 약 76m",
+        source_url="https://www.jejunu.ac.kr/schoolinfo/campinfo/campusmap.htm",
+    ),
+}
+
+_LOCATION_QUESTION_KEYWORDS = ("어디", "위치", "찾아가", "가는길", "근처", "좌표", "지도")
+
 
 def _official_source_ids_for_question(question: str) -> tuple[str, ...]:
     """명시적인 대학 주제는 관련 공식 문서에만 결정적으로 연결한다."""
@@ -1793,6 +1806,8 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     아무 문서나 반환" 폴백은 제거했다 — threshold 미만이면 근거 없음으로 응답한다.
     """
     normalized = question.strip()
+    compact_question = normalized.replace(" ", "")
+    asks_for_location = any(keyword in compact_question for keyword in _LOCATION_QUESTION_KEYWORDS)
     query_vector = embed_text(normalized)
     official_only = _should_search_jejunu_official(normalized)
     source_filter = (
@@ -1911,6 +1926,8 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             ),
         )
 
+    map_location: RagMapLocation | None = None
+
     if not rows:
         # threshold 미달: 근거는 없지만, 정적 회피 문구 대신 LLM의 일반 지식으로 답한다.
         # confidence_grade는 여전히 "none"(근거 0개인 사실은 그대로).
@@ -1970,6 +1987,15 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
                 for i in supported_indexes
                 if source_rows[i] is not None
             ]
+            if asks_for_location:
+                map_location = next(
+                    (
+                        _CAMPUS_MAP_LOCATIONS[rows[i]["source_id"]]
+                        for i in supported_indexes
+                        if rows[i]["source_id"] in _CAMPUS_MAP_LOCATIONS
+                    ),
+                    None,
+                )
         # 실제 검증 결과로 로그의 confidence를 갱신(위 INSERT 시점엔 LLM 호출 전이라 알 수 없었음).
         with _connect() as connection:
             connection.execute(
@@ -1998,6 +2024,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         verified_source_count=verified_count,
         total_source_count=total_count,
         answer_source=answer_source,
+        map_location=map_location,
     )
 
 

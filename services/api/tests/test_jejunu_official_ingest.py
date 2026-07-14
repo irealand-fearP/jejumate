@@ -11,6 +11,7 @@ from app.services.jejunu_official_ingest import seed_jejunu_official_documents
 
 FAKE_EMBEDDING = [1.0, 0.0, 0.0]
 OFFICIAL_URL = "https://www.jejunu.ac.kr/colleges/university.htm"
+OFFICIAL_MAP_URL = "https://www.jejunu.ac.kr/schoolinfo/campinfo/campusmap.htm"
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +30,17 @@ def _document(body: str, source_id: str = "veterinary-test"):
             "title": "제주대학교 수의과대학 안내",
             "body": body,
             "url": OFFICIAL_URL,
+        },
+    )
+
+
+def _location_document():
+    return (
+        {
+            "source_id": "campus-map-veterinary-college",
+            "title": "제주대학교 캠퍼스맵 수의과대학 위치",
+            "body": "수의과대학 건물 핀은 위도 33.4520059, 경도 126.5585883에 있다.",
+            "url": OFFICIAL_MAP_URL,
         },
     )
 
@@ -119,3 +131,33 @@ def test_short_official_question_uses_targeted_source_below_similarity_threshold
     assert result.answer_source == "official"
     assert result.sources[0].source_type == "jejunu_official"
     assert result.sources[0].url == OFFICIAL_URL
+
+
+@patch("app.repositories.local_store.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.jejunu_official_ingest.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.rag_answer_service.settings")
+def test_location_answer_includes_structured_map_location(
+    mock_rag_settings, mock_seed_embed, mock_query_embed
+):
+    seed_jejunu_official_documents(_location_document())
+    mock_rag_settings.openai_api_key = "test-key"
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = _fake_response(
+            {
+                "answer": "수의과대학은 아라캠퍼스 남쪽에 있습니다.",
+                "citations": [{"index": 0, "supports": True}],
+            }
+        )
+        mock_openai_cls.return_value = mock_client
+
+        result = local_store.answer_rag_question(
+            question="대학교 내 수의대 위치 알려줘", anonymous_id=None
+        )
+
+    assert result.map_location is not None
+    assert result.map_location.title == "제주대학교 수의과대학"
+    assert result.map_location.lat == 33.4520059
+    assert result.map_location.lng == 126.5585883
+    assert result.map_location.source_url == OFFICIAL_MAP_URL

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   FileText,
   Info,
+  MapPin,
   MessageCircle,
   SendHorizonal,
   ShieldAlert,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { askRag, type RagAnswer } from "@/lib/api";
 import { MobileShell } from "@/features/common/MobileShell";
+import { JejuMapPreview } from "@/features/map/JejuMapPreview";
 import styles from "./QuestionScreen.module.css";
 
 const suggestions = [
@@ -68,6 +70,38 @@ function sourceLabel(sourceType: string) {
 
 function sourceTitle(sourceType: string, title: string) {
   return sourceLabel(sourceType) === "오픈채팅" ? KAKAO_ROOM_TITLE : title;
+}
+
+function AnswerLocationMap({ location }: { location: NonNullable<RagAnswer["map_location"]> }) {
+  const kakaoMapUrl = `https://map.kakao.com/link/map/${encodeURIComponent(location.title)},${location.lat},${location.lng}`;
+
+  return (
+    <section className={styles.answerMap}>
+      <div className={styles.answerMapHeader}>
+        <span>
+          <MapPin size={15} />
+          {location.title}
+        </span>
+        <a href={kakaoMapUrl} rel="noreferrer" target="_blank">
+          큰 지도 보기
+          <ChevronRight size={14} />
+        </a>
+      </div>
+      <JejuMapPreview
+        height={170}
+        level={3}
+        places={[
+          {
+            title: location.title,
+            lat: location.lat,
+            lng: location.lng,
+            description: location.description ?? undefined,
+          },
+        ]}
+      />
+      {location.description ? <p>{location.description}</p> : null}
+    </section>
+  );
 }
 
 function readProfile(): LocalProfile | null {
@@ -178,6 +212,8 @@ export function QuestionScreen() {
                   </div>
                   <div className={styles.assistantContent}>
                     <p className={styles.answerText}>{turn.answer.answer}</p>
+
+                    {turn.answer.map_location ? <AnswerLocationMap location={turn.answer.map_location} /> : null}
 
                     <div
                       className={`${styles.confidence} ${styles[`confidence-${turn.answer.confidence_grade}`]}`}

@@ -175,6 +175,14 @@ class RagSource(BaseModel):
     supports_answer: bool | None = None
 
 
+class RagMapLocation(BaseModel):
+    title: str
+    lat: float
+    lng: float
+    description: str | None = None
+    source_url: str | None = None
+
+
 class RagAskResponse(BaseModel):
     answer: str
     sources: list[RagSource]
@@ -191,3 +199,4 @@ class RagAskResponse(BaseModel):
     # answer_source: 답변을 실제로 뒷받침한 근거의 종류. 제주대학교 공식 홈페이지는
     # "official", 커뮤니티 문서는 "community", 근거가 없으면 "general_knowledge".
     answer_source: Literal["official", "community", "general_knowledge"] = "community"
+    map_location: RagMapLocation | None = None
