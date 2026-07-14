@@ -171,3 +171,53 @@ def test_answer_rag_question_uses_newly_created_board_post_as_source(mock_rag_se
     # 쓰므로(원문 제목이 아님), 실제 확인 대상은 출처 구분값(source_type)이다 —
     # 이게 work order 핵심 요구사항("카톡 문서와 섞여도 출처 구분 가능하게").
     assert any(source.source_type == "board" for source in result.sources)
+
+
+@patch("app.repositories.local_store.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.rag_answer_service.settings")
+def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, mock_embed):
+    local_store.create_board_post(
+        category="꿀팁",
+        title="제주공항 짐보관 팁",
+        body="공항 3층 짐보관소를 이용했어요.",
+        author_nickname="바당이",
+        anonymous_id="anon-board-unsupported",
+    )
+    mock_rag_settings.openai_api_key = "test-key"
+    general_response = MagicMock()
+    general_response.choices = [MagicMock(message=MagicMock(content="일반 지식 답변입니다."))]
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = [
+            _fake_openai_chat_response(
+                {
+                    "answer": "근거로 답하기 어렵습니다.",
+                    "citations": [{"index": 0, "supports": False}],
+                }
+            ),
+            general_response,
+        ]
+        mock_openai_cls.return_value = mock_client
+
+        result = local_store.answer_rag_question(question="화성에 물이 있어?", anonymous_id=None)
+
+    assert result.answer == "일반 지식 답변입니다."
+    assert result.answer_source == "general_knowledge"
+    assert result.sources == []
+    assert result.confidence_grade == "none"
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("제주대학교에 수의대가 있어?", True),
+        ("휴학 신청은 어떻게 해?", True),
+        ("기숙사 입주 신청 알려줘", True),
+        ("기숙사에서 공항 갈 택시팟 있어?", False),
+        ("생활관 세탁기 몇 대야?", False),
+        ("제주대 근처 맛집 추천해줘", False),
+    ],
+)
+def test_routes_university_facts_to_official_documents(question, expected):
+    assert local_store._should_search_jejunu_official(question) is expected

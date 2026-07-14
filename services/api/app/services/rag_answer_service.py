@@ -14,14 +14,18 @@ from app.core.config import settings
 ANSWER_MODEL = "gpt-5-mini"
 MAX_COMPLETION_TOKENS = 700
 
-_SYSTEM_PROMPT = """너는 제주 대학생 커뮤니티 정보를 안내하는 도우미다.
-아래 [근거 문서]는 실제 카톡 오픈채팅에서 학생들이 남긴 글이다. 대부분 "OO 구해요!",
-"OO 하실 분 계신가요?"처럼 특정 시점의 개별 모집·질문 글이지만, 질문과 주제가 실제로
-일치한다면 그 자체가 충분히 좋은 근거다. 예를 들어 "함덕 해수욕장 택시팟 있나요?"라는
-질문에 "지금 함덕 해수욕장에서 택시팟 구해요!" 같은 근거가 있다면, 이는 학생들이
-실제로 이렇게 택시팟을 구한다는 확실한 증거이므로 "네, 학생들이 이런 식으로 택시팟을
-구하고 있어요"처럼 근거 내용을 바탕으로 자신 있게 답하라. 개별 모집 글이라는 이유만
-으로, 또는 "지금 이 순간에도 유효한지 모른다"는 이유만으로 회피하지 마라.
+_SYSTEM_PROMPT = """너는 제주 대학생 정보를 안내하는 도우미다.
+아래 [근거 문서]에는 제주대학교 공식 홈페이지 자료와 학생 커뮤니티 글이 함께 들어올 수
+있다. 각 근거의 [출처 유형]과 [원문 URL]을 확인해서 답하라. 학과, 학사제도, 장학금,
+등록금처럼 대학이 정하는 사실은 '제주대학교 공식' 근거를 가장 신뢰하고, 답변에서
+"제주대학교 공식 홈페이지에 따르면"처럼 출처를 자연스럽게 밝혀라.
+
+커뮤니티 근거는 실제 카톡 오픈채팅이나 게시판에서 학생들이 남긴 글이다. 대부분
+"OO 구해요!", "OO 하실 분 계신가요?"처럼 특정 시점의 개별 모집·질문 글이지만,
+질문과 주제가 실제로 일치한다면 그 자체가 충분히 좋은 근거다. 예를 들어 "함덕 해수욕장
+택시팟 있나요?"라는 질문에 "지금 함덕 해수욕장에서 택시팟 구해요!" 같은 근거가 있다면,
+학생들이 실제로 이렇게 택시팟을 구한다는 증거이므로 근거 내용을 바탕으로 자신 있게
+답하라. 개별 모집 글이라는 이유만으로 회피하지 마라.
 
 "근거에 없는 내용을 추측하지 말라"는 것은 근거에 전혀 등장하지 않는 새로운 사실
 (예: 근거에 없는 장소·서비스·요금·운영시간)을 지어내지 말라는 뜻이다. 근거에 있는
@@ -57,9 +61,18 @@ class RagAnswerResult:
 
 
 def _build_user_content(question: str, documents: list[dict]) -> str:
-    evidence_text = "\n\n".join(
-        f"[근거 {doc['index']}] {doc['title']}\n{doc['body']}" for doc in documents
-    )
+    evidence_parts = []
+    for doc in documents:
+        source_label = doc.get("source_label") or "커뮤니티"
+        source_url = doc.get("url") or "URL 없음"
+        evidence_parts.append(
+            f"[근거 {doc['index']}]\n"
+            f"[출처 유형] {source_label}\n"
+            f"[제목] {doc['title']}\n"
+            f"[원문 URL] {source_url}\n"
+            f"{doc['body']}"
+        )
+    evidence_text = "\n\n".join(evidence_parts)
     return f"[근거 문서]\n{evidence_text}\n\n[질문]\n{question}"
 
 

@@ -252,7 +252,7 @@ export type RagAnswer = {
   confidence_grade: "none" | "high" | "medium" | "low";
   verified_source_count: number;
   total_source_count: number;
-  answer_source: "community" | "general_knowledge";
+  answer_source: "official" | "community" | "general_knowledge";
 };
 
 async function postApi<TResponse, TPayload>(path: string, payload: TPayload): Promise<TResponse> {

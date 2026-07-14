@@ -1699,6 +1699,60 @@ def _infer_intent(question: str) -> str:
     return "general"
 
 
+_OFFICIAL_INFORMATION_KEYWORDS = (
+    "학과",
+    "학부",
+    "전공",
+    "단과대",
+    "수의대",
+    "수의과",
+    "수의학",
+    "의대",
+    "의과대",
+    "약대",
+    "약학대",
+    "간호대",
+    "장학",
+    "등록금",
+    "휴학",
+    "복학",
+    "전과",
+    "재입학",
+    "수강신청",
+    "학사일정",
+    "증명서",
+    "교육과정",
+    "복수전공",
+    "기숙사",
+    "생활관",
+)
+
+_COMMUNITY_INFORMATION_KEYWORDS = (
+    "택시",
+    "택시팟",
+    "모집",
+    "구해",
+    "같이",
+    "맛집",
+    "카페",
+    "동행",
+    "파티",
+    "밥친구",
+    "세탁기",
+    "건조기",
+)
+
+
+def _should_search_jejunu_official(question: str) -> bool:
+    """대학이 정하는 사실은 공식 문서에서, 학생 활동은 커뮤니티에서 찾는다."""
+    normalized = question.replace(" ", "").lower()
+    if any(keyword in normalized for keyword in _COMMUNITY_INFORMATION_KEYWORDS):
+        return False
+    if any(keyword in normalized for keyword in _OFFICIAL_INFORMATION_KEYWORDS):
+        return True
+    return "제주대학교" in normalized or "제주대" in normalized
+
+
 def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskResponse:
     """
     RAG 근거 검색: jejumate/backend(app/search.py)와 동일하게 OpenAI 임베딩 +
@@ -1707,6 +1761,12 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
     """
     normalized = question.strip()
     query_vector = embed_text(normalized)
+    official_only = _should_search_jejunu_official(normalized)
+    source_filter = (
+        " AND source_type = 'jejunu_official'"
+        if official_only
+        else " AND source_type != 'jejunu_official'"
+    )
 
     with _connect() as connection:
         if USE_POSTGRES:
@@ -1715,12 +1775,20 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             # 요청마다 수 초가 걸린다. pgvector로 DB 안에서 최근접 3건만 계산해서
             # 그 3건만 네트워크로 받는다(embedding_vec + ivfflat 인덱스, 백필 완료).
             vec_literal = "[" + ",".join(str(x) for x in query_vector) + "]"
+            # 공식 문서는 소수라 ivfflat 근사 인덱스가 먼저 후보를 줄인 뒤 필터하면
+            # 결과가 빠질 수 있다. + 0으로 인덱스 정렬을 피하고 공식 문서 안에서만
+            # 정확 검색한다. 다수인 커뮤니티 문서는 기존 근사 인덱스를 계속 쓴다.
+            order_expression = (
+                "(embedding_vec <=> ?::vector) + 0"
+                if official_only
+                else "embedding_vec <=> ?::vector"
+            )
             candidates = connection.execute(
-                """
+                f"""
                 SELECT *, 1 - (embedding_vec <=> ?::vector) AS similarity
                 FROM rag_documents
-                WHERE is_active = 1 AND embedding_vec IS NOT NULL
-                ORDER BY embedding_vec <=> ?::vector
+                WHERE is_active = 1 AND embedding_vec IS NOT NULL{source_filter}
+                ORDER BY {order_expression}
                 LIMIT 3
                 """,
                 (vec_literal, vec_literal),
@@ -1728,10 +1796,10 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             rows = [row for row in candidates if row["similarity"] >= settings.rag_similarity_threshold]
         else:
             candidates = connection.execute(
-                """
+                f"""
                 SELECT *
                 FROM rag_documents
-                WHERE is_active = 1 AND embedding IS NOT NULL
+                WHERE is_active = 1 AND embedding IS NOT NULL{source_filter}
                 """
             ).fetchall()
 
@@ -1743,9 +1811,11 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             scored.sort(key=lambda item: item[1], reverse=True)
             rows = [row for row, _sim in scored[:3]]
 
+        # 근거 문서와 출처를 같은 인덱스로 유지한다. 출처가 없는 문서가 하나 섞여도
+        # 뒤 문서의 URL이 잘못 연결되지 않게 각 문서당 정확히 한 칸을 둔다.
         source_rows = []
         for row in rows:
-            source_rows.extend(
+            source_rows.append(
                 connection.execute(
                     """
                     SELECT *
@@ -1754,7 +1824,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
                     LIMIT 1
                     """,
                     (row["id"],),
-                ).fetchall()
+                ).fetchone()
             )
 
         user = None
@@ -1776,7 +1846,7 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
                 anonymous_id,
                 normalized,
                 _infer_intent(normalized),
-                len(source_rows),
+                sum(1 for source in source_rows if source is not None),
                 confidence_for_log,
                 _now(),
             ),
@@ -1792,22 +1862,55 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
         total_count = 0
         answer_source = "general_knowledge"
     else:
-        documents = [{"index": i, "title": row["title"], "body": row["body"]} for i, row in enumerate(rows)]
-        result = generate_verified_answer(question=normalized, documents=documents)
-        answer = result.answer
-        confidence = confidence_grade(result.supports)
-        verified_count = sum(1 for supported in result.supports if supported)
-        total_count = len(result.supports)
-        answer_source = "community"
-        sources = [
-            RagSource(
-                title=row["title"],
-                url=row["url"] or "https://jejumate.local",
-                source_type=row["source_type"],
-                supports_answer=result.supports[i] if i < len(result.supports) else None,
-            )
-            for i, row in enumerate(source_rows)
+        documents = [
+            {
+                "index": i,
+                "title": row["title"],
+                "body": row["body"],
+                "source_label": (
+                    "제주대학교 공식"
+                    if row["source_type"] == "jejunu_official"
+                    else "학생 커뮤니티"
+                ),
+                "url": source_rows[i]["url"] if source_rows[i] is not None else None,
+            }
+            for i, row in enumerate(rows)
         ]
+        result = generate_verified_answer(question=normalized, documents=documents)
+        supported_indexes = [i for i, supported in enumerate(result.supports) if supported]
+
+        if not supported_indexes:
+            # 유사도만 통과한 무관 문서를 출처처럼 보여주지 않는다. 검증을 하나도
+            # 통과하지 못했으면 공식/커뮤니티 근거가 없는 질문과 동일하게 처리한다.
+            answer = generate_general_answer(question=normalized)
+            confidence = "none"
+            verified_count = 0
+            total_count = 0
+            answer_source = "general_knowledge"
+            sources = []
+        else:
+            answer = result.answer
+            confidence = confidence_grade(result.supports)
+            verified_count = len(supported_indexes)
+            total_count = len(result.supports)
+            supported_source_types = {
+                rows[i]["source_type"] for i in supported_indexes
+            }
+            answer_source = (
+                "official"
+                if supported_source_types == {"jejunu_official"}
+                else "community"
+            )
+            sources = [
+                RagSource(
+                    title=source_rows[i]["title"] or rows[i]["title"],
+                    url=source_rows[i]["url"] or "https://jejumate.local",
+                    source_type=source_rows[i]["source_type"],
+                    supports_answer=True,
+                )
+                for i in supported_indexes
+                if source_rows[i] is not None
+            ]
         # 실제 검증 결과로 로그의 confidence를 갱신(위 INSERT 시점엔 LLM 호출 전이라 알 수 없었음).
         with _connect() as connection:
             connection.execute(
@@ -1815,11 +1918,21 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
                 (confidence, query_log_id),
             )
 
+    if answer_source == "official":
+        safety_note = "제주대학교 공식 홈페이지 기준이며, 변경될 수 있는 일정·기준은 연결된 원문도 확인해주세요."
+        suggestions = ["제주대 학과 목록 알려줘", "휴학 신청은 어떻게 해?", "교내 장학금 알려줘"]
+    elif answer_source == "community":
+        safety_note = "채팅에서 모은 정보라 최신 상황은 직접 한 번 더 확인해보세요."
+        suggestions = ["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"]
+    else:
+        safety_note = "공식 홈페이지나 커뮤니티 근거 없이 일반 지식으로 답했어요. 중요한 내용은 원문을 확인해주세요."
+        suggestions = ["제주대 학과 목록 알려줘", "제주공항 택시팟 있나요?", "비 오는 날 코스"]
+
     return RagAskResponse(
         answer=answer,
         sources=sources,
-        safety_note="채팅에서 모은 정보라 최신 상황은 직접 한 번 더 확인해보세요.",
-        suggestions=["제주공항 택시팟 있나요?", "함덕 점심 추천", "비 오는 날 코스"],
+        safety_note=safety_note,
+        suggestions=suggestions,
         query_log_id=query_log_id,
         persisted=True,
         confidence_grade=confidence,

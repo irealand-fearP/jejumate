@@ -59,6 +59,7 @@ function confidenceIcon(grade: RagAnswer["confidence_grade"]) {
 
 function sourceLabel(sourceType: string) {
   const normalized = sourceType.toLowerCase();
+  if (normalized.includes("jejunu") || normalized.includes("official")) return "제주대 공식";
   if (normalized.includes("kakao")) return "오픈채팅";
   if (normalized.includes("board")) return "생활게시판";
   if (normalized.includes("meeting") || normalized.includes("party")) return "파티";

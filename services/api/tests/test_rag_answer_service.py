@@ -28,12 +28,18 @@ def _fake_openai_response(payload: dict) -> MagicMock:
 def test_generate_verified_answer_maps_citations_to_documents(mock_settings):
     mock_settings.openai_api_key = "test-key"
     documents = [
-        {"index": 0, "title": "제주공항 택시팟", "body": "게시판에서 모집합니다."},
+        {
+            "index": 0,
+            "title": "제주대학교 수의과대학 안내",
+            "body": "수의예과와 수의학과가 있습니다.",
+            "source_label": "제주대학교 공식",
+            "url": "https://www.jejunu.ac.kr/colleges/university.htm",
+        },
         {"index": 1, "title": "함덕 맛집", "body": "오션뷰 카페가 많습니다."},
     ]
     fake_response = _fake_openai_response(
         {
-            "answer": "택시팟은 게시판에서 모집합니다.",
+            "answer": "제주대학교에는 수의과대학이 있습니다.",
             "citations": [{"index": 0, "supports": True}, {"index": 1, "supports": False}],
         }
     )
@@ -43,18 +49,20 @@ def test_generate_verified_answer_maps_citations_to_documents(mock_settings):
         mock_client.chat.completions.create.return_value = fake_response
         mock_openai_cls.return_value = mock_client
 
-        result = generate_verified_answer(question="택시팟 어디서 구하나요?", documents=documents)
+        result = generate_verified_answer(question="제주대학교에 수의대가 있나요?", documents=documents)
 
-    assert result.answer == "택시팟은 게시판에서 모집합니다."
+    assert result.answer == "제주대학교에는 수의과대학이 있습니다."
     assert result.supports == [True, False]
 
     call_kwargs = mock_client.chat.completions.create.call_args.kwargs
     assert call_kwargs["model"] == "gpt-5-mini"
     assert call_kwargs["reasoning_effort"] == "minimal"
     user_message = call_kwargs["messages"][1]["content"]
-    assert "제주공항 택시팟" in user_message
+    assert "제주대학교 수의과대학 안내" in user_message
+    assert "[출처 유형] 제주대학교 공식" in user_message
+    assert "https://www.jejunu.ac.kr/colleges/university.htm" in user_message
     assert "함덕 맛집" in user_message
-    assert "택시팟 어디서 구하나요?" in user_message
+    assert "제주대학교에 수의대가 있나요?" in user_message
 
 
 @patch("app.services.rag_answer_service.settings")

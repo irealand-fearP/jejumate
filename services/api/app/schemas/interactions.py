@@ -188,7 +188,6 @@ class RagAskResponse(BaseModel):
     confidence_grade: str = "none"
     verified_source_count: int = 0
     total_source_count: int = 0
-    # answer_source: 근거 문서가 있어서 generate_verified_answer를 탄 경우 "community",
-    # threshold 미달로 근거가 없어 generate_general_answer(일반 지식)로 답한 경우
-    # "general_knowledge".
-    answer_source: Literal["community", "general_knowledge"] = "community"
+    # answer_source: 답변을 실제로 뒷받침한 근거의 종류. 제주대학교 공식 홈페이지는
+    # "official", 커뮤니티 문서는 "community", 근거가 없으면 "general_knowledge".
+    answer_source: Literal["official", "community", "general_knowledge"] = "community"
