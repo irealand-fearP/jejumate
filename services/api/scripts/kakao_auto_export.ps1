@@ -10,7 +10,7 @@ param(
     [string]$RoomTitle = '2026 제주대학교 하기 계절학기 학점교류방',
     [string]$ExportDirectory = (Join-Path $env:USERPROFILE 'Documents'),
     # 최근 N분 내 내보내기 파일이 이미 있으면 건너뛴다(작업 중 포커스 뺏김 최소화).
-    [int]$MinIntervalMinutes = 60,
+    [int]$MinIntervalMinutes = 10,
     [switch]$Force
 )
 
