@@ -22,10 +22,10 @@ def isolated_sqlite_db(tmp_path, monkeypatch):
     yield
 
 
-def _document(body: str):
+def _document(body: str, source_id: str = "veterinary-test"):
     return (
         {
-            "source_id": "veterinary-test",
+            "source_id": source_id,
             "title": "제주대학교 수의과대학 안내",
             "body": body,
             "url": OFFICIAL_URL,
@@ -89,3 +89,33 @@ def test_official_answer_returns_only_verified_original_sources(
     assert result.sources[0].source_type == "jejunu_official"
     assert result.sources[0].url == OFFICIAL_URL
     assert result.sources[0].supports_answer is True
+
+
+@patch("app.repositories.local_store.embed_text", return_value=[0.0, 1.0, 0.0])
+@patch("app.services.jejunu_official_ingest.embed_text", return_value=FAKE_EMBEDDING)
+@patch("app.services.rag_answer_service.settings")
+def test_short_official_question_uses_targeted_source_below_similarity_threshold(
+    mock_rag_settings, mock_seed_embed, mock_query_embed
+):
+    seed_jejunu_official_documents(
+        _document("제주대학교에는 수의과대학이 있습니다.", source_id="veterinary-college")
+    )
+    mock_rag_settings.openai_api_key = "test-key"
+
+    with patch("openai.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = _fake_response(
+            {
+                "answer": "제주대학교에는 수의과대학이 있습니다.",
+                "citations": [{"index": 0, "supports": True}],
+            }
+        )
+        mock_openai_cls.return_value = mock_client
+
+        result = local_store.answer_rag_question(
+            question="수의대는 어디에 있어?", anonymous_id=None
+        )
+
+    assert result.answer_source == "official"
+    assert result.sources[0].source_type == "jejunu_official"
+    assert result.sources[0].url == OFFICIAL_URL

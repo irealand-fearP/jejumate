@@ -1743,6 +1743,39 @@ _COMMUNITY_INFORMATION_KEYWORDS = (
 )
 
 
+_OFFICIAL_SOURCE_ALIASES = (
+    (
+        ("수의대", "수의과", "수의학"),
+        ("veterinary-college", "organization-2026", "colleges-departments-2026"),
+    ),
+    (
+        ("학과", "학부", "전공", "단과대", "의대", "의과대", "약대", "약학대", "간호대"),
+        ("colleges-departments-2026", "organization-2026"),
+    ),
+    (("학사일정", "수강신청"), ("academic-calendar-2026",)),
+    (("휴학",), ("leave-of-absence",)),
+    (("복학",), ("return-to-school",)),
+    (("전과", "재입학"), ("change-major-readmission",)),
+    (("복수전공", "교육과정"), ("multiple-majors",)),
+    (("장학",), ("scholarships-2026",)),
+    (("등록금",), ("tuition-payment",)),
+    (("증명서",), ("certificates",)),
+    (("기숙사", "생활관"), ("student-dormitory",)),
+)
+
+
+def _official_source_ids_for_question(question: str) -> tuple[str, ...]:
+    """명시적인 대학 주제는 관련 공식 문서에만 결정적으로 연결한다."""
+    normalized = question.replace(" ", "").lower()
+    source_ids: list[str] = []
+    for keywords, mapped_source_ids in _OFFICIAL_SOURCE_ALIASES:
+        if any(keyword in normalized for keyword in keywords):
+            for source_id in mapped_source_ids:
+                if source_id not in source_ids:
+                    source_ids.append(source_id)
+    return tuple(source_ids)
+
+
 def _should_search_jejunu_official(question: str) -> bool:
     """대학이 정하는 사실은 공식 문서에서, 학생 활동은 커뮤니티에서 찾는다."""
     normalized = question.replace(" ", "").lower()
@@ -1810,6 +1843,32 @@ def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskRes
             scored = [(row, sim) for row, sim in scored if sim >= settings.rag_similarity_threshold]
             scored.sort(key=lambda item: item[1], reverse=True)
             rows = [row for row, _sim in scored[:3]]
+
+        # "수의대는 어디에 있어?"처럼 짧은 질문은 주제가 명확해도 임베딩
+        # 유사도가 전역 threshold 아래로 내려갈 수 있다. 명시적인 공식 주제는
+        # 미리 지정한 관련 문서만 우선 포함해 일반 지식 폴백의 오답을 막는다.
+        if official_only:
+            targeted_source_ids = _official_source_ids_for_question(normalized)
+            if targeted_source_ids:
+                placeholders = ", ".join("?" for _ in targeted_source_ids)
+                targeted_rows = connection.execute(
+                    f"""
+                    SELECT *
+                    FROM rag_documents
+                    WHERE is_active = 1
+                      AND source_type = 'jejunu_official'
+                      AND source_id IN ({placeholders})
+                    """,
+                    targeted_source_ids,
+                ).fetchall()
+                targeted_by_source_id = {row["source_id"]: row for row in targeted_rows}
+                prioritized_rows = [
+                    targeted_by_source_id[source_id]
+                    for source_id in targeted_source_ids
+                    if source_id in targeted_by_source_id
+                ]
+                targeted_ids = {row["id"] for row in prioritized_rows}
+                rows = (prioritized_rows + [row for row in rows if row["id"] not in targeted_ids])[:3]
 
         # 근거 문서와 출처를 같은 인덱스로 유지한다. 출처가 없는 문서가 하나 섞여도
         # 뒤 문서의 URL이 잘못 연결되지 않게 각 문서당 정확히 한 칸을 둔다.

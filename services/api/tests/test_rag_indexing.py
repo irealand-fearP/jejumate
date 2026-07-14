@@ -212,6 +212,7 @@ def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, moc
     ("question", "expected"),
     [
         ("제주대학교에 수의대가 있어?", True),
+        ("수의대는 어디에 있어?", True),
         ("휴학 신청은 어떻게 해?", True),
         ("기숙사 입주 신청 알려줘", True),
         ("기숙사에서 공항 갈 택시팟 있어?", False),
