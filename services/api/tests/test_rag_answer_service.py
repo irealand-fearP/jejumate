@@ -55,14 +55,15 @@ def test_generate_verified_answer_maps_citations_to_documents(mock_settings):
     assert result.supports == [True, False]
 
     call_kwargs = mock_client.chat.completions.create.call_args.kwargs
-    assert call_kwargs["model"] == "gpt-5-mini"
-    assert call_kwargs["reasoning_effort"] == "minimal"
+    assert call_kwargs["model"] == "gpt-5.5"
+    assert call_kwargs["reasoning_effort"] == "low"
     user_message = call_kwargs["messages"][1]["content"]
     assert "제주대학교 수의과대학 안내" in user_message
     assert "[출처 유형] 제주대학교 공식" in user_message
     assert "https://www.jejunu.ac.kr/colleges/university.htm" in user_message
     assert "함덕 맛집" in user_message
     assert "제주대학교에 수의대가 있나요?" in user_message
+    assert "건물 위치·좌표·주변 기준점" in call_kwargs["messages"][0]["content"]
 
 
 @patch("app.services.rag_answer_service.settings")
@@ -109,7 +110,7 @@ def test_generate_verified_answer_requires_api_key(mock_settings):
 
 @patch("app.services.rag_answer_service.settings")
 def test_generate_general_answer_calls_openai_with_question_only(mock_settings):
-    """근거 문서 없이(rows=0) 일반 지식으로 답할 때도 gpt-5-mini를 같은 비용 설정으로 호출하는지 확인."""
+    """근거 문서 없이(rows=0) 일반 지식으로 답할 때도 같은 모델과 비용 설정을 쓰는지 확인."""
     mock_settings.openai_api_key = "test-key"
     fake_response = MagicMock()
     fake_response.choices = [MagicMock(message=MagicMock(content="화성 표면 아래 얼음 형태로 물이 있다고 알려져 있습니다."))]
@@ -124,8 +125,8 @@ def test_generate_general_answer_calls_openai_with_question_only(mock_settings):
     assert answer == "화성 표면 아래 얼음 형태로 물이 있다고 알려져 있습니다."
 
     call_kwargs = mock_client.chat.completions.create.call_args.kwargs
-    assert call_kwargs["model"] == "gpt-5-mini"
-    assert call_kwargs["reasoning_effort"] == "minimal"
+    assert call_kwargs["model"] == "gpt-5.5"
+    assert call_kwargs["reasoning_effort"] == "low"
     assert call_kwargs["max_completion_tokens"] == 700
     user_message = call_kwargs["messages"][1]["content"]
     assert "화성에 물이 있나요?" in user_message

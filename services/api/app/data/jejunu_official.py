@@ -45,6 +45,12 @@ JEJUNU_OFFICIAL_DOCUMENTS: tuple[JejunuOfficialDocument, ...] = (
         "body": """제주대학교에는 수의과대학이 있다. 수의과대학에는 수의예과와 수의학과가 있다. 수의예과는 예과 과정이며 이후 수의학과 본과 과정으로 진급한다. 제주대학교 수의과대학은 2008년 생명자원과학대학에서 독립했으며 부설동물병원, 야생동물구조센터, 용강실습목장, 수의과학연구소 등의 교육·연구 시설을 갖추고 있다. 입학전형과 모집인원은 학년도별 공식 모집요강을 다시 확인해야 한다.""",
     },
     {
+        "source_id": "campus-map-veterinary-college",
+        "title": "제주대학교 캠퍼스맵 수의과대학 위치",
+        "url": "https://www.jejunu.ac.kr/schoolinfo/campinfo/campusmap.htm",
+        "body": """제주대학교 공식 아라캠퍼스맵에서 수의과대학 건물 핀은 위도 33.4520059, 경도 126.5585883에 있다. 수의과대학 건물은 수의과대학부설 동물병원에서 북서쪽으로 약 76m, 인문대학 2호관에서 남동쪽으로 약 89m, 아라컨벤션홀에서 남서쪽으로 약 114m 떨어진 곳이다. 공식 캠퍼스맵에서 '수의과대학'을 선택하면 건물 위치와 층별 공간을 확인할 수 있다. 수의과대학부설 동물병원은 남동쪽의 별도 건물이며 핀 좌표는 위도 33.451364, 경도 126.5588748이다.""",
+    },
+    {
         "source_id": "academic-calendar-2026",
         "title": "제주대학교 2026학년도 학사일정",
         "url": "https://www.jejunu.ac.kr/admission/eduguide/degree/academyschedule/academic.htm",

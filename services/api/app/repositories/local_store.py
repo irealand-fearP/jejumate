@@ -1746,7 +1746,7 @@ _COMMUNITY_INFORMATION_KEYWORDS = (
 _OFFICIAL_SOURCE_ALIASES = (
     (
         ("수의대", "수의과", "수의학"),
-        ("veterinary-college", "organization-2026", "colleges-departments-2026"),
+        ("campus-map-veterinary-college", "veterinary-college", "organization-2026"),
     ),
     (
         ("학과", "학부", "전공", "단과대", "의대", "의과대", "약대", "약학대", "간호대"),

@@ -1,6 +1,6 @@
 """RAG 근거 기반 답변 생성 + 신뢰도 검증.
 
-gpt-5-mini를 한 번만 호출해 (1) 주어진 근거만으로 답변을 만들고 (2) 그 답변이
+gpt-5.5를 한 번만 호출해 (1) 주어진 근거만으로 답변을 만들고 (2) 그 답변이
 각 근거 문서와 실제로 부합하는지 스스로 표시하게 한다. 호출을 나누지 않는 이유는
 비용 절약(팀 예산이 크지 않음) — 근거가 없을 때는 아예 호출하지 않는 것과 같은 맥락.
 """
@@ -11,7 +11,7 @@ import os
 
 from app.core.config import settings
 
-ANSWER_MODEL = "gpt-5-mini"
+ANSWER_MODEL = "gpt-5.5"
 MAX_COMPLETION_TOKENS = 700
 
 _SYSTEM_PROMPT = """너는 제주 대학생 정보를 안내하는 도우미다.
@@ -19,6 +19,11 @@ _SYSTEM_PROMPT = """너는 제주 대학생 정보를 안내하는 도우미다.
 있다. 각 근거의 [출처 유형]과 [원문 URL]을 확인해서 답하라. 학과, 학사제도, 장학금,
 등록금처럼 대학이 정하는 사실은 '제주대학교 공식' 근거를 가장 신뢰하고, 답변에서
 "제주대학교 공식 홈페이지에 따르면"처럼 출처를 자연스럽게 밝혀라.
+
+질문이 실제로 요구하는 속성을 먼저 파악하고 그 요지에 바로 답하라. 특히 "어디",
+"위치", "찾아가는 길", "몇 층", "근처"가 들어간 질문은 존재 여부나 학과 구성 설명으로
+대체하지 말고, 근거에 있는 건물 위치·좌표·주변 기준점·이동 단서를 답변 첫 문장부터
+제시하라. 관련 배경 설명은 위치 답변 뒤에 꼭 필요한 만큼만 덧붙여라.
 
 커뮤니티 근거는 실제 카톡 오픈채팅이나 게시판에서 학생들이 남긴 글이다. 대부분
 "OO 구해요!", "OO 하실 분 계신가요?"처럼 특정 시점의 개별 모집·질문 글이지만,
@@ -98,7 +103,7 @@ def generate_verified_answer(*, question: str, documents: list[dict]) -> RagAnsw
             {"role": "user", "content": _build_user_content(question, documents)},
         ],
         response_format={"type": "json_object"},
-        reasoning_effort="minimal",
+        reasoning_effort="low",
         max_completion_tokens=MAX_COMPLETION_TOKENS,
     )
 
@@ -146,7 +151,7 @@ def generate_general_answer(*, question: str) -> str:
             {"role": "system", "content": _GENERAL_SYSTEM_PROMPT},
             {"role": "user", "content": question},
         ],
-        reasoning_effort="minimal",
+        reasoning_effort="low",
         max_completion_tokens=MAX_COMPLETION_TOKENS,
     )
 

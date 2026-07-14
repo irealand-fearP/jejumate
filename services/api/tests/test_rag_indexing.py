@@ -222,3 +222,9 @@ def test_unverified_candidates_are_not_exposed_as_sources(mock_rag_settings, moc
 )
 def test_routes_university_facts_to_official_documents(question, expected):
     assert local_store._should_search_jejunu_official(question) is expected
+
+
+def test_veterinary_location_question_prioritizes_campus_map_source():
+    source_ids = local_store._official_source_ids_for_question("대학교 내 수의대 위치 알려줘")
+
+    assert source_ids[0] == "campus-map-veterinary-college"

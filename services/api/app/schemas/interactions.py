@@ -182,7 +182,7 @@ class RagAskResponse(BaseModel):
     suggestions: list[str]
     query_log_id: str | None = None
     persisted: bool = False
-    # 신뢰도 검증: gpt-5-mini가 만든 답변이 근거와 실제로 부합하는지 자체 검증한 결과.
+    # 신뢰도 검증: 답변 모델이 만든 답변이 근거와 실제로 부합하는지 자체 검증한 결과.
     # confidence_grade: "none"(근거 없음, LLM 미호출) / "high"(근거 전부 부합) /
     # "medium"(일부만 부합) / "low"(근거 있었지만 하나도 부합 안 함, 환각 의심).
     confidence_grade: str = "none"
