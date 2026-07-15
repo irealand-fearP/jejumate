@@ -1,0 +1,160 @@
+<style>
+  :root{
+    --ground:#FBFCFC;--surface:#FFF;--ink:#13201E;--muted:#56655F;--faint:#7C8A84;
+    --line:#E3EAE7;--accent:#0E8C7C;--accent-ink:#076456;--accent-soft:#E1F1ED;
+    --up:#0E8C7C;--down:#C0492F;--down-soft:#F7E7E2;--warn:#B06A2E;--warn-soft:#F5EADD;
+    --shadow:0 1px 2px rgba(19,32,30,.04),0 8px 24px rgba(19,32,30,.05);--radius:14px;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#0D1514;--surface:#141F1D;--ink:#E9F1EE;--muted:#9BAAA4;--faint:#75847E;
+    --line:#253433;--accent:#2ED3BC;--accent-ink:#7CE7D6;--accent-soft:#16302C;
+    --up:#2ED3BC;--down:#E8836A;--down-soft:#33211C;--warn:#E0A863;--warn-soft:#2C2519;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="light"]{--ground:#FBFCFC;--surface:#FFF;--ink:#13201E;--muted:#56655F;--faint:#7C8A84;--line:#E3EAE7;--accent:#0E8C7C;--accent-ink:#076456;--accent-soft:#E1F1ED;--up:#0E8C7C;--down:#C0492F;--down-soft:#F7E7E2;--warn:#B06A2E;--warn-soft:#F5EADD;--shadow:0 1px 2px rgba(19,32,30,.04),0 8px 24px rgba(19,32,30,.05);}
+  :root[data-theme="dark"]{--ground:#0D1514;--surface:#141F1D;--ink:#E9F1EE;--muted:#9BAAA4;--faint:#75847E;--line:#253433;--accent:#2ED3BC;--accent-ink:#7CE7D6;--accent-soft:#16302C;--up:#2ED3BC;--down:#E8836A;--down-soft:#33211C;--warn:#E0A863;--warn-soft:#2C2519;--shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased;
+    font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+  header.hero{padding:64px 0 36px;border-bottom:1px solid var(--line)}
+  h1{font-size:clamp(1.9rem,4.6vw,2.9rem);line-height:1.12;font-weight:800;letter-spacing:-.02em;margin:14px 0 16px;text-wrap:balance;max-width:22ch}
+  h1 .hl{color:var(--accent)}
+  .lede{font-size:clamp(1rem,2vw,1.16rem);color:var(--muted);max-width:64ch;margin:0}
+  .meta{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px 10px}
+  .meta .t{font-size:.82rem;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+  .meta .t b{color:var(--accent-ink)}
+
+  /* compare table */
+  section{padding:44px 0 4px}
+  h2{font-size:1.35rem;font-weight:800;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 22px;max-width:66ch}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;min-width:560px;background:var(--surface)}
+  th,td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  th{font-size:.76rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);background:var(--ground)}
+  td.metric{font-weight:700}
+  td.num{text-align:right;font-weight:700}
+  tr:last-child td{border-bottom:none}
+  .delta{font-size:.82rem;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap}
+  .delta.up{background:var(--accent-soft);color:var(--accent-ink)}
+  .delta.down{background:var(--down-soft);color:var(--down)}
+  .rowhi td{background:color-mix(in srgb,var(--accent-soft) 30%,transparent)}
+
+  .callout{margin:26px 0 6px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:20px 22px;box-shadow:var(--shadow)}
+  .callout h3{margin:0 0 8px;font-size:1.05rem;font-weight:800;color:var(--accent-ink)}
+  .callout p{margin:0;color:var(--ink)}
+  .callout b{color:var(--accent-ink)}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
+  @media(max-width:720px){.cards{grid-template-columns:1fr}}
+  .case{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .case .h{padding:15px 18px;border-bottom:1px solid var(--line)}
+  .case .tag{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
+  .case.win .tag{background:var(--accent-soft);color:var(--accent-ink)}
+  .case.loss .tag{background:var(--down-soft);color:var(--down)}
+  .case .q{margin:9px 0 0;font-size:1rem;font-weight:700}
+  .case .b{padding:15px 18px;display:flex;flex-direction:column;gap:12px}
+  .ans{font-size:.9rem}
+  .ans .lab{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:4px}
+  .ans.base .lab{color:var(--faint)} .ans.rag .lab{color:var(--accent-ink)}
+  .ans p{margin:0;color:var(--muted)} .ans.rag p{color:var(--ink)}
+  .scorebar{display:flex;gap:8px;font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .scorebar .s{padding:2px 8px;border-radius:6px;background:var(--ground);border:1px solid var(--line)}
+  .scorebar .s.hi{color:var(--accent-ink)} .scorebar .s.lo{color:var(--down)}
+
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  @media(max-width:720px){.fgrid{grid-template-columns:1fr}}
+  .fc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .fc.up{border-top:3px solid var(--up)} .fc.down{border-top:3px solid var(--down)}
+  .fc h3{margin:0 0 8px;font-size:1.02rem;font-weight:700}
+  .fc.up h3{color:var(--accent-ink)} .fc.down h3{color:var(--down)}
+  .fc p{margin:0;color:var(--muted);font-size:.93rem}.fc p b{color:var(--ink)}
+
+  footer{padding:34px 0 60px;color:var(--faint);font-size:.82rem;border-top:1px solid var(--line);margin-top:40px;line-height:1.7}
+  footer b{color:var(--muted)}
+  .pill{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-left:6px}
+</style>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">시냅스팟 RAG 재평가 · 2026-07-15</div>
+  <h1>근거엔 충실해졌지만, <span class="hl">관련성 점수는 내려갔다</span></h1>
+  <p class="lede">현재 운영 시스템(gpt-5.5 + 백필된 카톡·공식자료 코퍼스 1만여 건)을 팀원의 RAGAS 평가도구로 다시 측정했습니다. 결과는 단순히 "RAG가 좋다/나쁘다"가 아니라 <b>트레이드오프</b>를 보여줍니다.</p>
+  <div class="meta">
+    <span class="t">모델 <b>gpt-5.5</b></span>
+    <span class="t">평가 <b>RAGAS · 15문항</b></span>
+    <span class="t">코퍼스 <b>백필 후 1만여 건</b></span>
+    <span class="t">비교군 <b>팀원 초기평가(gpt-5-mini)</b></span>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section>
+    <h2>지표 비교 — 초기평가 → 현재</h2>
+    <p class="sub">팀원 초기평가(gpt-5-mini, 백필 전)와 현재 시스템(gpt-5.5, 백필 후)의 자동 지표. 화살표는 현재가 초기 대비 오른/내린 방향입니다.</p>
+    <div class="tblwrap"><table>
+      <tr><th>지표</th><th style="text-align:right">초기평가</th><th style="text-align:right">현재</th><th>변화</th></tr>
+      <tr class="rowhi"><td class="metric">RAG Faithfulness<br><span style="font-weight:400;color:var(--faint);font-size:.8rem">답이 근거에 실제로 부합하는가</span></td><td class="num">0.345</td><td class="num">0.806</td><td><span class="delta up">▲ +0.461 (2.3배)</span></td></tr>
+      <tr class="rowhi"><td class="metric">검색 근거 활용도<br><span style="font-weight:400;color:var(--faint);font-size:.8rem">검색된 문서를 답에 실제로 썼는가</span></td><td class="num">0.571</td><td class="num">0.875</td><td><span class="delta up">▲ +0.304</span></td></tr>
+      <tr><td class="metric">출처 제시율</td><td class="num">0.467</td><td class="num">0.533</td><td><span class="delta up">▲ +0.066</span></td></tr>
+      <tr><td class="metric">기본 GPT 답변 관련성</td><td class="num">0.662</td><td class="num">0.697</td><td><span class="delta up">▲ +0.035</span></td></tr>
+      <tr><td class="metric">RAG 답변 관련성<br><span style="font-weight:400;color:var(--faint);font-size:.8rem">질문에 직접 답했는가</span></td><td class="num">0.637</td><td class="num">0.507</td><td><span class="delta down">▼ −0.130</span></td></tr>
+    </table></div>
+
+    <div class="callout">
+      <h3>왜 이런 결과가 나왔나 — 정직함의 대가</h3>
+      <p>백필된 코퍼스 덕에 RAG는 <b>근거가 없으면 지어내지 않고 "공식 홈페이지를 확인하세요"라고 정직하게 답합니다.</b> 그래서 근거 충실도(Faithfulness)와 활용도가 크게 올랐습니다. 그런데 RAGAS의 "답변 관련성"은 이런 정직한 회피를 <b>낮게 매깁니다</b> — 질문에 직접 답을 안 했다고 보기 때문입니다. 반면 기본 GPT는 근거 없이도 그럴듯한 일반 답을 확신 있게 내놓아 관련성 점수가 높게 나옵니다. <b>즉 관련성 하락의 상당 부분은 "환각 대신 정직"을 택한 결과입니다.</b></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>사례 비교</h2>
+    <p class="sub">같은 질문에 기본 GPT와 RAG가 어떻게 다른지. 관련성 점수(0~1)를 함께 표기합니다.</p>
+    <div class="cards">
+      <div class="case win">
+        <div class="h"><span class="tag">RAG 근거 기반 답변</span><p class="q">제주대 장학금 종류와 신청 절차는?</p></div>
+        <div class="b">
+          <div class="scorebar"><span class="s">기본 GPT 0.856</span><span class="s hi">RAG 0.777</span></div>
+          <div class="ans rag"><span class="lab">RAG (근거 3건)</span><p>"국가장학·교내장학·발전기금장학·교외장학이 있으며, 국가장학은 한국장학재단에서 직접 신청…" — <b>공식 자료를 근거로</b> 구체적으로 답변.</p></div>
+          <div class="ans base"><span class="lab">기본 GPT</span><p>"교내·국가·교외장학으로 나뉩니다…" 유사하게 답하지만 출처 없음. 둘 다 우수, RAG는 근거 제시.</p></div>
+        </div>
+      </div>
+      <div class="case loss">
+        <div class="h"><span class="tag">RAG 관련성 0.0 — 정직한 회피</span><p class="q">아프거나 심리상담 필요할 때 보건소·상담센터 이용법은?</p></div>
+        <div class="b">
+          <div class="scorebar"><span class="s hi">기본 GPT 0.856</span><span class="s lo">RAG 0.000</span></div>
+          <div class="ans rag"><span class="lab">RAG</span><p>"제공된 근거에 보건소·상담센터 이용 방법이 없어 답변이 어렵습니다. 공식 홈페이지를 확인하세요." — <b>지어내지 않음(정직)</b>. 하지만 질문엔 직접 답 못 해 관련성 0점.</p></div>
+          <div class="ans base"><span class="lab">기본 GPT</span><p>보건소·상담센터 이용법을 상세히 설명(높은 관련성). 다만 확인되지 않은 일반 지식일 수 있음.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>집단별로 보면</h2>
+    <p class="sub">질문 성격에 따라 RAG의 강약이 갈립니다.</p>
+    <div class="fgrid">
+      <div class="fc up">
+        <h3>근거가 있는 질문 → RAG가 신뢰도 확보</h3>
+        <p>장학금·휴학 등 <b>공식 자료가 코퍼스에 있는 질문</b>은 RAG가 출처와 함께 근거 기반으로 답합니다(Faithfulness 1.0 사례 다수). 서비스 차별점이 여기서 나옵니다.</p>
+      </div>
+      <div class="fc down">
+        <h3>근거가 없는 질문 → 관련성 붕괴 (Q09·Q13)</h3>
+        <p>동아리·보건소처럼 <b>코퍼스에 근거가 없는 질문</b>은 RAG가 회피해 관련성 <b>0.0</b>. 개선 방향: 이 공식·행정 주제의 근거를 코퍼스에 보강하면(포털 연동 확대) 회피 대신 실제 답변이 가능해집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="callout">
+      <h3>발표에서 이렇게 말하는 걸 권장</h3>
+      <p>"RAG로 <b>환각을 크게 줄이고(Faithfulness 0.35→0.81) 근거 활용도를 높였습니다</b>. 자동 관련성 점수는 오히려 내려갔는데, 이는 근거가 없을 때 RAG가 <b>지어내는 대신 정직하게 공식 출처로 안내</b>하기 때문입니다 — 신뢰가 핵심인 서비스에는 오히려 바람직한 방향입니다. 남은 과제는 <b>공식·행정 질문의 근거를 코퍼스에 더 채우는 것</b>입니다." 평균 점수만 보여주지 말고 위 사례(장학금 = 근거 확보 / 보건소 = 정직한 회피)를 함께 제시하세요.</p>
+    </div>
+  </section>
+
+  <footer>
+    <b>측정 방법</b> · 동일 모델 gpt-5.5, 질문 15개를 기본 GPT(검색 없음) vs 운영 RAG(검색+생성)로 실행 후 RAGAS 0.4.3로 자동 채점. 코퍼스=카톡 오픈채팅+제주대 공식자료 백필분(약 1만 건). 초기평가 비교군은 팀원의 gpt-5-mini·백필 전 결과라 <b>모델·코퍼스가 달라 직접 등가 비교는 아니며 방향성 참고용</b>입니다. 기본 GPT는 gpt-5.5 특성상 700토큰에선 빈 답을 내 2000토큰으로 재시도(문항당 토큰 예산이 RAG보다 큼). Q03은 기본 GPT 생성 오류 1건으로 관련성 미측정(14/15). Faithfulness·활용도는 근거를 실제 검색한 문항에서만 측정됩니다.
+    <div style="margin-top:10px">SYNAPSE POT · RAG 재평가 리포트 · 개발팀 내부용(검색 문서 원문 포함 자료는 비공개)</div>
+  </footer>
+</main>
