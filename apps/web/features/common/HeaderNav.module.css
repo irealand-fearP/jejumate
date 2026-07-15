@@ -4,7 +4,7 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 8px; /* 넓은 폭(>=400px)에서는 항목 사이를 여유 있게 */
   min-width: 0; /* 부모(헤더)가 좁아질 때 나비도 함께 줄어들 수 있게 */
   flex: 0 1 auto;
 }
@@ -41,19 +41,19 @@
   color: #009f9b;
 }
 
-/* 좁은 뷰포트에서 간격·패딩·라벨을 한 단계 줄여 4개+로고가 확실히 들어가게 한다. */
+/* 좁은 뷰포트(360px 등)에서는 간격·패딩·라벨을 줄여 5개+로고가 잘리지 않게 한다. */
 @media (max-width: 400px) {
   .nav {
     gap: 1px;
   }
 
   .item {
-    padding: 4px 3px;
+    padding: 4px 2px;
     font-size: 11px;
   }
 
   .item svg {
-    width: 20px;
-    height: 20px;
+    width: 19px;
+    height: 19px;
   }
 }

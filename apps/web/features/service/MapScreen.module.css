@@ -1,0 +1,39 @@
+.toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle button {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid #dce6e8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #3a4348;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+/* 활성 토글: 청록. .toggle button보다 우선하도록 선택자를 더 구체적으로. */
+.toggle button.toggleActive {
+  border-color: #009f9b;
+  background: #009f9b;
+  color: #ffffff;
+}
+
+/* 하단 탭이 없어졌으니 헤더 아래 남은 높이를 지도가 꽉 채우게 한다. */
+.mapFrameWrap {
+  height: calc(100dvh - 214px);
+  min-height: 340px;
+  border: 1px solid #dce6e8;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #eef3f3;
+}
+
+.mapFrame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}

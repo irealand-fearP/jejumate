@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, MessageCircleQuestion, UserRound, UsersRound } from "lucide-react";
+import { ClipboardList, Map, MessageCircleQuestion, UserRound, UsersRound } from "lucide-react";
 import styles from "./HeaderNav.module.css";
 
 // 상단 헤더 우측에 놓는 한 줄 메뉴(아이콘 위 · 라벨 아래). 홈은 왼쪽 로고 클릭으로 가므로
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/meetings", label: "파티", key: "meetings", icon: UsersRound },
   { href: "/question", label: "질문", key: "question", icon: MessageCircleQuestion },
   { href: "/board", label: "생활", key: "board", icon: ClipboardList },
+  { href: "/map", label: "지도", key: "map", icon: Map },
   { href: "/profile", label: "내정보", key: "profile", icon: UserRound },
 ];
 
