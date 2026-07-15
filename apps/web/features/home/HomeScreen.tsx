@@ -600,10 +600,9 @@ export function HomeScreen({ data }: { data: HomeData }) {
           className={styles.createFab}
           onClick={() => setShowCreateMenu(true)}
           type="button"
-          aria-label="파티 만들기"
+          aria-label="만들기"
         >
           <Plus aria-hidden="true" size={28} strokeWidth={2.6} />
-          <span>파티 만들기</span>
         </button>
 
         {showCreateMenu ? (
