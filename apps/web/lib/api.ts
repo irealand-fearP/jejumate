@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const RAG_REQUEST_TIMEOUT_MS = 45_000;
 
 // 응답 실패를 던질 때 HTTP status를 함께 실어 보내는 에러.
 // 화면 쪽에서 404(이미 삭제됨) 같은 상태를 구분해 다르게 처리할 수 있게 한다.
@@ -262,13 +263,18 @@ export type RagAnswer = {
   } | null;
 };
 
-async function postApi<TResponse, TPayload>(path: string, payload: TPayload): Promise<TResponse> {
+async function postApi<TResponse, TPayload>(
+  path: string,
+  payload: TPayload,
+  options: { timeoutMs?: number } = {},
+): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined,
   });
 
   if (!response.ok) {
@@ -479,8 +485,12 @@ export async function getMeetingDetail(meetingId: string): Promise<HomeMeeting> 
 }
 
 export async function askRag(question: string, anonymousId?: string): Promise<RagAnswer> {
-  return postApi<RagAnswer, { question: string; anonymous_id?: string }>("/api/rag/ask", {
-    question,
-    anonymous_id: anonymousId,
-  });
+  return postApi<RagAnswer, { question: string; anonymous_id?: string }>(
+    "/api/rag/ask",
+    {
+      question,
+      anonymous_id: anonymousId,
+    },
+    { timeoutMs: RAG_REQUEST_TIMEOUT_MS },
+  );
 }
