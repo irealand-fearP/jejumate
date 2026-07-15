@@ -21,6 +21,8 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   scrollbar-width: none;
+  /* 가로 오버플로가 생겨도 뷰포트 밖으로 잘려 보이지 않게 가로 스크롤을 막는다(안전망). */
+  overflow-x: hidden;
   /* 하단 탭은 없어졌지만, 홈은 하단 중앙에 고정된 '파티 만들기' + 버튼이 있으므로
      마지막 콘텐츠가 그 밑에 가리지 않게 넉넉한 하단 패딩(+안전영역)을 확보한다. */
   padding: 22px 14px calc(120px + env(safe-area-inset-bottom));
@@ -42,17 +44,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
   padding: 0 2px 18px;
 }
 
 .logoBlock {
   display: block;
+  min-width: 0;
+  flex: 0 1 auto;
   text-decoration: none;
 }
 
 .logoBlock img {
-  width: 126px;
+  width: 118px;
+  max-width: 100%;
   height: auto;
   display: block;
 }
@@ -63,6 +69,17 @@
   font-size: 13px;
   line-height: 1.25;
   font-weight: 500;
+}
+
+/* 좁은 폭에서는 로고를 조금 줄이고 부제를 숨겨 상단 메뉴 4개가 잘리지 않게 한다. */
+@media (max-width: 400px) {
+  .logoBlock img {
+    width: 98px;
+  }
+
+  .logoBlock p {
+    display: none;
+  }
 }
 
 .privacyBanner,

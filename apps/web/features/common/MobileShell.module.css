@@ -12,6 +12,8 @@
   width: min(100vw, 430px);
   height: min(100dvh, calc(min(100vw, 430px) * 932 / 430));
   overflow-y: auto;
+  /* 가로 오버플로가 생겨도 뷰포트 밖으로 잘려 보이지 않게 가로 스크롤을 막는다(안전망). */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   background: #ffffff;
@@ -37,13 +39,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  flex: 0 0 auto;
   color: #008d8d;
   font-size: 16px;
   line-height: 1.2;
