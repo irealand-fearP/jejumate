@@ -1,16 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ClipboardList, Home, MessageCircleQuestion, UserRound, UsersRound } from "lucide-react";
+import { HeaderNav } from "./HeaderNav";
 import styles from "./MobileShell.module.css";
-
-// 홈을 가운데 두는 5탭 순서: 모임 · 질문 · 홈 · 생활게시판 · 내정보
-const navItems = [
-  { href: "/meetings", label: "파티", key: "meetings", icon: UsersRound },
-  { href: "/question", label: "질문", key: "question", icon: MessageCircleQuestion },
-  { href: "/", label: "홈", key: "home", icon: Home },
-  { href: "/board", label: "생활", key: "board", icon: ClipboardList },
-  { href: "/profile", label: "내정보", key: "profile", icon: UserRound },
-];
 
 export function MobileShell({
   active,
@@ -31,27 +22,23 @@ export function MobileShell({
     <main className={styles.page}>
       <section className={styles.phone}>
         <header className={`${styles.header} ${headerVariant === "compact" ? styles.headerCompact : ""}`}>
-          <Link className={styles.brand} href="/">
-            시냅스팟
-          </Link>
-          <div className={headerVariant === "compact" ? styles.compactTitle : ""}>
-            <h1>{title}</h1>
-            {subtitle ? <p>{subtitle}</p> : null}
+          {/* 윗줄: 왼쪽 로고(클릭 시 홈) + 오른쪽 공통 메뉴 */}
+          <div className={styles.headerBar}>
+            <Link className={styles.brand} href="/" aria-label="시냅스팟 홈">
+              시냅스팟
+            </Link>
+            <HeaderNav active={active} />
           </div>
-          {headerVariant === "compact" ? <div className={styles.headerAction}>{headerAction}</div> : null}
+          {/* 아랫줄: 화면 제목 + (선택) 헤더 액션(예: 질문 화면의 알림 버튼) */}
+          <div className={styles.headerTitleRow}>
+            <div className={styles.headerTitle}>
+              <h1>{title}</h1>
+              {subtitle ? <p>{subtitle}</p> : null}
+            </div>
+            {headerAction ? <div className={styles.headerAction}>{headerAction}</div> : null}
+          </div>
         </header>
         <div className={styles.content}>{children}</div>
-        <nav className={styles.nav} aria-label="하단 탭">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link className={active === item.key ? styles.active : ""} href={item.href} key={item.key}>
-                <Icon aria-hidden="true" size={20} strokeWidth={2.4} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
       </section>
     </main>
   );

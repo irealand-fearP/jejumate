@@ -27,9 +27,17 @@
   position: sticky;
   top: 0;
   z-index: 4;
-  padding: 20px 20px 17px;
+  padding: 13px 20px 13px;
   border-bottom: 1px solid #e4ecee;
   background: #ffffff;
+}
+
+/* 윗줄: 로고(좌) + 공통 메뉴(우) */
+.headerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .brand {
@@ -37,50 +45,45 @@
   align-items: center;
   gap: 7px;
   color: #008d8d;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.2;
   font-weight: 950;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* 아랫줄: 제목 + (선택) 헤더 액션 */
+.headerTitleRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.headerTitle {
+  min-width: 0;
 }
 
 .header h1 {
-  margin: 10px 0 0;
+  margin: 0;
   color: #111315;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.1;
   font-weight: 950;
   letter-spacing: 0;
 }
 
 .header p {
-  margin: 7px 0 0;
+  margin: 6px 0 0;
   color: #697178;
   font-size: 13px;
   line-height: 1.4;
   font-weight: 750;
 }
 
-.headerCompact {
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding-top: 15px;
-  padding-bottom: 15px;
-}
-
-.headerCompact .brand {
-  justify-self: start;
-  font-size: 16px;
-}
-
-.headerCompact .compactTitle {
-  justify-self: center;
-}
-
 .headerCompact h1 {
-  margin: 0;
-  font-size: 20px;
+  font-size: 21px;
   white-space: nowrap;
 }
 
@@ -89,83 +92,18 @@
   min-height: 40px;
   display: grid;
   place-items: center;
-  justify-self: end;
+  flex: 0 0 auto;
 }
 
 .content {
   display: grid;
   gap: 16px;
-  padding: 18px 20px 94px;
+  /* 하단 탭 제거로 큰 하단 여백이 더는 필요 없다. 안전영역만 확보한다. */
+  padding: 18px 20px calc(28px + env(safe-area-inset-bottom));
 }
 
-.nav {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
-  z-index: 5;
-  width: min(100vw, 430px);
-  height: 72px;
-  transform: translateX(-50%);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: center;
-  border: 1px solid #dfe8ea;
-  border-bottom: 0;
-  border-radius: 18px 18px 0 0;
-  /* 반투명(0.98)이면 실기기에서 뒤 콘텐츠 글자가 비쳐 보였다. 완전 불투명 배경 +
-     위쪽 경계를 또렷하게 해서 내비와 콘텐츠를 명확히 분리한다. */
-  background: #ffffff;
-  box-shadow: 0 -2px 0 rgba(20, 54, 58, 0.05), 0 -10px 28px rgba(20, 54, 58, 0.12);
-}
-
-.nav a {
-  position: relative;
-  min-width: 0;
-  height: 58px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 4px;
-  text-align: center;
-  color: #666d74;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.nav svg {
-  width: 23px;
-  height: 23px;
-  color: #7d878c;
-}
-
-.nav .active {
-  color: #009f9b;
-  font-weight: 950;
-}
-
-.nav .active::after {
-  content: "";
-  position: absolute;
-  bottom: 1px;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: #009f9b;
-}
-
-.nav .active svg {
-  color: #009f9b;
-}
-
-/* 모바일 실기기 폰트 과대 피드백에 따른 타이포 스케일 축소(제목 위주). 데스크톱은
-   그대로 두고 좁은 뷰포트에서만 한 단계 줄인다. */
+/* 좁은 뷰포트에서 제목 타이포만 한 단계 줄인다(로고/메뉴는 그대로). */
 @media (max-width: 480px) {
-  .brand {
-    font-size: 13px;
-  }
-
   .header h1 {
     font-size: 22px;
   }

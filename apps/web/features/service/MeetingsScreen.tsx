@@ -287,6 +287,14 @@ export function MeetingsScreen({ data }: { data: MeetingsData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 홈 + 버튼에서 /meetings?create=1 로 들어오면 파티 생성 시트를 바로 연다.
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      openCreateSheet();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const visibleMeetings = useMemo(() => {
     // 카테고리 필터를 먼저 적용하고, 검색어를 AND로 겹쳐 좁힌다.
     // 카톡 수집 파티는 '오픈채팅' 필터에서만 보여준다 — '전체'를 포함한 나머지 필터는

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronRight, Info, LockKeyhole, MessageCircle, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { Bell, ChevronRight, ClipboardList, Info, MessageCircle, Plus, ShieldCheck, UsersRound } from "lucide-react";
 import {
   askRag,
   createNickname,
@@ -23,10 +23,10 @@ import { ApplicantNotificationBanner } from "@/features/common/ApplicantNotifica
 import { ChatSheet } from "@/features/common/ChatSheet";
 import { HostPendingBanner } from "@/features/common/HostPendingBanner";
 import { CenterModal } from "@/features/common/CenterModal";
+import { HeaderNav } from "@/features/common/HeaderNav";
 import { PlaceMapSection } from "@/features/map/PlaceMapSection";
 import { AskEntryCard } from "./AskEntryCard";
 import { BoardSection } from "./BoardSection";
-import { BottomNav } from "./BottomNav";
 import { MeetingTimeline } from "./MeetingTimeline";
 import styles from "./HomeScreen.module.css";
 
@@ -103,6 +103,8 @@ function BottomSheet({
 export function HomeScreen({ data }: { data: HomeData }) {
   const router = useRouter();
   const [sheetKey, setSheetKey] = useState<SheetKey | null>(null);
+  // 홈 + 버튼을 눌렀을 때 뜨는 '무엇을 만들까요?' 2택 바텀시트 열림 여부.
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
   // 신청 성공 안내(중앙 모달) 본문. null이면 모달을 띄우지 않는다.
   const [applicationDone, setApplicationDone] = useState<string | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<HomeMeeting | null>(null);
@@ -329,18 +331,11 @@ export function HomeScreen({ data }: { data: HomeData }) {
     <main className={styles.canvas}>
       <section className={styles.phone}>
         <header className={styles.header}>
-          <div className={styles.logoBlock}>
+          <Link className={styles.logoBlock} href="/" aria-label="시냅스팟 홈">
             <img src="/assets/synapse-pot-logo-header.png" alt="시냅스팟" />
             <p>제주 런케이션 커뮤니티</p>
-          </div>
-          <div className={styles.headerActions}>
-            <button onClick={() => setSheetKey("nickname")} type="button">
-              <UserRound size={17} /> 닉네임
-            </button>
-            <button className={styles.privacyPill} onClick={() => setSheetKey("privacy")} type="button">
-              <LockKeyhole size={18} /> 실명 비공개
-            </button>
-          </div>
+          </Link>
+          <HeaderNav />
         </header>
 
         <button className={styles.notificationEntryButton} onClick={openNotifications} type="button">
@@ -385,8 +380,6 @@ export function HomeScreen({ data }: { data: HomeData }) {
         <AskEntryCard onOpen={openQuestionSheet} />
 
         <BoardSection />
-
-        <BottomNav />
 
         <div className={styles.chatShortcut}>
           {data.meetings[0] ? (
@@ -600,6 +593,45 @@ export function HomeScreen({ data }: { data: HomeData }) {
             onClose={() => setApplicationDone(null)}
             title="신청 접수 완료"
           />
+        ) : null}
+
+        {/* 홈에만 뜨는 원형 + 버튼(하단 중앙 고정). 눌러서 무엇을 만들지 고른다. */}
+        <button
+          className={styles.createFab}
+          onClick={() => setShowCreateMenu(true)}
+          type="button"
+          aria-label="파티 만들기"
+        >
+          <Plus aria-hidden="true" size={28} strokeWidth={2.6} />
+          <span>파티 만들기</span>
+        </button>
+
+        {showCreateMenu ? (
+          <BottomSheet title="무엇을 만들까요?" onClose={() => setShowCreateMenu(false)}>
+            {/* 생성 폼은 홈에 복제하지 않는다 — 쿼리 파라미터로 기존 화면의 시트를 바로 연다. */}
+            <div className={styles.createMenu}>
+              <button onClick={() => router.push("/meetings?create=1")} type="button">
+                <span className={styles.createMenuIcon}>
+                  <UsersRound size={22} />
+                </span>
+                <span className={styles.createMenuText}>
+                  <b>파티 생성</b>
+                  <small>함께할 사람을 모아요</small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+              <button onClick={() => router.push("/board?write=1")} type="button">
+                <span className={styles.createMenuIcon}>
+                  <ClipboardList size={22} />
+                </span>
+                <span className={styles.createMenuText}>
+                  <b>생활게시판 글쓰기</b>
+                  <small>이웃에게 묻고 나눠요</small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </BottomSheet>
         ) : null}
       </section>
     </main>

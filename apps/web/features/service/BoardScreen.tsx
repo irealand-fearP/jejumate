@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Check, ChevronRight, Flag, MessageCircle, Plus, Search, Trash2, X } from "lucide-react";
 import { MobileShell } from "@/features/common/MobileShell";
 import { Pagination } from "@/features/common/Pagination";
@@ -96,6 +97,7 @@ function formatRelativeTime(value: string): string {
 }
 
 export function BoardScreen({ data }: { data: BoardData }) {
+  const searchParams = useSearchParams();
   const [boardData, setBoardData] = useState(data);
   const filters = useMemo(() => ["전체", ...boardData.categories], [boardData.categories]);
   const [activeFilter, setActiveFilter] = useState(filters[0] ?? "전체");
@@ -116,6 +118,14 @@ export function BoardScreen({ data }: { data: BoardData }) {
   useEffect(() => {
     setCategorySeenAt(readCategorySeenAt());
     setSeenStateLoaded(true);
+  }, []);
+
+  // 홈 + 버튼에서 /board?write=1 로 들어오면 글쓰기 시트를 바로 연다.
+  useEffect(() => {
+    if (searchParams.get("write") === "1") {
+      setShowWriteSheet(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
