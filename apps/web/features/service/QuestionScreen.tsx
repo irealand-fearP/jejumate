@@ -42,7 +42,13 @@ type ConversationTurn = {
   askedAt: string;
   answer?: RagAnswer;
   error?: string;
+  // 25초 하드 타임아웃 초과로 재시도 UI를 띄운 상태.
+  timedOut?: boolean;
 };
+
+// 공식질문(장학금·셔틀·휴학 등)은 응답이 7~20초까지 걸릴 수 있다. 이 시간을 넘기면
+// 화면이 '다운된' 것처럼 보이지 않게 재시도 UI로 전환한다.
+const HARD_TIMEOUT_MS = 25000;
 
 const CONFIDENCE_LABEL: Record<RagAnswer["confidence_grade"], string> = {
   high: "근거가 잘 맞아요",
@@ -145,21 +151,49 @@ export function QuestionScreen() {
     }).format(new Date());
 
     setQuestion("");
-    setBusy(true);
     setTurns((previous) => [...previous, { id, question: trimmedQuestion, askedAt }]);
+    runTurn(id, trimmedQuestion);
+  }
+
+  // 실제 RAG 요청 수행. 최초 질문과 '다시 시도'가 같은 로직을 공유하도록 분리했다.
+  async function runTurn(id: number, questionText: string) {
+    setBusy(true);
+    // 재시도일 수 있으니 이 턴의 이전 상태(에러·타임아웃·이전 답변)를 먼저 비운다.
+    setTurns((previous) =>
+      previous.map((turn) =>
+        turn.id === id ? { ...turn, answer: undefined, error: undefined, timedOut: false } : turn,
+      ),
+    );
+
+    // askRag 규약(취소 인자 없음)은 그대로 두고 화면 표시만 타임아웃으로 끊는다.
+    // settled로 '타임아웃'과 '응답 도착' 중 먼저 온 쪽만 반영한다.
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setTurns((previous) => previous.map((turn) => (turn.id === id ? { ...turn, timedOut: true } : turn)));
+      setBusy(false);
+      inputRef.current?.focus();
+    }, HARD_TIMEOUT_MS);
 
     try {
-      const answer = await askRag(trimmedQuestion, profile?.anonymousId);
+      const answer = await askRag(questionText, profile?.anonymousId);
+      if (settled) return; // 이미 타임아웃 처리됨 — 뒤늦게 온 응답은 버린다(재시도로 다시 받게).
       setTurns((previous) => previous.map((turn) => (turn.id === id ? { ...turn, answer } : turn)));
     } catch {
+      if (settled) return;
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === id ? { ...turn, error: "답변을 불러오지 못했어요. 잠시 후 다시 시도해주세요." } : turn,
         ),
       );
     } finally {
-      setBusy(false);
-      inputRef.current?.focus();
+      if (!settled) {
+        settled = true;
+        window.clearTimeout(timeoutId);
+        setBusy(false);
+        inputRef.current?.focus();
+      }
     }
   }
 
@@ -292,6 +326,20 @@ export function QuestionScreen() {
                   <p className={styles.errorMessage}>{turn.error}</p>
                 </div>
               ) : null}
+
+              {turn.timedOut ? (
+                <div className={styles.assistantRow}>
+                  <div className={`${styles.assistantAvatar} ${styles.assistantAvatarError}`}>
+                    <Info size={20} />
+                  </div>
+                  <div className={styles.timeoutBlock}>
+                    <p>답변이 지연되고 있어요. 다시 시도할까요?</p>
+                    <button disabled={busy} onClick={() => runTurn(turn.id, turn.question)} type="button">
+                      다시 시도
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
 
@@ -300,10 +348,13 @@ export function QuestionScreen() {
               <div className={styles.assistantAvatar}>
                 <BrainCircuit size={21} />
               </div>
-              <div className={styles.typingIndicator}>
-                <span />
-                <span />
-                <span />
+              <div className={styles.loadingBubble}>
+                <div className={styles.typingIndicator}>
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <p className={styles.loadingText}>근거를 찾고 답변을 정리하는 중이에요</p>
               </div>
             </div>
           ) : null}

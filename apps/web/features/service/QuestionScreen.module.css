@@ -410,6 +410,53 @@
   font-weight: 750;
 }
 
+.loadingBubble {
+  display: grid;
+  gap: 6px;
+  padding-top: 3px;
+}
+
+.loadingText {
+  margin: 0 2px;
+  color: #6b767c;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.timeoutBlock {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #f1dfb3;
+  border-radius: 4px 14px 14px 14px;
+  background: #fff9eb;
+}
+
+.timeoutBlock p {
+  margin: 0;
+  color: #8a6410;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.timeoutBlock button {
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #009f9b;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.timeoutBlock button:disabled {
+  background: #d8e2e3;
+}
+
 .typingIndicator {
   width: fit-content;
   display: flex;
