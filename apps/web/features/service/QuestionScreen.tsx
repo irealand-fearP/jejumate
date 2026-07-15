@@ -318,22 +318,18 @@ export function QuestionScreen() {
                 </div>
               ) : null}
 
-              {turn.error ? (
-                <div className={styles.assistantRow}>
-                  <div className={`${styles.assistantAvatar} ${styles.assistantAvatarError}`}>
-                    <Info size={20} />
-                  </div>
-                  <p className={styles.errorMessage}>{turn.error}</p>
-                </div>
-              ) : null}
-
-              {turn.timedOut ? (
+              {/* 타임아웃(지연)이든 요청 실패(throw)든 같은 재시도 UI로 통일 — 어떤 실패도 막다른 길이 없다. */}
+              {turn.timedOut || turn.error ? (
                 <div className={styles.assistantRow}>
                   <div className={`${styles.assistantAvatar} ${styles.assistantAvatarError}`}>
                     <Info size={20} />
                   </div>
                   <div className={styles.timeoutBlock}>
-                    <p>답변이 지연되고 있어요. 다시 시도할까요?</p>
+                    <p>
+                      {turn.timedOut
+                        ? "답변이 지연되고 있어요. 다시 시도할까요?"
+                        : turn.error}
+                    </p>
                     <button disabled={busy} onClick={() => runTurn(turn.id, turn.question)} type="button">
                       다시 시도
                     </button>
