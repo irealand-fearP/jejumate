@@ -1862,6 +1862,94 @@ def _should_refresh_jejunu_official_search(question: str) -> bool:
     )
 
 
+def retrieve_rag_documents(question: str) -> list:
+    """RAG 검색만 수행해 threshold를 통과한 근거 문서 row들을 반환한다.
+
+    answer_rag_question의 검색 부분과 완전히 동일한 로직(공식 라우팅·pgvector·
+    임계값·공식 문서 우선)을 재사용한다. 평가 도구(evaluation.runner)가 답변 생성과
+    분리해 검색 결과를 측정할 때 사용한다. row는 dict처럼 ["title"]/["body"] 접근 가능.
+    """
+    normalized = question.strip()
+    official_only = _should_search_jejunu_official(normalized)
+    if official_only and _should_refresh_jejunu_official_search(normalized):
+        try:
+            from app.services.jejunu_portal_search import (
+                build_official_search_query,
+                search_and_ingest_jejunu_official,
+            )
+
+            official_search_query = build_official_search_query(normalized)
+            if official_search_query:
+                search_and_ingest_jejunu_official(official_search_query)
+        except Exception:
+            logger.warning("제주대학교 통합검색 증분 색인 실패", exc_info=True)
+
+    query_vector = embed_text(normalized)
+    source_filter = (
+        " AND source_type = 'jejunu_official'"
+        if official_only
+        else " AND source_type != 'jejunu_official'"
+    )
+    with _connect() as connection:
+        if USE_POSTGRES:
+            vec_literal = "[" + ",".join(str(x) for x in query_vector) + "]"
+            order_expression = (
+                "(embedding_vec <=> ?::vector) + 0"
+                if official_only
+                else "embedding_vec <=> ?::vector"
+            )
+            candidates = connection.execute(
+                f"""
+                SELECT *, 1 - (embedding_vec <=> ?::vector) AS similarity
+                FROM rag_documents
+                WHERE is_active = 1 AND embedding_vec IS NOT NULL{source_filter}
+                ORDER BY {order_expression}
+                LIMIT 3
+                """,
+                (vec_literal, vec_literal),
+            ).fetchall()
+            rows = [row for row in candidates if row["similarity"] >= settings.rag_similarity_threshold]
+        else:
+            candidates = connection.execute(
+                f"""
+                SELECT *
+                FROM rag_documents
+                WHERE is_active = 1 AND embedding IS NOT NULL{source_filter}
+                """
+            ).fetchall()
+            scored = [
+                (row, cosine_similarity(query_vector, json.loads(row["embedding"])))
+                for row in candidates
+            ]
+            scored = [(row, sim) for row, sim in scored if sim >= settings.rag_similarity_threshold]
+            scored.sort(key=lambda item: item[1], reverse=True)
+            rows = [row for row, _sim in scored[:3]]
+
+        if official_only:
+            targeted_source_ids = _official_source_ids_for_question(normalized)
+            if targeted_source_ids:
+                placeholders = ", ".join("?" for _ in targeted_source_ids)
+                targeted_rows = connection.execute(
+                    f"""
+                    SELECT *
+                    FROM rag_documents
+                    WHERE is_active = 1
+                      AND source_type = 'jejunu_official'
+                      AND source_id IN ({placeholders})
+                    """,
+                    targeted_source_ids,
+                ).fetchall()
+                targeted_by_source_id = {row["source_id"]: row for row in targeted_rows}
+                prioritized_rows = [
+                    targeted_by_source_id[source_id]
+                    for source_id in targeted_source_ids
+                    if source_id in targeted_by_source_id
+                ]
+                targeted_ids = {row["id"] for row in prioritized_rows}
+                rows = (prioritized_rows + [row for row in rows if row["id"] not in targeted_ids])[:3]
+    return rows
+
+
 def answer_rag_question(*, question: str, anonymous_id: str | None) -> RagAskResponse:
     """
     RAG 근거 검색: jejumate/backend(app/search.py)와 동일하게 OpenAI 임베딩 +

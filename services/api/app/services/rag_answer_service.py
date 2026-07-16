@@ -13,6 +13,8 @@ from app.core.config import settings
 
 ANSWER_MODEL = "gpt-5.5"
 MAX_COMPLETION_TOKENS = 700
+# 일반 지식 답변조차 비어 돌아올 때의 최종 폴백 문구(평가 도구·안전망 공용).
+GENERAL_ANSWER_FALLBACK = "지금은 답변을 만들지 못했어요. 다른 질문으로 다시 시도해주세요."
 
 _SYSTEM_PROMPT = """너는 제주 대학생 정보를 안내하는 도우미다.
 아래 [근거 문서]에는 제주대학교 공식 홈페이지 자료와 학생 커뮤니티 글이 함께 들어올 수
