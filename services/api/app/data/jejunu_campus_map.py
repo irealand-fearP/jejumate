@@ -26,14 +26,32 @@ _SARA_EDUCATION_MAJORS = (
     "초등영어교육전공",
     "초등컴퓨터교육전공",
 )
-_CAMPUS_MAP_ASSET = (
-    Path(__file__).resolve().parents[4]
-    / "apps"
-    / "web"
-    / "public"
-    / "campus-map"
-    / "vworld_3d_preview.html"
-)
+def _find_campus_map_asset() -> Path | None:
+    """캠퍼스맵 원본 HTML 위치를 후보 경로 순서대로 찾는다.
+
+    Railway 배포는 services/api 폴더가 배포 루트(/app)가 되므로 모노레포 경로가
+    존재하지 않을 수 있다. IndexError로 앱이 죽지 않도록 parents[N] 하드코딩 대신
+    "존재하는 조상 디렉토리를 순회하며 찾기" 방식을 쓰고, 아무 후보도 없으면
+    None을 반환해 호출부(campus_buildings)가 graceful하게 폴백하게 한다.
+    """
+    here = Path(__file__).resolve()
+
+    # (a) 같이 배포되는 로컬 복사본: app/data/campus-map/vworld_3d_preview.html
+    local_copy = here.parent / "campus-map" / "vworld_3d_preview.html"
+    if local_copy.is_file():
+        return local_copy
+
+    # (b) 기존 모노레포 경로: 조상 디렉토리를 위로 올라가며
+    #     apps/web/public/campus-map/vworld_3d_preview.html이 있는지 탐색한다.
+    for ancestor in here.parents:
+        candidate = ancestor / "apps" / "web" / "public" / "campus-map" / "vworld_3d_preview.html"
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+_CAMPUS_MAP_ASSET = _find_campus_map_asset()
 _VIZ_DATA_PATTERN = re.compile(
     r'<script id="viz-data" type="application/json">(?P<data>.*?)</script>',
     re.DOTALL,
@@ -219,6 +237,10 @@ def _names_from_department_space(label: str) -> tuple[str, ...]:
 def _extract_department_locations(
     buildings: list[CampusBuilding],
 ) -> tuple[CampusDepartmentLocation, ...]:
+    if not buildings:
+        # 캠퍼스맵 원본을 못 찾아 campus_buildings()가 빈 데이터를 반환한 경우,
+        # 학과 위치 오버라이드(건물명 조회)에서 KeyError가 나지 않도록 조기 반환한다.
+        return ()
     locations: list[CampusDepartmentLocation] = []
     seen: set[tuple[str, str, str]] = set()
     rooms: list[tuple[CampusBuilding, str, str]] = []
@@ -323,6 +345,10 @@ def _extract_department_locations(
 
 @lru_cache(maxsize=1)
 def campus_buildings() -> tuple[CampusBuilding, ...]:
+    if _CAMPUS_MAP_ASSET is None:
+        # 원본 HTML을 어디서도 찾지 못한 배포 환경(예: asset 미포함)에서는
+        # 서버 기동이 죽지 않도록 빈 데이터로 폴백한다.
+        return ()
     html = _CAMPUS_MAP_ASSET.read_text(encoding="utf-8")
     viz_match = _VIZ_DATA_PATTERN.search(html)
     if not viz_match:

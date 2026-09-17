@@ -2337,6 +2337,63 @@ def store_kakao_upload_messages(messages: list[dict[str, str]]) -> int:
     return inserted
 
 
+def claim_pending_kakao_upload_messages(limit: int) -> list[dict]:
+    """대기 중인 메시지를 원자적으로 선점해 'processing'으로 표시하고 돌려준다.
+
+    왜 필요한가: 기존 get_pending_*()은 SELECT만 해서 동시에 호출하면 모든 호출자가
+    같은 상위 N건을 가져간다. 처리에 건당 AI 호출 2회(임베딩+분류)가 붙어 느리기
+    때문에, 병렬 드레인을 하려면 선점이 필수다. Postgres의 FOR UPDATE SKIP LOCKED로
+    각 워커가 서로 다른 행을 잡게 한다.
+
+    Postgres가 아니면(로컬 sqlite 폴백) SKIP LOCKED이 없으므로 기존 동작으로 되돌아간다
+    — 그 경우는 단일 워커 전제다.
+    """
+    if not USE_POSTGRES:
+        return get_pending_kakao_upload_messages(limit)
+
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            UPDATE kakao_upload_messages
+            SET status = 'processing'
+            WHERE client_message_hash IN (
+                SELECT client_message_hash
+                FROM kakao_upload_messages
+                WHERE status = 'pending'
+                ORDER BY created_at, client_message_hash
+                LIMIT ?
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING client_message_hash, room, sender, sent_at_text, content
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def release_kakao_upload_message(client_message_hash: str) -> None:
+    """선점했지만 처리에 실패한 메시지를 pending으로 되돌린다.
+    이게 없으면 처리 중 예외가 난 행이 'processing'에 영원히 남아 큐에서 사라진다."""
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE kakao_upload_messages
+            SET status = 'pending'
+            WHERE client_message_hash = ? AND status = 'processing'
+            """,
+            (client_message_hash,),
+        )
+
+
+def reset_stuck_kakao_upload_messages() -> int:
+    """서버가 처리 도중 죽어 'processing'에 남은 고아 행을 pending으로 복구한다."""
+    with _connect() as connection:
+        cursor = connection.execute(
+            "UPDATE kakao_upload_messages SET status = 'pending' WHERE status = 'processing'"
+        )
+        return max(cursor.rowcount, 0)
+
+
 def get_pending_kakao_upload_messages(limit: int) -> list[dict]:
     with _connect() as connection:
         rows = connection.execute(

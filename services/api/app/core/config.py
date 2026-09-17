@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # 승인→채팅) 응답 속도를 갉아먹어 그 세 라우트에서는 호출을 뺐다. 함수 자체는
     # kakao_ingest.py에 남아 있다(플랫폼이 바뀌면 재사용 가능).
     kakao_poll_interval_seconds: int = 20
+    # 카톡 대화 자동 수집(상시 폴링 루프) on/off. 기본 False — 대화 반영은 사장님이
+    # /admin/kakao에서 .txt를 직접 업로드할 때만 이뤄진다(수동 방식). True로 켜면
+    # 과거처럼 dm.kggstudio.com을 kakao_poll_interval_seconds마다 자동 pull한다.
+    kakao_auto_poll: bool = False
     # 크론(GET /api/ingest/kakao)·로컬 백그라운드 루프 전용 상한. 이쪽은 실사용
     # 요청을 막지 않으므로 넉넉하게 잡아도 된다(밀렸을 때 한 번에 많이 처리).
     kakao_ingest_max_items_per_run: int = 50

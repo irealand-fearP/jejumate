@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 
 from app.core.config import settings
 from app.repositories.local_store import cleanup_expired_parties
@@ -7,10 +7,12 @@ from app.schemas.common import ApiResponse
 from app.schemas.ingest import (
     KakaoIngestResponse,
     KakaoProcessResponse,
+    KakaoUploadFileResponse,
     KakaoUploadRequest,
     KakaoUploadResponse,
     PartyCleanupResponse,
 )
+from app.services.kakao_export import parse_kakao_export_text
 from app.services.kakao_ingest import (
     enqueue_uploaded_messages,
     ingest_uploaded_messages,
@@ -59,6 +61,54 @@ def upload_kakao_messages(
             accepted=accepted,
             duplicates=received - accepted,
             pending=count_pending_kakao_upload_messages(),
+        ),
+    )
+
+
+@router.post(
+    "/ingest/kakao/upload-file",
+    response_model=ApiResponse[KakaoUploadFileResponse],
+)
+async def upload_kakao_export_file(
+    file: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+) -> ApiResponse[KakaoUploadFileResponse]:
+    """사장님이 카톡 PC 대화 내보내기 .txt를 직접 올리면 파싱부터 RAG 색인까지 한
+    번에 처리한다. 자동 스케줄러 없이 원할 때만 반영하는 수동 업로드 경로다."""
+    if not settings.kakao_upload_secret:
+        raise HTTPException(status_code=503, detail="카카오 업로드가 설정되지 않았어요")
+    if not _is_kakao_upload_authorized(authorization):
+        raise HTTPException(status_code=403, detail="권한이 없어요")
+
+    raw_bytes = await file.read()
+    try:
+        text = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400, detail="UTF-8로 인코딩된 텍스트 파일만 올릴 수 있어요"
+        ) from exc
+
+    try:
+        exported = parse_kakao_export_text(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    messages = [message.to_api_payload() for message in exported.messages]
+    parsed = len(messages)
+    accepted = enqueue_uploaded_messages(messages) if messages else 0
+
+    # 새로 쌓인 만큼만 즉시 처리해 업로드하자마자 RAG에 반영한다.
+    indexed = 0
+    if accepted:
+        indexed, _filtered, _pending = ingest_uploaded_messages(max_items=accepted)
+
+    return ApiResponse(
+        request_id="kakao_upload_file_request",
+        data=KakaoUploadFileResponse(
+            parsed=parsed,
+            accepted=accepted,
+            duplicates=parsed - accepted,
+            indexed=indexed,
         ),
     )
 

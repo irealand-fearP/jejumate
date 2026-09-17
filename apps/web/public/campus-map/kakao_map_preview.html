@@ -3804,9 +3804,8 @@
       // 키를 두 조각 + base64 역순으로 흩어둠 - 소스 보기로 바로 복사되는 것만 막는 용도.
       // 실제 보호는 Kakao Developers 콘솔에서 이 키에 등록한 플랫폼(도메인) 제한을
       // 거는 것으로 해야 한다 (네트워크 탭을 보면 실제 요청에 키가 노출된다).
-      var p1 = "=UTMmJWMjZTOlZjY0IjZhV";
-      var p2 = "jZmRmY2EWY5MzMhRTNlNjZ";
-      var appKey = atob((p1 + p2).split('').reverse().join(''));
+      // 시냅스팟 자체 카카오 앱 JS키(synapsepot.com 도메인 등록). 실제 보호는 콘솔 도메인 제한.
+      var appKey = '93974bf95b801f42b062bdd8a6106615';
       var s = document.createElement('script');
       s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + appKey + '&autoload=false';
       s.onload = function () {

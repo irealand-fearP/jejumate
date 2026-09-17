@@ -99,9 +99,14 @@ def create_app() -> FastAPI:
         if os.environ.get("VERCEL"):
             logger.info("startup: VERCEL 환경이라 폴링 루프 생략")
             return
-        _spawn_background_task(_kakao_polling_loop())
+        # 카톡 자동 수집은 기본 꺼짐(수동 업로드 전용). settings.kakao_auto_poll=True일 때만 상시 pull.
+        if settings.kakao_auto_poll:
+            _spawn_background_task(_kakao_polling_loop())
+            logger.info("startup: 카톡 자동폴링 활성(kakao_auto_poll=True)")
+        else:
+            logger.info("startup: 카톡 자동폴링 비활성 — /admin/kakao 수동 업로드로만 반영")
         _spawn_background_task(_party_cleanup_loop())
-        logger.info("startup: 카톡 폴링/파티 정리 태스크 생성 완료")
+        logger.info("startup: 파티 정리 태스크 생성 완료")
 
     return app
 

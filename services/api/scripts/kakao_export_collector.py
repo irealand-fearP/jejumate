@@ -24,8 +24,8 @@ from app.services.kakao_export import (  # noqa: E402
 )
 
 
-DEFAULT_ENDPOINT = "https://jejumate-api.vercel.app/api/ingest/kakao/messages"
-DEFAULT_PROCESS_ENDPOINT = "https://jejumate-api.vercel.app/api/ingest/kakao/process"
+DEFAULT_ENDPOINT = "https://synapsepot-production.up.railway.app/api/ingest/kakao/messages"
+DEFAULT_PROCESS_ENDPOINT = "https://synapsepot-production.up.railway.app/api/ingest/kakao/process"
 DEFAULT_UPLOAD_SECRET_ENV = "KAKAO_UPLOAD_SECRET"
 
 

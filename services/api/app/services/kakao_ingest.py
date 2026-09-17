@@ -20,7 +20,8 @@ from app.repositories.local_store import (
     create_coldstart_board_post,
     create_coldstart_meeting,
     count_pending_kakao_upload_messages,
-    get_pending_kakao_upload_messages,
+    claim_pending_kakao_upload_messages,
+    release_kakao_upload_message,
     get_coldstart_count_today,
     get_ingest_cursor,
     has_coldstart_content,
@@ -193,29 +194,36 @@ def ingest_uploaded_messages(*, max_items: int = 10) -> tuple[int, int, int]:
     """Windows 수집기 큐를 처리하고 (적재, 필터, 남은 큐)를 반환한다."""
     ingested = 0
     filtered = 0
-    for item in get_pending_kakao_upload_messages(max(max_items, 1)):
+    # claim_*()은 가져오는 즉시 'processing'으로 선점한다 — 병렬 드레인 시 워커끼리
+    # 같은 행을 잡지 않게 하려는 것. 처리 실패 시 release로 pending에 되돌린다.
+    for item in claim_pending_kakao_upload_messages(max(max_items, 1)):
         item_hash = item["client_message_hash"]
-        item_id = _uploaded_item_id(item_hash)
-        if has_kakao_rag_document(item_id):
-            mark_kakao_upload_processed(item_hash, "duplicate")
-            continue
+        try:
+            item_id = _uploaded_item_id(item_hash)
+            if has_kakao_rag_document(item_id):
+                mark_kakao_upload_processed(item_hash, "duplicate")
+                continue
 
-        content = mask_personal_info((item.get("content") or "").strip())
-        content = _strip_system_notices(content)
-        if _is_noise(content):
-            mark_kakao_upload_processed(item_hash, "filtered")
-            filtered += 1
-            continue
+            content = mask_personal_info((item.get("content") or "").strip())
+            content = _strip_system_notices(content)
+            if _is_noise(content):
+                mark_kakao_upload_processed(item_hash, "filtered")
+                filtered += 1
+                continue
 
-        embedding = embed_text(content)
-        add_kakao_rag_document(item_id=item_id, content=content, embedding=embedding)
-        convert_to_coldstart_content(
-            item_id=item_id,
-            content=content,
-            created_at=item.get("sent_at_text", ""),
-        )
-        mark_kakao_upload_processed(item_hash, "ingested")
-        ingested += 1
+            embedding = embed_text(content)
+            add_kakao_rag_document(item_id=item_id, content=content, embedding=embedding)
+            convert_to_coldstart_content(
+                item_id=item_id,
+                content=content,
+                created_at=item.get("sent_at_text", ""),
+            )
+            mark_kakao_upload_processed(item_hash, "ingested")
+            ingested += 1
+        except Exception:
+            # 선점한 채로 죽으면 큐에서 영영 사라진다. 되돌리고 예외는 그대로 올린다.
+            release_kakao_upload_message(item_hash)
+            raise
 
     return ingested, filtered, count_pending_kakao_upload_messages()
 

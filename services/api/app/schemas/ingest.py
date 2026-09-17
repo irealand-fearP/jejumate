@@ -31,5 +31,12 @@ class KakaoProcessResponse(BaseModel):
     pending: int
 
 
+class KakaoUploadFileResponse(BaseModel):
+    parsed: int
+    accepted: int
+    duplicates: int
+    indexed: int
+
+
 class PartyCleanupResponse(BaseModel):
     deleted: int

@@ -1,0 +1,21 @@
+# 왜: .env가 이미지에 복사되면 config.py의 env_file 로딩이 Railway 환경변수보다 우선해
+# 옛 시크릿이 런타임에 박제된다(2026-07-21 OPENAI_API_KEY 401 장애 원인). 시크릿은 플랫폼 변수로만 주입한다.
+.env
+.env.*
+!.env.example
+
+# 로컬 개발 잔여물 — 이미지 크기·빌드 캐시에만 부담
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# 버전관리·에디터
+.git/
+.gitignore
+.vscode/
+.idea/
